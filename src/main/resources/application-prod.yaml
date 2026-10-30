@@ -1,0 +1,7 @@
+# application-prod.yaml
+logging:
+  level:
+    id.osprey.iamservice: INFO
+
+server:
+  port: 9090

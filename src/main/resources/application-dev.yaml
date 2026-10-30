@@ -1,0 +1,7 @@
+# application-dev.yaml
+logging:
+  level:
+    id.osprey.iamservice: DEBUG
+
+server:
+  port: 8080
