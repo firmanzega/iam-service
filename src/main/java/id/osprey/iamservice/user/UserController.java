@@ -38,12 +38,12 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse create(@RequestBody CreateUserRequest request) {
-        return userService.addUser(request);
+        return userService.create(request);
     }
 
     @PutMapping("/{id}")
     public UserResponse updateUser(@PathVariable Long id, @RequestBody CreateUserRequest request) {
-        return userService.updateUser(id, request)
+        return userService.update(id, request)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 

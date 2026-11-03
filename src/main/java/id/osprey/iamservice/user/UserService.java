@@ -1,5 +1,6 @@
 package id.osprey.iamservice.user;
 
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -7,40 +8,50 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class UserService {
-    private final Map<Long, UserResponse> users = new LinkedHashMap<>();
-    private final AtomicLong idCounter  = new AtomicLong();
 
-    public UserService() {
-        addUser(new CreateUserRequest("user1","user1@mail.com"));
-        addUser(new CreateUserRequest("user2","user2@mail.com"));
-        addUser(new CreateUserRequest("user3","user3@mail.com"));
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
-    public UserResponse addUser(CreateUserRequest request) {
-        long id = idCounter.incrementAndGet();
-        UserResponse user = new UserResponse(id,request.username(), request.email());
-        users.put(id, user);
-        return user;
+    private UserResponse toResponse(User user) {
+        return new UserResponse(user.getId(), user.getUsername(), user.getEmail());
     }
 
     public List<UserResponse> findAll() {
-        return new ArrayList<>(users.values());
+        return userRepository.findAll().stream()
+                .map(this::toResponse).toList();
     }
 
     public Optional<UserResponse> findById(Long id) {
-        return Optional.ofNullable(users.get(id));
+        return userRepository.findById(id).map(this::toResponse);
     }
 
+    @Transactional
+    public UserResponse create(CreateUserRequest request) {
+        User user = new User(request.username(), request.email(), "placeholder");
+
+        return toResponse(userRepository.save(user));
+    }
+
+    @Transactional
+    public Optional<UserResponse> update (Long id, CreateUserRequest request) {
+        return userRepository.findById(id).map(user -> {
+            user.setUsername(request.username());
+            user.setEmail(request.email());
+            return toResponse(userRepository.save(user));
+        });
+    }
+
+    @Transactional
     public boolean removeUser(Long id) {
-        return users.remove(id) != null;
+        if (!userRepository.existsById(id)) {
+            return false;
+        }
+
+        userRepository.deleteById(id);
+        return true;
     }
 
-    public Optional<UserResponse> updateUser(Long id, CreateUserRequest request) {
-        if(!users.containsKey(id)) {
-            return Optional.empty();
-        }
-        UserResponse updated = new  UserResponse(id,request.username(), request.email());
-        users.put(id, updated);
-        return Optional.of(updated);
-    }
 }
