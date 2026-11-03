@@ -1,5 +1,6 @@
 package id.osprey.iamservice.user;
 
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -37,12 +38,12 @@ public class UserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public UserResponse create(@RequestBody CreateUserRequest request) {
+    public UserResponse create(@Valid @RequestBody CreateUserRequest request) {
         return userService.create(request);
     }
 
     @PutMapping("/{id}")
-    public UserResponse updateUser(@PathVariable Long id, @RequestBody CreateUserRequest request) {
+    public UserResponse update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
         return userService.update(id, request)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }

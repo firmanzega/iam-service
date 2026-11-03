@@ -36,7 +36,7 @@ public class UserService {
     }
 
     @Transactional
-    public Optional<UserResponse> update (Long id, CreateUserRequest request) {
+    public Optional<UserResponse> update (Long id, UpdateUserRequest request) {
         return userRepository.findById(id).map(user -> {
             user.setUsername(request.username());
             user.setEmail(request.email());
