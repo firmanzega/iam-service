@@ -1,10 +1,11 @@
 package id.osprey.iamservice.user;
 
-import jakarta.transaction.Transactional;
+import id.osprey.iamservice.role.Role;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -16,14 +17,19 @@ public class UserService {
     }
 
     private UserResponse toResponse(User user) {
-        return new UserResponse(user.getId(), user.getUsername(), user.getEmail());
+        Set<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
+        return new UserResponse(user.getId(), user.getUsername(), user.getEmail(), roleNames);
     }
 
+    @Transactional(readOnly = true)
     public List<UserResponse> findAll() {
         return userRepository.findAll().stream()
                 .map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
     public Optional<UserResponse> findById(Long id) {
         return userRepository.findById(id).map(this::toResponse);
     }

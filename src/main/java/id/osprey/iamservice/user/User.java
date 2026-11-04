@@ -33,6 +33,13 @@ public class User {
     @Column(nullable = false)
     LocalDateTime updatedAt;
 
+    @ManyToMany
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Set<Role> roles = new HashSet<>();
+
     public User(Long id, String username, String email, String passwordHash, boolean active, LocalDateTime createdAt, LocalDateTime updatedAt, Set<Role> roles) {
         this.id = id;
         this.username = username;
@@ -53,13 +60,6 @@ public class User {
     void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-
-    @ManyToMany
-    @JoinTable(
-            name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"))
-    private Set<Role> roles = new HashSet<>();
 
     public User() {
     }
