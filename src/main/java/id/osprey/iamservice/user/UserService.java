@@ -60,4 +60,10 @@ public class UserService {
         return true;
     }
 
+    @Transactional(readOnly = true)
+    public List<UserResponse> findByRoleName(String role) {
+        return userRepository.findByRoles_Name(role).stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+
 }
