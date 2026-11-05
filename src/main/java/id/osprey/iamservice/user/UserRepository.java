@@ -40,7 +40,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      *          alih-alih mencari satu kolom bernama rolesName di tabel User.
      */
     @EntityGraph(attributePaths = "roles")
-    List<User> findByRoles_Name(@Param("roleName")  String roleName);
+    List<User> findByRoles_Name(String name);
 
 
 }
