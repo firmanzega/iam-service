@@ -1,6 +1,8 @@
 package id.osprey.iamservice.user;
 
+import id.osprey.iamservice.role.ReplaceRolesRequest;
 import id.osprey.iamservice.role.Role;
+import id.osprey.iamservice.role.RoleRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,10 +21,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, RoleRepository roleRepository,PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.roleRepository = roleRepository;
     }
 
     private UserResponse toResponse(User user) {
@@ -129,5 +133,25 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
+    @Transactional
+    public UserResponse replaceRoles(Long id, ReplaceRolesRequest request) {// ADMIN, AUDITOR
+        User user = findOrThrow(id); // ADMIN
+
+        checkVersion(user, request.version()); // 1
+        Set<Role> roles = roleRepository.findByNameIn(request.roleNames()); // ADMIN
+
+        if (roles.size() != request.roleNames().size()) { // 1 != 2
+            Set<String> found = roles.stream().map(Role::getName).collect(Collectors.toSet()); // [ADMIN]
+            Set<String> missing = new TreeSet<>(request.roleNames()); // [AUDITOR]
+            missing.removeAll(found);
+
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown roles: " + missing);
+        }
+
+        user.replaceRoles(roles);
+        return toResponse(userRepository.saveAndFlush(user));
+
+
+    }
 
 }

@@ -4,6 +4,7 @@ import id.osprey.iamservice.role.Role;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -106,10 +107,6 @@ public class User {
         return version;
     }
 
-    public Set<Role> getRoles() {
-        return roles;
-    }
-
     /**
      * Jangan buka pintu langsung ke field, sediakan method yang punya makna:
      *      - Kode terbaca sebagai niat bisnis. user.deactivate() langsung jelas maksudnya. user.setActive(false) harus ditebak: ini dinonaktifkan karena apa?
@@ -143,5 +140,13 @@ public class User {
         this.active = false;
     }
 
+    public void replaceRoles(Set<Role> newRoles) {
+        this.roles.clear();
+        this.roles.addAll(newRoles);
+    }
+
+    public Set<Role> getRoles() {
+        return Collections.unmodifiableSet(roles);
+    }
 
 }

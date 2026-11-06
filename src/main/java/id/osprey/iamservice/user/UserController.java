@@ -1,5 +1,6 @@
 package id.osprey.iamservice.user;
 
+import id.osprey.iamservice.role.ReplaceRolesRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -57,6 +58,11 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void activate(@PathVariable Long id) {
         userService.activate(id);
+    }
+
+    @PutMapping("/{id}/roles")
+    public UserResponse updateRoles(@PathVariable Long id, @Valid @RequestBody ReplaceRolesRequest request) {
+        return userService.replaceRoles(id, request);
     }
 
 }
