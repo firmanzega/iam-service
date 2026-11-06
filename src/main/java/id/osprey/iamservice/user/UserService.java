@@ -44,33 +44,55 @@ public class UserService {
         String hash = passwordEncoder.encode(request.password());
         User user = new User(request.username(), request.email(), hash);
 
-        return toResponse(userRepository.saveAndFlush(user));
+        return toResponse(userRepository.save(user));
     }
 
     @Transactional
     public Optional<UserResponse> update (Long id, UpdateUserRequest request) {
         return userRepository.findById(id).map(user -> {
+            checkVersion(user, request.version());
             user.changeUsername(request.username());
             user.changeEmail(request.email());
-            checkVersion(user, request.version());
             return toResponse(userRepository.saveAndFlush(user));
         });
     }
 
-    @Transactional
-    public boolean removeUser(Long id) {
-        if (!userRepository.existsById(id)) {
-            return false;
-        }
-
-        userRepository.deleteById(id);
-        return true;
-    }
-
     @Transactional(readOnly = true)
     public List<UserResponse> findByRoleName(String role) {
+
         return userRepository.findByRoles_Name(role).stream().map(this::toResponse).collect(Collectors.toList());
+
     }
+
+    @Transactional
+    public Optional<UserResponse> patch(Long id,  PatchUserRequest request) {
+        return userRepository.findById(id).map(user -> {
+            checkVersion(user, request.version());
+            if (request.username() != null) user.changeUsername(request.username());
+            if (request.email() != null) user.changeEmail(request.email());
+
+            return toResponse(userRepository.saveAndFlush(user));
+        });
+
+    }
+
+    @Transactional
+    public boolean deactivate(Long id) {
+        return userRepository.findById(id).map(user -> {
+            user.deactivate();
+            return true;
+        }).orElse(false);
+    }
+
+    @Transactional
+    public boolean activate(Long id) {
+        return userRepository.findById(id).map(user -> {
+            user.activate();
+            return true;
+        }).orElse(false);
+    }
+
+    @Transactional
 
     private void checkVersion(User user, Long version) {
         if (!user.getVersion().equals(version)) {
