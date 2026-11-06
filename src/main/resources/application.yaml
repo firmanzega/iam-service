@@ -1,5 +1,9 @@
 spring:
   application:
     name: iam-service
+  data:
+    web:
+      pageable:
+        max-page-size: 50
   profiles:
     active: dev

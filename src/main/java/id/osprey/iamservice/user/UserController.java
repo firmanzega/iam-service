@@ -1,10 +1,11 @@
 package id.osprey.iamservice.user;
 
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -19,14 +20,15 @@ public class UserController {
     }
 
     @GetMapping
-    public List<UserResponse> findAll() {
-        return userService.findAll();
+    public Page<UserResponse> list(@RequestParam(required = false) String q,
+                                   @PageableDefault(size = 10, sort = ("id")) Pageable pageable) {
+
+        return userService.search(q, pageable);
     }
 
     @GetMapping("/{id}")
     public UserResponse findById(@PathVariable Long id) {
-        return userService.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return userService.findById(id);
     }
 
     @PostMapping
@@ -37,29 +39,24 @@ public class UserController {
 
     @PutMapping("/{id}")
     public UserResponse update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
-        return userService.update(id, request)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return userService.update(id, request);
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<UserResponse> update(@PathVariable Long id, @Valid @RequestBody PatchUserRequest request) {
-        return userService.patch(id, request)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public UserResponse update(@PathVariable Long id, @Valid @RequestBody PatchUserRequest request) {
+        return userService.patch(id, request);
     }
 
     @PostMapping("/{id}/deactivate")
-    public ResponseEntity<Void> deactivate(@PathVariable Long id) {
-        return userService.deactivate(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deactivate(@PathVariable Long id) {
+        userService.deactivate(id);
     }
 
     @PostMapping("/{id}/activate")
-    public ResponseEntity<Void> activate(@PathVariable Long id) {
-        return userService.activate(id)
-                ? ResponseEntity.noContent().build()
-                : ResponseEntity.notFound().build();
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void activate(@PathVariable Long id) {
+        userService.activate(id);
     }
 
 }

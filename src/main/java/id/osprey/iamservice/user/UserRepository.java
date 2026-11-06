@@ -1,6 +1,8 @@
 package id.osprey.iamservice.user;
 
 import org.hibernate.annotations.Comment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,7 +15,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Override
     @EntityGraph(attributePaths = "roles")
-    List<User> findAll();
+    Page<User> findAll(Pageable pageable);
 
     @Override
     @EntityGraph(attributePaths = "roles")
@@ -42,5 +44,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @EntityGraph(attributePaths = "roles")
     List<User> findByRoles_Name(String name);
 
+    @EntityGraph(attributePaths = "roles")
+    @Query("""
+        SELECT u FROM User u
+        WHERE (LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')))
+        """)
+    Page<User> search(@Param("q") String q, Pageable pageable);
 
 }
