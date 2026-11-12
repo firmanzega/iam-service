@@ -305,8 +305,28 @@ Dokumentasi OpenAPI:
 
 | Alamat | Akses |
 |---|---|
-| <http://localhost:8080/swagger-ui.html> | Publik |
-| <http://localhost:8080/v3/api-docs> | Butuh token ADMIN |
+| <http://localhost:8080/swagger-ui.html> | Publik di profil dev |
+| <http://localhost:8080/v3/api-docs> | Publik di profil dev |
+
+Di profil produksi, dokumentasi dimatikan seluruhnya. Kedua `springdoc.api-docs.enabled` dan `springdoc.swagger-ui.enabled` bernilai false, jadi tidak ada halaman HTML yang terekspos ke internet.
+### Kalau Swagger UI tampil kosong putih
+
+Dua penyebab yang paling sering:
+
+| Penyebab | Gejala | Perbaikan |
+|---|---|---|
+| Content Security Policy terlalu ketat | Halaman terbuka tapi **putih kosong**, dan konsol browser penuh pesan "violates the following Content Security Policy" | Longgarkan `contentSecurityPolicy` di `SecurityConfig` |
+| Aset statis diblokir Security | Halaman terbuka tapi putih, dan permintaan ke `/webjars/...` atau `/swagger-ui/*.js` menjawab 401 | Tambahkan matcher `permitAll` untuk path tersebut |
+
+Untuk memastikan CSP yang aktif, periksa header respons:
+
+```bash
+curl -s -D - -o NUL http://localhost:8080/swagger-ui/index.html | findstr /i "content-security-policy"
+```
+
+Swagger UI membutuhkan skrip dan gaya dari origin yang sama, jadi
+`default-src 'none'` akan selalu membuat halamannya kosong. Yang tetap
+diblokir adalah sumber dari luar.
 
 ---
 

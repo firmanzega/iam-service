@@ -25,3 +25,14 @@ spring:
   flyway:
     enabled: true
     validate-on-migrate: true
+
+springdoc:
+  # Dokumentasi API dimatikan di produksi. Deskripsi endpoint adalah peta jalan
+  # bagi penyerang, jadi tidak perlu terekspos ke internet.
+  #
+  # Di profil pengembangan, dokumentasi tetap hidup. Buka
+  # http://localhost:8080/swagger-ui.html
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

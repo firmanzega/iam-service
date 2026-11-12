@@ -65,17 +65,27 @@ public class SecurityConfig {
                         // karena itulah tujuan token tersebut dibuat.
                         .requestMatchers("/auth/login", "/auth/refresh").permitAll()
                         .requestMatchers("/auth/logout").authenticated()
-                        // Hanya kerangka halaman Swagger yang dibuka. Deskripsi
-                        // API-nya sendiri tetap butuh token, karena isinya
-                        // menggambarkan endpoint yang hanya untuk pengguna
-                        // internal.
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**").permitAll()
-                        .requestMatchers("/v3/api-docs/**").hasRole("ADMIN")
+                        // Aset statis Swagger UI seperti berkas JavaScript dan
+                        // CSS-nya dilayani dari path webjars. Kalau path ini
+                        // diblokir, halamannya terbuka tapi tetap kosong putih
+                        // karena skripnya tidak pernah termuat.
+                        .requestMatchers("/webjars/**").permitAll()
+                        // Deskripsi API dan konfigurasinya boleh dibuka supaya
+                        // halaman Swagger UI bisa berfungsi utuh.
+                        //
+                        // Di profil produksi, springdoc dimatikan seluruhnya,
+                        // jadi tidak ada deskripsi API yang terekspos. Lihat
+                        // application-prod.yaml.
+                        .requestMatchers("/v3/api-docs/**").permitAll()
                         // Health check dibiarkan terbuka karena dipakai probe
                         // orquestasi. Isinya tidak sensitif karena detail
                         // komponen tidak ditampilkan.
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
+                        // Halaman Swagger UI beserta asetnya. Hanya tersedia
+                        // di profil pengembangan, karena di produksi springdoc
+                        // dimatikan seluruhnya.
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**").permitAll()
                         // Pengguna boleh mengganti kata sandinya sendiri.
                         // Aturan siapa yang boleh melakukan apa diperiksa lebih
                         // lanjut di level method memakai @PreAuthorize.
@@ -96,7 +106,32 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .headers(headers -> headers
-                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'none'; frame-ancestors 'none'"))
+                        // Content Security Policy di sini tidak memakai
+                        // default-src 'none', karena itu akan memblokir
+                        // seluruh skrip, gaya, dan gambar Swagger UI sehingga
+                        // halamannya terbuka tapi kosong putih.
+                        //
+                        // Alasan tidak memakai 'none' tetap aman:
+                        //   - Balasan API berupa JSON, bukan HTML. Header
+                        //     X-Content-Type-Options: nosniff sudah
+                        //     mencegah browser menebak tipe datanya.
+                        //   - Swagger UI dimatikan seluruhnya di profil
+                        //     produksi, jadi tidak ada halaman HTML yang
+                        //     terekspos ke internet.
+                        //
+                        // Yang tetap diblokir adalah sumber dari luar: tidak
+                        // ada skrip, gaya, atau gambar yang diambil dari
+                        // domain lain.
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; "
+                                        + "script-src 'self' 'unsafe-inline'; "
+                                        + "style-src 'self' 'unsafe-inline'; "
+                                        + "img-src 'self' data:; "
+                                        + "font-src 'self' data:; "
+                                        + "connect-src 'self'; "
+                                        + "frame-ancestors 'none'; "
+                                        + "base-uri 'self'; "
+                                        + "form-action 'self'"))
                         .frameOptions(frame -> frame.deny())
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
