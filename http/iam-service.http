@@ -1,0 +1,317 @@
+### IAM Service - Koleksi Permintaan
+###
+### Cara pakai:
+###   1. Jalankan aplikasi: ./mvnw spring-boot:run
+###   2. Di editor ini (VS Code / IntelliJ / JetBrains HTTP Client),
+###      jalankan permintaan satu per satu dari atas ke bawah.
+###   3. Variabel di bawah otomatis terisi dari respons permintaan sebelumnya.
+###
+### Akun administrator di profil dev:
+###   username : admin
+###   password : Admin1234
+
+@host = http://localhost:8080
+@adminUsername = admin
+@adminPassword = Admin1234
+@memberUsername =anggota
+@memberPassword = Anggota1234
+
+### ============================================================
+### 1. AUTENTIKASI
+### ============================================================
+
+### Login sebagai administrator
+# @name loginAdmin
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "{{adminUsername}}",
+  "password": "{{adminPassword}}"
+}
+
+### Login dengan kata sandi salah -> 401 dengan pesan yang sama untuk akun tak dikenal
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "{{adminUsername}}",
+  "password": "SalahSekali1"
+}
+
+### Tukar token refresh -> token lama langsung dicabut
+# @name refreshToken
+POST {{host}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{loginAdmin.response.body.refreshToken}}"
+}
+
+### Pakai token hasil tukar
+# @name rotatedToken
+POST {{host}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken.response.body.refreshToken}}"
+}
+
+### ============================================================
+### 2. PEMBATASAN AKSES
+### ============================================================
+
+### Tanpa token -> 401
+GET {{host}}/users
+
+### Token tidak valid -> 401
+GET {{host}}/users
+Authorization: Bearer token.ngada.atau.salah
+
+### Dengan token administrator -> 200
+GET {{host}}/users?size=5
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### ============================================================
+### 3. PENGGUNA
+### ============================================================
+
+### Daftar pengguna dengan pencarian
+GET {{host}}/users?q=admin&size=5
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### Minta ukuran halaman berlebihan -> dipotong jadi 50
+GET {{host}}/users?size=99999
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### Urutkan berdasarkan kolom terlarang -> 400
+GET {{host}}/users?sort=passwordHash
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### Ambil satu pengguna
+GET {{host}}/users/1
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### Buat pengguna baru (hanya ADMIN) -> 201
+# @name createMember
+POST {{host}}/users
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "username": "{{memberUsername}}",
+  "email": "anggota@mail.com",
+  "password": "{{memberPassword}}"
+}
+
+### Buat pengguna dengan username yang sama -> 409
+POST {{host}}/users
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "username": "{{memberUsername}}",
+  "email": "anggota.lain@mail.com",
+  "password": "{{memberPassword}}"
+}
+
+### Buat pengguna dengan email tidak valid -> 400
+POST {{host}}/users
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "username": "tidak-valid",
+  "email": "bukan-email",
+  "password": "Pendek1"
+}
+
+### Ubah sebagian data pengguna
+# @name patchMember
+PATCH {{host}}/users/{{createMember.response.body.id}}
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "email": "anggota.baru@mail.com",
+  "version": {{createMember.response.body.version}}
+}
+
+### Pakai versi lama -> 409
+PATCH {{host}}/users/{{createMember.response.body.id}}
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "email": "anggota.lagi@mail.com",
+  "version": {{createMember.response.body.version}}
+}
+
+### ============================================================
+### 4. ROLE
+### ============================================================
+
+### Daftar role
+GET {{host}}/roles
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### Buat role baru -> 201
+POST {{host}}/roles
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "name": "SUPERVISOR"
+}
+
+### Buat role dengan nama tidak valid -> 400
+POST {{host}}/roles
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "name": "nama dengan spasi"
+}
+
+### Berikan role ke pengguna
+# @name assignRole
+PUT {{host}}/users/{{createMember.response.body.id}}/roles
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roleNames": ["USER"],
+  "version": {{patchMember.response.body.version}}
+}
+
+### Berikan role yang tidak dikenal -> 400
+PUT {{host}}/users/{{createMember.response.body.id}}/roles
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "roleNames": ["TIDAK_ADA"],
+  "version": {{assignRole.response.body.version}}
+}
+
+### ============================================================
+### 5. KATA SANDI
+### ============================================================
+
+### Login sebagai anggota
+# @name loginMember
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "{{memberUsername}}",
+  "password": "{{memberPassword}}"
+}
+
+### Ganti kata sandi sendiri -> 204
+PUT {{host}}/users/{{createMember.response.body.id}}/password
+Authorization: Bearer {{loginMember.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{memberPassword}}",
+  "password": "PasswordLama1"
+}
+
+### Ganti kata sandi orang lain -> 403
+PUT {{host}}/users/1/password
+Authorization: Bearer {{loginMember.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "{{memberPassword}}",
+  "newPassword": "PasswordLama1"
+}
+
+### Login dengan kata sandi lama -> 401
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "{{memberUsername}}",
+  "password": "{{memberPassword}}"
+}
+
+### Login dengan kata sandi baru -> 200
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "{{memberUsername}}",
+  "password": "PasswordLama1"
+}
+
+### Reset kata sandi oleh administrator -> 204
+POST {{host}}/users/{{createMember.response.body.id}}/reset-password
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "newPassword": "Reset12345"
+}
+
+### ============================================================
+### 6. NONAKTIFKAN DAN AKTIFKAN
+### ============================================================
+
+### Nonaktifkan pengguna -> 204
+POST {{host}}/users/{{createMember.response.body.id}}/deactivate
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### Login ke akun yang dinonaktifkan -> 403
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "{{memberUsername}}",
+  "password": "Reset12345"
+}
+
+### Aktifkan kembali -> 204
+POST {{host}}/users/{{createMember.response.body.id}}/activate
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### ============================================================
+### 7. JEJAK AUDIT
+### ============================================================
+
+### Daftar jejak audit (hanya ADMIN dan AUDITOR)
+GET {{host}}/audit-logs?size=10
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
+### ============================================================
+### 8. LOGOUT
+### ============================================================
+
+### Cabut token refresh -> 204
+POST {{host}}/auth/logout
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "refreshToken": "{{loginAdmin.response.body.refreshToken}}"
+}
+
+### Pakai token refresh yang sudah dicabut -> 401
+POST {{host}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{loginAdmin.response.body.refreshToken}}"
+}
+
+### ============================================================
+### 9. DOKUMENTASI
+### ============================================================
+
+### Halaman Swagger UI
+GET {{host}}/swagger-ui.html
+
+### Deskripsi OpenAPI (butuh token ADMIN)
+GET {{host}}/v3/api-docs
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
