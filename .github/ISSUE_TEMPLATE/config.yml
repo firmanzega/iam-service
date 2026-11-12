@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Pelaporan kerentanan keamanan
+    url: https://github.com/firmanzega/iam-service/security/advisories/new
+    about: Laporkan celah keamanan lewat tab Security, jangan lewat issue publik.
+  - name: Panduan kontribusi
+    url: https://github.com/firmanzega/iam-service/blob/main/CONTRIBUTING.md
+    about: Konvensi penamaan, format commit, dan alur review.

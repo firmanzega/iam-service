@@ -15,12 +15,19 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
 - Dokumentasi library yang dipakai beserta alasan dan versinya
 - Peta kode yang menunjukkan peran setiap berkas
 - Panduan kontribusi berisi konvensi penamaan dan alur review
+- Panduan hari pertama untuk developer baru
+- Kamus istilah yang dipakai di kode
+- Templat issue dan templat pull request
 - Dokumen model keamanan beserta batas-batasnya
 - Kebijakan pelaporan kerentanan
 - Pemeriksaan cakupan kode otomatis dengan ambang 80 persen
 - Alur kerja otomatis di GitHub Actions
 - Dokumentasi OpenAPI dengan deskripsi Bahasa Indonesia pada setiap endpoint
 - Jejak audit untuk seluruh perubahan penting
+
+### Diperbaiki
+- Teks rusak pada komentar kelas Java dan dokumentasi
+- Rujukan dokumen yang menunjuk ke berkas yang tidak ada di repositori
 
 ---
 

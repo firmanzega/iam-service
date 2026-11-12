@@ -180,7 +180,7 @@ Hook menolak `.env`, `.env.local`, dan sejenisnya, tapi tetap mengizinkan
 3. Kalau migrasi hanya untuk data contoh, taruh di `db/migration-dev/` dengan
    nomor versi desimal, contoh `V6_5__data_contoh.sql`. Lokasi itu hanya
    dipindai pada profil dev.
-4. Setel `spring.jpa.hibernate.ddl-auto: validate` sudah aktif, supaya
+4. Pastikan `spring.jpa.hibernate.ddl-auto: validate` sudah aktif, supaya
    perbedaan skema langsung ketahuan saat boot.
 
 ---
@@ -198,6 +198,16 @@ Sebelum membuka pull request:
 - [ ] Tidak ada kredensial yang masuk ke commit
 - [ ] Pesan commit mengikuti pola conventional commit
 
+Checklist di atas otomatis jadi templat pull request di
+`.github/PULL_REQUEST_TEMPLATE.md`, jadi tidak perlu diketik ulang.
+
+Untuk isu, pilih templat yang sesuai di `.github/ISSUE_TEMPLATE/`. Laporkan
+celah keamanan lewat tab Security, bukan lewat issue publik. Lihat
+[`SECURITY.md`](SECURITY.md).
+
+Kalau baru pertama kali bergabung, mulai dari
+[`docs/onboarding.md`](docs/onboarding.md).
+
 ---
 
 ## 9. Menambah Library Baru
@@ -212,10 +222,15 @@ Sebelum membuka pull request:
 
 ---
 
-## 10. gaya Komunikasi
+## 10. Gaya Komunikasi
 
 Semua issue, pull request, dan komentar pakai Bahasa Indonesia yang baku.
 Jangan pakai istilah yang belum jelas artinya bagi pembaca baru.
+
+Istilah teknis berbahasa Inggris boleh dipakai, tapi pakai yang sama terus-menerus
+supaya tidak membingungkan. Contoh yang perlu dibedakan: `password` dan
+`kata sandi`, `token refresh` dan `token akses`. Istilah yang dipakai di kode
+sudah punya artinya di [`docs/glossary.md`](docs/glossary.md).
 
 Untuk perubahan besar, usulkan pendekatan lebih dulu di issue atau
 diskusi sebelum menulis kodenya. Perubahan yang besar tanpa kesepakatan lebih

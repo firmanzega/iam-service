@@ -202,6 +202,9 @@ Adapter yang mengimplementasikan port dari domain.
 | `src/main/resources/db/migration/` | Migrasi skema yang berlaku di semua profil |
 | `src/main/resources/db/migration-dev/` | Data contoh, hanya profil dev |
 | `http/iam-service.http` | Koleksi permintaan untuk uji manual |
+| `.github/workflows/ci.yml` | Alur kerja otomatis: build, uji, gate cakupan, unggah artefak |
+| `.github/ISSUE_TEMPLATE/` | Templat issue: laporan bug, permintaan fitur, dan pertanyaan |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Templat pull request beserta checklist review |
 
 ---
 
