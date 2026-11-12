@@ -336,6 +336,23 @@ Perintah ini cukup dijalankan sekali per mesin. Hook-nya menolak `.env`,
 
 ---
 
+## Teknologi
+
+Semua pustaka yang dipakai, alasan memilihnya, dan tempat penggunaannya
+terdokumentasi di [`docs/libraries.md`](docs/libraries.md).
+
+| Kategori | Pustaka |
+|---|---|
+| Web | Spring MVC (Spring Boot 4.1.2) |
+| Data | Spring Data JPA + Hibernate ORM 7 |
+| Database | PostgreSQL 16 |
+| Migrasi | Flyway 12 |
+| Keamanan | Spring Security 7 + Nimbus JOSE JWT |
+| Dokumentasi | springdoc-openapi 3.2 |
+| Operasional | Spring Boot Actuator |
+
+---
+
 ## Struktur Proyek
 
 ```
@@ -364,6 +381,7 @@ src/main/resources/
 └── application*.yaml
 
 docs/adr/          catatan keputusan arsitektur
+docs/libraries.md  daftar library yang dipakai dan alasannya
 docs/deployment.md panduan deployment dan manajemen secret
 docs/manual-testing.md panduan uji manual lengkap
 http/              koleksi permintaan untuk uji manual
