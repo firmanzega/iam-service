@@ -5,15 +5,17 @@ import id.osprey.iamservice.application.security.PasswordPolicy;
 import id.osprey.iamservice.domain.auth.TokenRevocationService;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import id.osprey.iamservice.domain.user.UserSortableProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -55,11 +57,37 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /**
+     * Mencari pengguna.
+     *
+     * Properti pengurutan diperiksa di sini, bukan di controller, karena aturan
+     * "properti mana yang boleh diurutkan" adalah aturan bisnis. Dengan begitu
+     * aturan ini tetap berlaku untuk pemanggil lain, bukan cuma lewat HTTP.
+     */
     @Transactional(readOnly = true)
-    public Page<User> search(String query, Pageable pageable) {
+    public PageResult<User> search(String query, PaginationRequest request) {
+        validateSort(request);
+
         return (query == null || query.isBlank())
-                ? userRepository.findAll(pageable)
-                : userRepository.search(query.trim(), pageable);
+                ? userRepository.findAll(request)
+                : userRepository.search(query.trim(), request);
+    }
+
+    /**
+     * Menolak pengurutan berdasarkan properti di luar daftar yang diizinkan.
+     */
+    private void validateSort(PaginationRequest request) {
+        List<String> rejected = request.sort().stream()
+                .map(spec -> spec.property())
+                .filter(property -> !UserSortableProperties.ALLOWED.contains(property))
+                .distinct()
+                .toList();
+
+        if (!rejected.isEmpty()) {
+            throw new DomainException(DomainException.Reason.INVALID_SORT_PROPERTY,
+                    "Properties not allowed for sorting: " + rejected
+                            + ". Allowed: " + UserSortableProperties.ALLOWED);
+        }
     }
 
     @Transactional(readOnly = true)

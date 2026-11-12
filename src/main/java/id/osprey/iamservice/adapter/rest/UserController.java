@@ -1,11 +1,12 @@
 package id.osprey.iamservice.adapter.rest;
 
 import id.osprey.iamservice.application.user.UserService;
-import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
+import id.osprey.iamservice.domain.shared.SortSpec;
 import id.osprey.iamservice.domain.user.User;
-import id.osprey.iamservice.domain.user.UserSortableProperties;
 import id.osprey.iamservice.adapter.rest.dto.ChangePasswordRequest;
 import id.osprey.iamservice.adapter.rest.dto.CreateUserRequest;
+import id.osprey.iamservice.adapter.rest.dto.PageResponse;
 import id.osprey.iamservice.adapter.rest.dto.PatchUserRequest;
 import id.osprey.iamservice.adapter.rest.dto.ReplaceRolesRequest;
 import id.osprey.iamservice.adapter.rest.dto.ResetPasswordRequest;
@@ -16,7 +17,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
@@ -34,8 +34,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @Tag(name = "Pengguna", description = "Kelola data pengguna dan role-nya")
 @RestController
 @RequestMapping("/users")
@@ -49,6 +47,8 @@ public class UserController {
 
     @Operation(summary = "Daftar pengguna",
             description = """
+                    Hanya untuk peran ADMIN dan AUDITOR.
+
                     Mendukung pencarian pada username dan email, serta pengurutan.
 
                     Ukuran halaman dibatasi maksimum 50 baris. Properti pengurutan
@@ -59,24 +59,33 @@ public class UserController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Berhasil"),
             @ApiResponse(responseCode = "400", description = "Properti pengurutan tidak diizinkan"),
-            @ApiResponse(responseCode = "401", description = "Belum terautentikasi")
+            @ApiResponse(responseCode = "401", description = "Belum terautentikasi"),
+            @ApiResponse(responseCode = "403", description = "Peran tidak cukup")
     })
     @GetMapping
-    public Page<UserResponse> list(@RequestParam(required = false) String q,
-                                   @PageableDefault(size = 10, sort = ("id")) Pageable pageable) {
+    @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
+    public PageResponse<UserResponse> list(@RequestParam(required = false) String q,
+                                           @PageableDefault(size = 10, sort = ("id")) Pageable pageable) {
 
-        validateSort(pageable);
+        PageResponse<UserResponse> response = PageResponse.from(
+                userService.search(q, toRequest(pageable)), UserResponse::from);
 
-        return userService.search(q, pageable).map(UserResponse::from);
+        return response;
     }
 
-    @Operation(summary = "Ambil satu pengguna berdasarkan id")
+    @Operation(summary = "Ambil satu pengguna berdasarkan id",
+            description = """
+                    Peran ADMIN dan AUDITOR boleh melihat pengguna mana pun.
+                    Pengguna biasa hanya boleh melihat akunnya sendiri.
+                    """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Berhasil"),
             @ApiResponse(responseCode = "401", description = "Belum terautentikasi"),
+            @ApiResponse(responseCode = "403", description = "Peran tidak cukup"),
             @ApiResponse(responseCode = "404", description = "Pengguna tidak ditemukan")
     })
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR') or #id.toString() == authentication.name")
     public UserResponse findById(@PathVariable Long id) {
         return UserResponse.from(userService.findById(id));
     }
@@ -250,19 +259,14 @@ public class UserController {
     }
 
     /**
-     * Menolak pengurutan berdasarkan properti di luar daftar yang diizinkan.
+     * Menerjemahkan pagination dari lapisan web menjadi permintaan domain.
      */
-    private void validateSort(Pageable pageable) {
-        List<String> rejected = pageable.getSort().stream()
-                .map(order -> order.getProperty())
-                .filter(property -> !UserSortableProperties.ALLOWED.contains(property))
-                .distinct()
-                .toList();
-
-        if (!rejected.isEmpty()) {
-            throw new DomainException(DomainException.Reason.INVALID_SORT_PROPERTY,
-                    "Properties not allowed for sorting: " + rejected
-                            + ". Allowed: " + UserSortableProperties.ALLOWED);
-        }
+    private PaginationRequest toRequest(Pageable pageable) {
+        return new PaginationRequest(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort().stream()
+                        .map(order -> new SortSpec(order.getProperty(), order.isDescending()))
+                        .toList());
     }
 }

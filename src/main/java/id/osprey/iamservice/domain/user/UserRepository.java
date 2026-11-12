@@ -1,22 +1,16 @@
 package id.osprey.iamservice.domain.user;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
 
 import java.util.Optional;
 
 /**
  * Port untuk akses data pengguna.
  *
- * Port adalah kontrak yang dideklarasikan oleh domain dan diimplementasikan oleh
- * lapisan infrastruktur. Use case hanya mengenal antarmuka ini, bukan Spring
- * Data JPA.
- *
- * Catatan tentang Pageable dan Page:
- *      - Keduanya hanya objek nilai, bukan bagian dari database.
- *      - Kalau suatu saat domain harus benar-benar bebas dari Spring Data,
- *        tinggal ganti tipe di sini dengan tipe milik domain sendiri.
- *        Perubahan itu terbatas pada berkas ini dan adapter-nya.
+ * Port adalah kontrak yang dideklarasikan oleh domain dan diimplementasikan
+ * oleh lapisan infrastruktur. Use case hanya mengenal antarmuka ini, bukan
+ * Spring Data JPA.
  */
 public interface UserRepository {
 
@@ -33,7 +27,7 @@ public interface UserRepository {
 
     User save(User user);
 
-    Page<User> findAll(Pageable pageable);
+    PageResult<User> findAll(PaginationRequest request);
 
-    Page<User> search(String query, Pageable pageable);
+    PageResult<User> search(String query, PaginationRequest request);
 }

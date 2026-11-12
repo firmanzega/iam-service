@@ -50,7 +50,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ErrorResponse> handleDomainException(DomainException ex, HttpServletRequest request) {
-        HttpStatus status = statusOf(ex.getReason());
+        HttpStatus status = statusOf(ex.getCategory());
 
         if (status.is5xxServerError()) {
             log.error("Domain error on {}: {}", request.getRequestURI(), ex.getMessage(), ex);
@@ -62,16 +62,20 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Pemetaan alasan galat bisnis ke status HTTP.
+     * Pemetaan kategori galat bisnis ke status HTTP.
+     *
+     * Yang dipetakan adalah kategori, bukan setiap alasan satu per satu.
+     * Jadi menambah alasan galat baru cukup di enum DomainException, tanpa
+     * perlu menyentuh pemetaan ini.
      */
-    private HttpStatus statusOf(DomainException.Reason reason) {
-        return switch (reason) {
-            case USER_NOT_FOUND, ROLE_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case INVALID_CREDENTIALS, CURRENT_PASSWORD_MISMATCH -> HttpStatus.UNAUTHORIZED;
-            case ACCOUNT_LOCKED -> HttpStatus.LOCKED;
-            case ACCOUNT_INACTIVE, FORBIDDEN_ACTION -> HttpStatus.FORBIDDEN;
-            case INVALID_PASSWORD, UNKNOWN_ROLE, INVALID_SORT_PROPERTY -> HttpStatus.BAD_REQUEST;
-            case CONCURRENT_MODIFICATION, DUPLICATE_RESOURCE -> HttpStatus.CONFLICT;
+    private HttpStatus statusOf(DomainException.Category category) {
+        return switch (category) {
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
+            case FORBIDDEN -> HttpStatus.FORBIDDEN;
+            case BAD_REQUEST -> HttpStatus.BAD_REQUEST;
+            case CONFLICT -> HttpStatus.CONFLICT;
+            case LOCKED -> HttpStatus.LOCKED;
         };
     }
 

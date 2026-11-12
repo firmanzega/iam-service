@@ -5,6 +5,9 @@ import id.osprey.iamservice.application.security.PasswordPolicy;
 import id.osprey.iamservice.domain.auth.TokenRevocationService;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
+import id.osprey.iamservice.domain.shared.SortSpec;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
@@ -69,24 +72,44 @@ class UserServiceTest {
 
     @Test
     void search_blankQuery_usesFindAll() {
-        Pageable pageable = PageRequest.of(0, 10);
-        when(userRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of()));
+        PaginationRequest request = PaginationRequest.of(0, 10);
+        when(userRepository.findAll(request)).thenReturn(PageResult.empty(request));
 
-        userService.search("   ", pageable);
+        userService.search("   ", request);
 
-        verify(userRepository).findAll(pageable);
-        verify(userRepository, never()).search(anyString(), any(Pageable.class));
+        verify(userRepository).findAll(request);
+        verify(userRepository, never()).search(anyString(), any(PaginationRequest.class));
     }
 
     @Test
     void search_withQuery_trimsAndUsesSearch() {
-        Pageable pageable = PageRequest.of(0, 10);
-        when(userRepository.search("budi", pageable)).thenReturn(new PageImpl<>(List.of()));
+        PaginationRequest request = PaginationRequest.of(0, 10);
+        when(userRepository.search("budi", request)).thenReturn(PageResult.empty(request));
 
-        userService.search("  budi  ", pageable);
+        userService.search("  budi  ", request);
 
-        verify(userRepository).search("budi", pageable);
-        verify(userRepository, never()).findAll(any(Pageable.class));
+        verify(userRepository).search("budi", request);
+        verify(userRepository, never()).findAll(any(PaginationRequest.class));
+    }
+
+    @Test
+    void search_rejectsSortByNonWhitelistedProperty() {
+        PaginationRequest request = new PaginationRequest(0, 10, List.of(new SortSpec("passwordHash", false)));
+
+        DomainException ex = assertThrows(DomainException.class, () -> userService.search(null, request));
+
+        assertEquals(DomainException.Reason.INVALID_SORT_PROPERTY, ex.getReason());
+        verify(userRepository, never()).findAll(any(PaginationRequest.class));
+    }
+
+    @Test
+    void search_acceptsWhitelistedSortProperty() {
+        PaginationRequest request = new PaginationRequest(0, 10, List.of(new SortSpec("username", true)));
+        when(userRepository.findAll(request)).thenReturn(PageResult.empty(request));
+
+        userService.search(null, request);
+
+        verify(userRepository).findAll(request);
     }
 
     @Test

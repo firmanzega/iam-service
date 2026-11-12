@@ -54,13 +54,14 @@ Layanan ini memakai **Clean Architecture** dengan pemisahan tanggung jawab yang 
 
 | Prinsip | Wujudnya di proyek ini |
 |---|---|
-| Domain bebas dependensi framework | `domain/user/User.java` tidak memakai anotasi JPA sama sekali |
+| Domain bebas dependensi framework | `domain/user/User.java` tidak memakai anotasi JPA sama sekali, dan tidak mengimpor satu pun paket framework |
 | Dependency inversion | `domain/user/UserRepository.java` adalah port, diimplementasikan `infrastructure/persistence/UserPersistenceAdapter` |
 | Use case tidak tahu HTTP | `application/user/UserService.java` tidak pernah menyentuh `HttpServletRequest` |
 | Galat bisnis tidak tahu HTTP | `DomainException` membawa alasan galat, pemetaan ke status HTTP ada di `adapter/rest/GlobalExceptionHandler` |
 | Aturan bisnis di satu tempat | `User.deactivate()`, `User.registerFailedLogin()`, `User.isLocked()` |
 | Controller tipis | Controller hanya memvalidasi, meneruskan, dan memetakan hasil ke DTO |
-| Arah dependensi satu | `domain` tidak mengimpor `org.springframework` maupun `jakarta.persistence` |
+| Tipe paginasi milik domain | `domain/shared/PaginationRequest` dan `PageResult`, bukan `Pageable` milik Spring Data |
+| Arah dependensi satu | Aturan diperiksa otomatis oleh `ArchitectureLayerTest` |
 
 Pemeriksaan aturan dependensi dijalankan otomatis sebagai bagian dari rangkaian
 pengujian (`ArchitectureLayerTest`).
@@ -199,8 +200,8 @@ Semua endpoint berada di bawah `/`, memakai JSON, dan memakai format galat yang 
 
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
-| GET | `/users` | Terautentikasi | Daftar pengguna, mendukung pencarian dan pengurutan |
-| GET | `/users/{id}` | Terautentikasi | Ambil satu pengguna |
+| GET | `/users` | ADMIN, AUDITOR | Daftar pengguna, mendukung pencarian dan pengurutan |
+| GET | `/users/{id}` | ADMIN, AUDITOR, atau pemilik akun | Ambil satu pengguna |
 | POST | `/users` | ADMIN | Buat pengguna baru |
 | PUT | `/users/{id}` | ADMIN | Ganti seluruh data pengguna |
 | PATCH | `/users/{id}` | ADMIN | Ubah sebagian data pengguna |
@@ -280,7 +281,7 @@ src/main/java/id/osprey/iamservice/
 │   ├── audit/       jejak audit
 │   ├── auth/        token sesi, refresh token, kebijakan login
 │   ├── security/    port enkripsi kata sandi
-│   ├── shared/      galat domain
+│   ├── shared/      galat domain, paginasi, pengurutan
 │   └── user/        pengguna dan role
 ├── application/     use case
 │   ├── audit/       pencatatan jejak audit
@@ -289,11 +290,10 @@ src/main/java/id/osprey/iamservice/
 │   ├── security/    aturan kekuatan kata sandi
 │   └── user/        pengelolaan pengguna
 ├── infrastructure/  adapter ke framework dan database
-│   ├── persistence/ entitas JPA, mapper, adapter repository
+│   ├── persistence/ entitas JPA, pemetaan paginasi, adapter repository
 │   └── security/    penerbitan JWT, BCrypt
 ├── adapter/rest/    controller, DTO, penangkap galat
-├── config/          konfigurasi keamanan, rate limit, OpenAPI
-└── common/          (dicadangkan)
+└── config/          konfigurasi keamanan, rate limit, OpenAPI
 
 src/main/resources/
 ├── db/migration/       migrasi Flyway (sumber kebenaran skema)
@@ -320,3 +320,4 @@ Ringkasnya:
 | [0005](docs/adr/0005-pembatasan-ukuran-halaman-via-properti.md) | Pembatasan ukuran halaman lewat properti |
 | [0006](docs/adr/0006-transaksi-terpisah-untuk-jejak-audit.md) | Transaksi terpisah untuk jejak audit |
 | [0007](docs/adr/0007-clean-architecture-dengan-port-dan-adapter.md) | Clean Architecture dengan port dan adapter |
+| [0008](docs/adr/0008-lepaskan-kunci-asing-jejak-audit.md) | Lepaskan kunci asing pada tabel jejak audit |

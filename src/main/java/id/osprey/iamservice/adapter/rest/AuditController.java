@@ -1,12 +1,14 @@
 package id.osprey.iamservice.adapter.rest;
 
-import id.osprey.iamservice.domain.audit.AuditLogRepository;
 import id.osprey.iamservice.adapter.rest.dto.AuditLogResponse;
+import id.osprey.iamservice.adapter.rest.dto.PageResponse;
+import id.osprey.iamservice.domain.audit.AuditLogRepository;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
+import id.osprey.iamservice.domain.shared.SortSpec;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,7 +34,14 @@ public class AuditController {
             @ApiResponse(responseCode = "403", description = "Peran tidak cukup")
     })
     @GetMapping
-    public Page<AuditLogResponse> list(@PageableDefault(size = 20) Pageable pageable) {
-        return auditLogRepository.findAll(pageable).map(AuditLogResponse::from);
+    public PageResponse<AuditLogResponse> list(@PageableDefault(size = 20) Pageable pageable) {
+        PaginationRequest request = new PaginationRequest(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pageable.getSort().stream()
+                        .map(order -> new SortSpec(order.getProperty(), order.isDescending()))
+                        .toList());
+
+        return PageResponse.from(auditLogRepository.findAll(request), AuditLogResponse::from);
     }
 }

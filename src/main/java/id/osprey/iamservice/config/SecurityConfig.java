@@ -80,7 +80,10 @@ public class SecurityConfig {
                         // Aturan siapa yang boleh melakukan apa diperiksa lebih
                         // lanjut di level method memakai @PreAuthorize.
                         .requestMatchers(HttpMethod.PUT, "/users/*/password").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/users", "/users/**", "/roles/**").authenticated()
+                        // Daftar pengguna hanya untuk ADMIN dan AUDITOR.
+                        // Data pengguna tidak untuk semua pemanggil.
+                        .requestMatchers(HttpMethod.GET, "/users").hasAnyRole("ADMIN", "AUDITOR")
+                        .requestMatchers(HttpMethod.GET, "/users/**", "/roles/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/audit-logs/**").hasAnyRole("ADMIN", "AUDITOR")
                         .requestMatchers(HttpMethod.POST, "/roles", "/roles/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/roles/**").hasRole("ADMIN")

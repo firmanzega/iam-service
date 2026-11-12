@@ -61,12 +61,15 @@ class AuthSecurityIntegrationTest {
 
     private Long adminId;
     private Long memberId;
+    private Long auditorId;
     private String adminToken;
     private String memberToken;
+    private String auditorToken;
 
     @BeforeEach
     void setUp() throws Exception {
         Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        Role auditorRole = roleRepository.findByName("AUDITOR").orElseThrow();
 
         User admin = new User(USERNAME_PREFIX + "admin", USERNAME_PREFIX + "admin@mail.com",
                 passwordEncoder.encode(PASSWORD));
@@ -77,8 +80,14 @@ class AuthSecurityIntegrationTest {
                 passwordEncoder.encode(PASSWORD));
         memberId = userRepository.save(member).getId();
 
+        User auditor = new User(USERNAME_PREFIX + "auditor", USERNAME_PREFIX + "auditor@mail.com",
+                passwordEncoder.encode(PASSWORD));
+        auditor.replaceRoles(Set.of(auditorRole));
+        auditorId = userRepository.save(auditor).getId();
+
         adminToken = login(USERNAME_PREFIX + "admin");
         memberToken = login(USERNAME_PREFIX + "member");
+        auditorToken = login(USERNAME_PREFIX + "auditor");
     }
 
     @AfterEach
@@ -129,6 +138,40 @@ class AuthSecurityIntegrationTest {
         mockMvc.perform(get("/users").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void listUsers_asRegularMember_isForbidden() throws Exception {
+        mockMvc.perform(get("/users").header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Access denied"));
+    }
+
+    @Test
+    void listUsers_asAuditor_isAllowed() throws Exception {
+        mockMvc.perform(get("/users").header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+    }
+
+    @Test
+    void findUser_ownAccount_asRegularMember_isAllowed() throws Exception {
+        mockMvc.perform(get("/users/{id}", memberId).header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(memberId));
+    }
+
+    @Test
+    void findUser_otherAccount_asRegularMember_isForbidden() throws Exception {
+        mockMvc.perform(get("/users/{id}", adminId).header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void findUser_anyAccount_asAuditor_isAllowed() throws Exception {
+        mockMvc.perform(get("/users/{id}", memberId).header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(memberId));
     }
 
     @Test

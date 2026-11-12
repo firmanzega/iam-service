@@ -72,6 +72,25 @@ Authorization: Bearer token.ngada.atau.salah
 GET {{host}}/users?size=5
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
+### Dengan token user biasa -> 403
+### Daftar pengguna hanya untuk peran ADMIN dan AUDITOR
+@name loginMember
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "anggota",
+  "password": "Anggota1234"
+}
+
+GET {{host}}/users
+Authorization: Bearer {{loginMember.response.body.accessToken}}
+
+### Melihat akun sendiri sebagai user biasa -> 200
+### Pengguna biasa hanya boleh melihat akunnya sendiri
+GET {{host}}/users/1
+Authorization: Bearer {{loginMember.response.body.accessToken}}
+
 ### ============================================================
 ### 3. PENGGUNA
 ### ============================================================

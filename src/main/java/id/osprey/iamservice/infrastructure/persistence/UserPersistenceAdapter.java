@@ -1,12 +1,12 @@
 package id.osprey.iamservice.infrastructure.persistence;
 
 import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashSet;
@@ -82,13 +82,15 @@ public class UserPersistenceAdapter implements UserRepository {
     }
 
     @Override
-    public Page<User> findAll(Pageable pageable) {
-        return repository.findAll(pageable).map(UserJpaEntity::toDomain);
+    public PageResult<User> findAll(PaginationRequest request) {
+        return PaginationTranslator.toPageResult(
+                repository.findAll(PaginationTranslator.toPageable(request)), UserJpaEntity::toDomain);
     }
 
     @Override
-    public Page<User> search(String query, Pageable pageable) {
-        return repository.search(query, pageable).map(UserJpaEntity::toDomain);
+    public PageResult<User> search(String query, PaginationRequest request) {
+        return PaginationTranslator.toPageResult(
+                repository.search(query, PaginationTranslator.toPageable(request)), UserJpaEntity::toDomain);
     }
 
     /**

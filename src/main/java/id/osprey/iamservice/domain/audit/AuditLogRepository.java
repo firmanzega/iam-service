@@ -1,7 +1,7 @@
 package id.osprey.iamservice.domain.audit;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
 
 /**
  * Port untuk penyimpanan jejak audit.
@@ -10,5 +10,5 @@ public interface AuditLogRepository {
 
     AuditLog save(AuditLog auditLog);
 
-    Page<AuditLog> findAll(Pageable pageable);
+    PageResult<AuditLog> findAll(PaginationRequest request);
 }

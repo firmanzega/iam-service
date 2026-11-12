@@ -55,14 +55,14 @@ Aturan yang dipegang:
    ada di `adapter/rest/GlobalExceptionHandler`.
 4. **Controller hanya memvalidasi, meneruskan, dan memetakan hasil.**
    Validasi bentuk permintaan ada di DTO, di lapisan antarmuka.
+5. **Tipe paginasi milik domain.** `PaginationRequest` dan `PageResult` berada
+   di `domain/shared`. Adapter yang burdened penerjemahan ke `Pageable` dan
+   `Page` milik Spring Data.
 
 ### Batas yang disengaja
 
-`Pageable` dan `Page` dari Spring Data masih dipakai di port repository dan
-use case. Keduanya adalah objek nilai, bukan bagian dari database, dan
-menggantinya dengan tipe milik sendiri akan menambah kode berulang tanpa
-menambah manfaat nyata. Kalau someday domain harus benar-benar bebas dari
-Spring Data, cukup ganti tipe di satu berkas port dan di adapter-nya.
+Tidak ada. Domain tidak mengimpor satu pun paket framework, dan aturan itu
+ditegakkan otomatis oleh `ArchitectureLayerTest`.
 
 ## Dampak
 

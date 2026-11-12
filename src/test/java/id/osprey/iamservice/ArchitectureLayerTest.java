@@ -22,10 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *        umum Clean Architecture bocor, dan paling sulit terlihat saat review.
  *
  * Aturan yang diperiksa:
- *      - Domain tidak boleh mengimpor framework apa pun.
- *      - Domain boleh memakai tipe nilai dari Spring Data, yaitu Pageable dan
- *        Page, karena keduanya bukan bagian dari database. Batas ini
- *        disengaja dan dijelaskan di ADR 0007.
+ *      - Domain tidak boleh mengimpor framework apa pun, termasuk Spring Data.
+ *        Tipe paginasi milik domain dipakai supaya aturan ini bisa ditegakkan
+ *        tanpa pengecualian.
  *      - Lapisan aplikasi tidak boleh tahu soal HTTP maupun persistence.
  */
 class ArchitectureLayerTest {
@@ -35,9 +34,10 @@ class ArchitectureLayerTest {
     @Test
     void domainMustNotDependOnFramework() throws IOException {
         List<String> violations = scan("domain",
-                importPattern -> importPattern.startsWith("jakarta.")
-                        || (importPattern.startsWith("org.springframework.")
-                        && !importPattern.startsWith("org.springframework.data.domain.")));
+                importPattern -> importPattern.startsWith("org.springframework.")
+                        || importPattern.startsWith("jakarta.")
+                        || importPattern.startsWith("io.swagger.")
+                        || importPattern.startsWith("com.fasterxml."));
 
         assertTrue(violations.isEmpty(),
                 "Paket domain tidak boleh mengimpor framework. Pelanggaran:\n" + String.join("\n", violations));

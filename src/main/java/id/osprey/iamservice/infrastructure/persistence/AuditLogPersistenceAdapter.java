@@ -2,8 +2,8 @@ package id.osprey.iamservice.infrastructure.persistence;
 
 import id.osprey.iamservice.domain.audit.AuditLog;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
 import org.springframework.stereotype.Repository;
 
 /**
@@ -27,7 +27,8 @@ public class AuditLogPersistenceAdapter implements AuditLogRepository {
     }
 
     @Override
-    public Page<AuditLog> findAll(Pageable pageable) {
-        return repository.findAll(pageable).map(AuditLogJpaEntity::toDomain);
+    public PageResult<AuditLog> findAll(PaginationRequest request) {
+        return PaginationTranslator.toPageResult(
+                repository.findAll(PaginationTranslator.toPageable(request)), AuditLogJpaEntity::toDomain);
     }
 }
