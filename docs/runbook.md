@@ -356,8 +356,11 @@ cadangan. Karena itu **cadangan database terjadwal** wajib ada.
    curl -H "Authorization: Bearer TOKEN_ADMIN" \
      "http://localhost:8080/audit-logs?size=100"
    ```
-   Perhatikan `LOGIN_FAILED` yang banyak, `ACCOUNT_LOCKED`, dan perubahan role
-   yang tidak wajar.
+   Perhatikan `LOGIN_FAILED` yang banyak, `ACCOUNT_LOCKED`, perubahan role
+   yang tidak wajar, dan `REFRESH_TOKEN_REUSE`.
+   `REFRESH_TOKEN_REUSE` berarti token refresh yang sudah dicabut dipakai
+   lagi. Layanan sudah otomatis mencabut seluruh sesi pengguna itu, tetapi
+   pemilik akun tetap perlu dihubungi dan diminta mengganti kata sandi.
 3. **Nonaktifkan akun** yang dicurigai:
    ```bash
    curl -X POST http://localhost:8080/users/{id}/deactivate \

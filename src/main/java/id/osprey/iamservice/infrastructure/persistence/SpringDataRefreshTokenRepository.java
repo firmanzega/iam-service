@@ -15,7 +15,18 @@ public interface SpringDataRefreshTokenRepository extends JpaRepository<RefreshT
 
     Optional<RefreshTokenJpaEntity> findByTokenHash(String tokenHash);
 
-    long deleteByUserIdAndRevokedAtIsNull(Long userId);
+    /**
+     * Mencabut seluruh token aktif milik seorang pengguna dalam satu perintah.
+     *
+     * Kenapa bukan derived delete: menghapus baris membuat jejak token hilang,
+     * padahal jejak itu yang dipakai untuk membedakan token yang dicabut dari
+     * token yang tidak pernah ada. Satu update massal juga menghindari memuat
+     * seluruh baris ke memori.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update RefreshTokenJpaEntity token set token.revokedAt = :revokedAt "
+            + "where token.user.id = :userId and token.revokedAt is null")
+    int revokeAllByUserId(@Param("userId") Long userId, @Param("revokedAt") Instant revokedAt);
 
     /**
      * Menghapus seluruh token kedaluwarsa dalam satu perintah.

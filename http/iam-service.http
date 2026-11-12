@@ -59,6 +59,23 @@ Content-Type: application/json
   "refreshToken": "{{refreshToken.response.body.refreshToken}}"
 }
 
+### Pakai ulang token pertama -> 401, seluruh sesi dicabut
+# Token pertama sudah dicabut oleh permintaan "Tukar token refresh".
+POST {{host}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{loginAdmin.response.body.refreshToken}}"
+}
+
+### Token hasil tukar ikut mati -> 401
+POST {{host}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken.response.body.refreshToken}}"
+}
+
 ### ============================================================
 ### 2. PEMBATASAN AKSES
 ### ============================================================

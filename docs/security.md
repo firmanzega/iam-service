@@ -18,7 +18,8 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Token JWT HS256 | Access token 15 menit, refresh token 7 hari | Access token pendek membatasi dampak kalau bocor |
 | Refresh token disimpan sebagai hash SHA-256 | Yang tersimpan hanya hash-nya | Kebocoran database tidak langsung berarti kebocoran token |
 | Rotasi refresh token | Token lama dicabut begitu ditukar | Token yang dicuri hanya bisa dipakai sekali |
-| Pencabutan sesi | Ganti kata sandi, reset kata sandi oleh admin, ganti role, dan nonaktifkan akun mencabut seluruh token refresh milik pengguna | Sesi tidak bisa diperpanjang. Access token yang sudah terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit |
+| Deteksi pemakaian ulang | Token yang sudah dicabut tetapi belum kedaluwarsa lalu dipakai lagi dianggap bukti pencurian. Seluruh token refresh pengguna dicabut dan kejadiannya dicatat sebagai `REFRESH_TOKEN_REUSE` | Pencuri yang memegang token hasil rotasi ikut kehilangan akses. Pemilik sah harus login ulang |
+| Pencabutan sesi | Ganti kata sandi, reset kata sandi oleh admin, ganti role, dan nonaktifkan akun mencabut seluruh token refresh milik pengguna. Barisnya ditandai `revoked_at`, tidak dihapus, lalu dibersihkan setelah kedaluwarsa | Sesi tidak bisa diperpanjang. Access token yang sudah terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit. Jejak pencabutan tetap ada untuk menelusuri pemakaian ulang |
 | Pembersihan token kedaluwarsa | Baris dengan `expires_at` yang sudah lewat dihapus berkala setiap jam | Membatasi pertumbuhan tabel dan menjaga pencarian token tetap cepat. Token yang dicabut tetap disimpan sampai kedaluwarsa |
 | Validasi penerbit | Token dari penerbit lain ditolak | Mencegah token dari sistem lain dipakai di sini |
 | Validasi masa berlaku | Ditolak kalau sudah kedaluwarsa | Token lama tidak berlaku |
@@ -110,7 +111,7 @@ sempurna.
 |---|---|---|
 | **Rate limiter per instance** | Kalau dijalankan lebih dari satu instance, batas efektifnya beberapa kali lebih longgar | Kunci akun per akun tetap bekerja. Entri klien yang tidak aktif dibuang berkala supaya memori tidak tumbuh, tetapi batas global harus ditaruh di gateway |
 | **Rate limiter bergantung pada alamat klien** | Kalau layanan bisa dijangkau langsung, header `X-Forwarded-For` bisa dipalsukan untuk lolos dari batas | `server.forward-headers-strategy=native` hanya memakai header itu bila koneksi datang dari proxy internal. Pastikan layanan tidak terbuka langsung |
-| **Belum ada deteksi penyalahgunaan refresh token** | Kalau token refresh dicuri, pemakai baru bisa memakainya sampai token dicabut atau kedaluwarsa | Rotasi membuat token lama tidak bisa dipakai lagi |
+| **Pemakaian ulang memaksa login ulang** | Percobaan ulang setelah respons jaringan hilang bisa dianggap pencurian, sehingga seluruh sesi pengguna dicabut | Ini konsekuensi yang dipilih. Tanpa tenggang waktu, deteksi tetap tegas; pengguna cukup login ulang |
 | **Rotasi kunci token memutus seluruh sesi** | Mengganti `JWT_SECRET` membuat semua pengguna logout paksa | Belum ada dukungan dua kunci bersamaan dengan header `kid` |
 | **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk menghapus sesi di satu perangkat, cabut tokennya manual |
 | **Belum ada audit log yang tidak bisa diubah** | Seseorang yang punya akses database bisa mengubah catatan audit | Simpan catatan audit di tempat terpisah kalau sudah dibutuhkan |
@@ -125,7 +126,7 @@ sempurna.
 | Penyerang | Serangan | Kontrol yang menahan |
 |---|---|---|
 | Penyerang luar | Tebakan kata sandi | Rate limit, kunci akun, bcrypt |
-| Penyerang luar | Memakai token yang dicuri | Masa berlaku access token pendek, rotasi refresh token, pencabutan sesi |
+| Penyerang luar | Memakai token yang dicuri | Masa berlaku access token pendek, rotasi refresh token, deteksi pemakaian ulang, pencabutan sesi |
 | Penyerang luar | Mengenumerate username | Pesan galat identik |
 | Pengguna biasa | Membaca daftar pengguna | Aturan URL: hanya ADMIN dan AUDITOR |
 | Pengguna biasa | Mengubah akun orang lain | Aturan method: hanya pemilik akun atau ADMIN |

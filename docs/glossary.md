@@ -34,6 +34,7 @@ artinya dalam konteks layanan ini.
 | Masa berlaku | Time to live, TTL | Lamanya token masih diterima |
 | Pencabutan | Revocation | Tanda bahwa token sudah tidak boleh dipakai, disimpan di tabel `refresh_tokens` |
 | Pencabutan seluruh sesi | Revoke all | Mencabut semua token refresh milik satu pengguna sekaligus |
+| Deteksi pemakaian ulang | Reuse detection | Mengenali token refresh yang sudah dicabut lalu dipakai lagi, mencabut seluruh sesi pengguna, dan mencatatnya sebagai `REFRESH_TOKEN_REUSE` |
 
 ## 3. Kata Sandi dan Kunci
 

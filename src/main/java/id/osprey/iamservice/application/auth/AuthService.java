@@ -40,6 +40,7 @@ public class AuthService implements TokenRevocationService {
     private final AuditService auditService;
     private final LoginPolicy loginPolicy;
     private final TokenSettings tokenSettings;
+    private final RefreshTokenReuseService refreshTokenReuseService;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -48,7 +49,8 @@ public class AuthService implements TokenRevocationService {
                        LoginAttemptService loginAttemptService,
                        AuditService auditService,
                        LoginPolicy loginPolicy,
-                       TokenSettings tokenSettings) {
+                       TokenSettings tokenSettings,
+                       RefreshTokenReuseService refreshTokenReuseService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -57,6 +59,7 @@ public class AuthService implements TokenRevocationService {
         this.auditService = auditService;
         this.loginPolicy = loginPolicy;
         this.tokenSettings = tokenSettings;
+        this.refreshTokenReuseService = refreshTokenReuseService;
     }
 
     @Transactional
@@ -101,10 +104,12 @@ public class AuthService implements TokenRevocationService {
      * Menukar token refresh menjadi pasangan token baru.
      *
      * Token lama langsung dicabut. Inilah rotasi token refresh: satu token
-     * hanya bisa dipakai sekali, sehingga token yang dipakai ulang ditolak.
-     * Layanan ini tidak menandai pemakaian ulang sebagai bukti pencurian.
-     * Akibatnya pemakai asli baru tahu tokennya tidak berlaku ketika token
-     * lamanya ditolak dan dia harus login ulang.
+     * hanya bisa dipakai sekali. Kalau token yang sudah dicabut tetapi belum
+     * kedaluwarsa datang lagi, itu dianggap bukti pencurian: seluruh sesi
+     * pengguna dicabut lewat transaksi terpisah, lalu permintaan ini tetap
+     * dijawab dengan galat yang sama seperti token tidak dikenal. Pesan yang
+     * sama sengaja dipakai supaya pemanggil tidak bisa membedakan token yang
+     * tidak ada dari token yang dipakai ulang.
      */
     @Transactional
     public TokenPair refresh(String rawRefreshToken) {
@@ -114,7 +119,15 @@ public class AuthService implements TokenRevocationService {
                 .orElseThrow(() -> new DomainException(DomainException.Reason.INVALID_CREDENTIALS,
                         "Invalid refresh token"));
 
-        if (!stored.isUsable(now)) {
+        if (stored.isRevoked()) {
+            if (!stored.isExpired(now)) {
+                refreshTokenReuseService.revokeAllAfterReuse(stored.getUser().getId());
+            }
+
+            throw new DomainException(DomainException.Reason.INVALID_CREDENTIALS, "Invalid refresh token");
+        }
+
+        if (stored.isExpired(now)) {
             throw new DomainException(DomainException.Reason.INVALID_CREDENTIALS, "Invalid refresh token");
         }
 
@@ -165,7 +178,7 @@ public class AuthService implements TokenRevocationService {
     @Override
     @Transactional
     public long revokeAllTokens(Long userId) {
-        long revoked = refreshTokenRepository.revokeAllForUser(userId);
+        long revoked = refreshTokenRepository.revokeAllForUser(userId, Instant.now());
         if (revoked > 0) {
             log.debug("Revoked {} refresh tokens for user {}", revoked, userId);
         }

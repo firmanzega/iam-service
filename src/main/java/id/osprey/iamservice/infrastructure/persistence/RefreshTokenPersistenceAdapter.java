@@ -45,8 +45,8 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
     }
 
     @Override
-    public long revokeAllForUser(Long userId) {
-        return repository.deleteByUserIdAndRevokedAtIsNull(userId);
+    public long revokeAllForUser(Long userId, Instant revokedAt) {
+        return repository.revokeAllByUserId(userId, revokedAt);
     }
 
     @Override

@@ -34,6 +34,10 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   tidak tumbuh mengikuti jumlah alamat IP yang pernah memanggil
 - Catatan keputusan arsitektur kesepuluh tentang pemeliharaan berkala di dalam
   proses aplikasi
+- Deteksi pemakaian ulang token refresh: seluruh sesi pengguna dicabut dan
+  kejadiannya dicatat sebagai `REFRESH_TOKEN_REUSE`
+- Catatan keputusan arsitektur kesebelas tentang deteksi pemakaian ulang token
+  refresh
 
 ### Diperbaiki
 - Alasan galat saat role yang masih dipakai hendak dihapus kini `ROLE_IN_USE`,
@@ -57,6 +61,8 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   dan memakai nama field yang salah pada permintaan ganti kata sandi
 - Pembersihan token refresh kini memakai satu perintah hapus, bukan memuat
   setiap baris lalu menghapusnya satu per satu
+- Pencabutan seluruh sesi kini memakai satu `UPDATE` yang menandai `revoked_at`,
+  bukan derived delete yang menghapus jejak token
 - Rate limiter kini membaca alamat klien asli saat layanan berada di belakang
   reverse proxy internal
 - Penjadwal pembersihan token tidak lagi berjalan di lingkungan pengujian, dan

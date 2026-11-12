@@ -42,7 +42,8 @@ Memakai **alternatif A** untuk saat ini:
 
 Penghapusan token sengaja hanya menyentuh baris yang **sudah kedaluwarsa**.
 Token yang dicabut tetap disimpan sampai masa berlakunya lewat, karena baris
-itu masih berguna bila nanti ditambahkan deteksi pemakaian ulang.
+itu dipakai oleh deteksi pemakaian ulang. Lihat
+[ADR 0011](0011-deteksi-pemakaian-ulang-token-refresh.md).
 
 ## Dampak
 

@@ -61,6 +61,9 @@ class AuthServiceTest {
     @Mock
     AuditService auditService;
 
+    @Mock
+    RefreshTokenReuseService refreshTokenReuseService;
+
     @Spy
     TokenSettings tokenSettings = new TokenSettings(
             "iam-service", Duration.ofMinutes(15), Duration.ofDays(7));
@@ -166,7 +169,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void refresh_revokedToken_throwsUnauthorized() {
+    void refresh_revokedButNotExpiredToken_revokesAllSessionsAndThrowsUnauthorized() {
         RefreshToken stored = new RefreshToken(1L, user(true, false), "hash",
                 Instant.now().plusSeconds(600), Instant.now(), Instant.now());
 
@@ -176,6 +179,21 @@ class AuthServiceTest {
         DomainException ex = assertThrows(DomainException.class, () -> authService.refresh("token"));
 
         assertEquals(DomainException.Reason.INVALID_CREDENTIALS, ex.getReason());
+        verify(refreshTokenReuseService).revokeAllAfterReuse(1L);
+    }
+
+    @Test
+    void refresh_revokedAndExpiredToken_doesNotRevokeOtherSessions() {
+        RefreshToken stored = new RefreshToken(1L, user(true, false), "hash",
+                Instant.now().minusSeconds(10), Instant.now().minusSeconds(60), Instant.now());
+
+        when(tokenIssuer.hashToken("token")).thenReturn("hash");
+        when(refreshTokenRepository.findByTokenHash("hash")).thenReturn(Optional.of(stored));
+
+        DomainException ex = assertThrows(DomainException.class, () -> authService.refresh("token"));
+
+        assertEquals(DomainException.Reason.INVALID_CREDENTIALS, ex.getReason());
+        verify(refreshTokenReuseService, never()).revokeAllAfterReuse(anyLong());
     }
 
     @Test
@@ -189,6 +207,7 @@ class AuthServiceTest {
         DomainException ex = assertThrows(DomainException.class, () -> authService.refresh("token"));
 
         assertEquals(DomainException.Reason.INVALID_CREDENTIALS, ex.getReason());
+        verify(refreshTokenReuseService, never()).revokeAllAfterReuse(anyLong());
     }
 
     @Test
@@ -243,11 +262,11 @@ class AuthServiceTest {
 
     @Test
     void revokeAllTokens_delegatesToRepository() {
-        when(refreshTokenRepository.revokeAllForUser(1L)).thenReturn(2L);
+        when(refreshTokenRepository.revokeAllForUser(eq(1L), any(Instant.class))).thenReturn(2L);
 
         long revoked = authService.revokeAllTokens(1L);
 
         assertEquals(2L, revoked);
-        verify(refreshTokenRepository).revokeAllForUser(1L);
+        verify(refreshTokenRepository).revokeAllForUser(eq(1L), any(Instant.class));
     }
 }

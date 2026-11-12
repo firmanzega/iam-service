@@ -45,10 +45,6 @@ public class RefreshToken {
         return revokedAt != null;
     }
 
-    public boolean isUsable(Instant now) {
-        return !isRevoked() && !isExpired(now);
-    }
-
     public void revoke(Instant now) {
         if (revokedAt == null) {
             revokedAt = now;

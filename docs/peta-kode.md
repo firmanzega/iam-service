@@ -90,6 +90,7 @@ Use case. Mengenal domain, tidak mengenal HTTP maupun JPA.
 | `application/auth/AuthService.java` | Use case autentikasi: login, tukar refresh token, logout, cabut semua token. Sekaligus implementasi `TokenRevocationService` |
 | `application/auth/LoginAttemptService.java` | Mencatat kegagalan login di transaksi terpisah |
 | `application/auth/RefreshTokenCleanupService.java` | Menghapus token refresh yang sudah kedaluwarsa. Dipisahkan dari penjadwal supaya aturannya bisa diuji tanpa menyalakan Spring |
+| `application/auth/RefreshTokenReuseService.java` | Mencabut seluruh sesi dan mencatat `REFRESH_TOKEN_REUSE` di transaksi terpisah saat token yang sudah dicabut dipakai lagi |
 | `application/auth/TokenPair.java` | Hasil login berupa pasangan token |
 | `application/role/RoleService.java` | Use case role: daftar, buat, hapus |
 | `application/audit/AuditService.java` | Pencatatan dan pembacaan jejak audit. `record` ikut transaksi, `recordIndependently` memakai transaksi terpisah, `findAll` membaca halaman jejak audit |
@@ -111,7 +112,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `AuditLogJpaEntity.java` | Entitas JPA tabel `audit_logs` |
 | `SpringDataUserRepository.java` | Repository Spring Data untuk pengguna |
 | `SpringDataRoleRepository.java` | Repository Spring Data untuk role |
-| `SpringDataRefreshTokenRepository.java` | Repository Spring Data untuk token refresh, termasuk hapus massal token kedaluwarsa |
+| `SpringDataRefreshTokenRepository.java` | Repository Spring Data untuk token refresh, termasuk hapus massal token kedaluwarsa dan pencabutan massal lewat satu `UPDATE` |
 | `SpringDataAuditLogRepository.java` | Repository Spring Data untuk jejak audit |
 | `UserPersistenceAdapter.java` | Mengimplementasikan port `UserRepository` |
 | `RolePersistenceAdapter.java` | Mengimplementasikan port `RoleRepository` |
@@ -189,7 +190,9 @@ Adapter yang mengimplementasikan port dari domain.
 | `adapter/rest/GlobalExceptionHandlerTest.java` | Pemetaan galat ke status HTTP |
 | `application/auth/AuthServiceTest.java` | Unit test alur autentikasi |
 | `application/auth/RefreshTokenCleanupServiceTest.java` | Unit test aturan penghapusan token kedaluwarsa |
+| `application/auth/RefreshTokenReuseServiceTest.java` | Unit test pencabutan seluruh sesi dan pencatatan audit saat token dipakai ulang |
 | `application/auth/RefreshTokenCleanupIntegrationTest.java` | Membuktikan hanya token kedaluwarsa yang terhapus di database |
+| `adapter/rest/RefreshTokenReuseIntegrationTest.java` | Membuktikan token hasil rotasi ikut mati setelah token lama dipakai ulang, lewat database sungguhan |
 | `application/audit/AuditServiceTest.java` | Mengunci urutan bawaan dan penolakan properti sort asing |
 | `application/user/UserServiceTest.java` | Unit test use case pengguna |
 | `application/user/UserConcurrencyTest.java` | Dua PATCH bersamaan atas satu data |

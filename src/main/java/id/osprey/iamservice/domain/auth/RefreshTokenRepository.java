@@ -15,10 +15,15 @@ public interface RefreshTokenRepository {
     /**
      * Mencabut seluruh token refresh milik seorang pengguna.
      *
+     * Token yang sudah dicabut sebelumnya tidak diubah lagi, sehingga waktu
+     * pencabutan pertama tetap menjadi bukti. Barisnya juga tidak dihapus:
+     * jejak itu dipakai untuk mengenali pemakaian ulang token.
+     *
      * @param userId identitas pengguna
-     * @return jumlah token yang dicabut
+     * @param revokedAt waktu pencabutan yang dicatat
+     * @return jumlah token yang baru dicabut
      */
-    long revokeAllForUser(Long userId);
+    long revokeAllForUser(Long userId, Instant revokedAt);
 
     /**
      * Menghapus token yang masa berlakunya sudah lewat.

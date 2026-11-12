@@ -343,6 +343,47 @@ Swagger UI membutuhkan skrip dan gaya dari origin yang sama, jadi
 `default-src 'none'` akan selalu membuat halamannya kosong. Yang tetap
 diblokir adalah sumber dari luar.
 
+### 4.13 Pemakaian ulang token refresh terdeteksi
+
+```bash
+# 1. Login, simpan refresh token pertama
+curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"andi","password":"Rahasia123"}'
+
+# 2. Tukar token pertama, simpan token kedua
+curl -s -X POST http://localhost:8080/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"TOKEN_PERTAMA"}'
+
+# 3. Pakai token pertama lagi -> 401
+curl -i -X POST http://localhost:8080/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"TOKEN_PERTAMA"}'
+
+# 4. Token kedua ikut mati -> 401
+curl -i -X POST http://localhost:8080/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"TOKEN_KEDUA"}'
+```
+
+| Langkah | Hasil |
+|---|---|
+| Tukar token pertama | `200`, dapat pasangan token baru |
+| Pakai token pertama lagi | `401 Invalid refresh token` |
+| Pakai token kedua | `401 Invalid refresh token`, karena seluruh sesi sudah dicabut |
+
+Langkah 3 dianggap bukti pencurian. Seluruh token refresh pengguna dicabut,
+termasuk token kedua. Kejadiannya tercatat di jejak audit:
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ADMIN" \
+  "http://localhost:8080/audit-logs?size=5"
+```
+
+Cari baris dengan aksi `REFRESH_TOKEN_REUSE`. Baris token yang dicabut tetap
+tersimpan sampai kedaluwarsa, lalu dibersihkan oleh tugas berkala.
+
 ---
 
 ## 5. Ringkasan Status Kode
