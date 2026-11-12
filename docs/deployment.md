@@ -2,7 +2,7 @@
 
 Dokumen ini berisi hal-hal yang perlu diperhatikan saat layanan dijalankan di
 server sungguhan. Untuk pengembangan lokal, cukup ikuti bagian
-[Menjalankan](README.md#menjalankan) di README.
+[Menjalankan](../README.md#menjalankan) di README.
 
 ---
 
@@ -56,7 +56,7 @@ nilai hasil `openssl rand -base64 48`.
 **Kekurangan:** secret tidak bisa dirotasi tanpa deploy ulang, dan tidak ada
 catatan siapa yang pernah membacanya.
 
-#### Opsi B - Secret manager.cloud
+#### Opsi B - Secret manager cloud
 
 Untuk produksi yang lebih serius. Aplikasi membaca secret dari
 AWS Secrets Manager, GCP Secret Manager, atau Azure Key Vault memakai pustaka
@@ -83,7 +83,7 @@ baru ditandatangani dengan kunci baru, sedangkan token lama masih diterima
 untuk verifikasi selama masa transisi. JWT menyediakan kolom header `kid`
 (key id) untuk menandai kunci mana yang dipakai.
 
-Fitur ini belum ada di layanan sekarang. Prioritasnya depends pada seberapa
+Fitur ini belum ada di layanan sekarang. Prioritasnya bergantung pada seberapa
 sering kunci perlu dirotasi.
 
 ---
@@ -164,7 +164,7 @@ location /auth/ {
 - [ ] `JWT_SECRET` tidak ada di berkas mana pun di server
 - [ ] `POSTGRES_PASSWORD` sudah diganti dan tidak ada di berkas mana pun
 - [ ] Port database tidak terbuka ke internet
-- [ ] HTTPS sudah aktif, sertifikat sudah Valid
+- [ ] HTTPS sudah aktif, sertifikat sudah valid
 - [ ] Kata sandi akun administrator dev sudah diganti atau akunnya dihapus
 - [ ] `CORS_ALLOWED_ORIGINS` sudah diisi dengan domain yang benar
 - [ ] GitHub Actions hijau pada commit terakhir

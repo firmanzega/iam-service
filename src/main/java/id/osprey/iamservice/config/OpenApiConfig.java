@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
  *      - Halaman Swagger membaca skema ini untuk menampilkan tombol
  *        "Authorize". Tanpa itu, pengguna tidak bisa mencoba endpoint yang
  *        butuh token.
- *      - Skema "bearer" ditulis eksplisit, bukan relied on pada heuristik
+ *      - Skema "bearer" ditulis eksplisit, bukan bersandar pada heuristik
  *        springdoc, supaya dokumentasi tidak pernah berbeda dengan
  *        perilaku nyata layanan.
  */

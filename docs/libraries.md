@@ -43,7 +43,7 @@ serialisasi JSON.
 **Yang perlu diperhatikan:**
 
 - Spring Boot 4 memecah menjadi beberapa starter kecil. Yang dipakai di sini
-  hanya yang benar-benar dibutuhkan, supayaPermintaan tidak menarik pustaka
+  hanya yang benar-benar dibutuhkan, supaya permintaan tidak menarik pustaka
   yang tidak terpakai.
 - `@RestController` sudah termasuk serialisasi JSON, jadi tidak perlu
   `@ResponseBody` terpisah.
@@ -152,7 +152,7 @@ pustaka Nimbus untuk itu.
 **Apa itu:** Pustaka kriptografi Spring Security. Mengandung `BCryptPasswordEncoder`.
 
 **Kenapa dipakai:** Dipakai terpisah dari starter keamanan, karena satu
-pustaka ini hanya perlu algoritma hash kata sandi, bukan seluruh apparatus
+pustaka ini hanya perlu algoritma hash kata sandi, bukan seluruh rangkaian
 filter keamanan.
 
 **Dipakai di:** `infrastructure/security/BCryptPasswordEncoderAdapter.java`
@@ -315,7 +315,15 @@ masih membawa Jackson 2 untuk keperluan pengujian.
 3. **KECEPAKAN:** kalau pustaka itu menyentuh lapisan domain, aturan di
    Bagian 3 pada [ADR 0007](adr/0007-clean-architecture-dengan-port-dan-adapter.md)
    berlaku. Bungkus di balik port.
-4. **Perbarui dokumen ini** setiap ada dependency baru, sesuai aturan
-   dokumentasi hidup di `AGENTS.md`.
-5. **Jalankan `./mvnw clean verify`** untuk memastikan cakupan dan pengujian
-   masih lolos.
+4. **Perbarui dokumen ini** setiap ada dependency baru, supaya alasan memilih
+   pustaka dan tempat penggunaannya tidak basi.
+5. **Jalankan build bersih** untuk memastikan cakupan dan pengujian masih
+   lolos:
+
+   ```bash
+   # Windows (PowerShell)
+   .\mvnw.cmd clean verify
+
+   # Linux dan macOS
+   ./mvnw clean verify
+   ```

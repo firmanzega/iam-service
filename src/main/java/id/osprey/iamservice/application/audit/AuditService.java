@@ -10,10 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
  * Use case pencatatan jejak audit.
  *
  * Ada dua cara pencatatan, dan pilihannya penting:
- *      - record: ikut transaksi yang sedang berjalan. dipakai untuk aksi yang
+ *      - record: ikut transaksi yang sedang berjalan. Dipakai untuk aksi yang
  *        sukses, sehingga perubahan bisnis dan catatannya committed
  *        bersamaan. Tidak mungkin ada perubahan tanpa catatan.
- *      - recordIndependently: memakai transaksi terpisah. dipakai untuk aksi
+ *      - recordIndependently: memakai transaksi terpisah. Dipakai untuk aksi
  *        yang gagal, karena transaksinya sendiri dibatalkan. Kalau catatannya
  *        ikut di transaksi yang sama, jejaknya hilang dan percobaan serangan
  *        justru tidak terekam.

@@ -1,4 +1,4 @@
-# docs/security.md
+# Model Keamanan
 
 Dokumen ini merangkum kontrol keamanan yang ada di layanan ini, alasan
 dipilihnya, dan **batasannya**. Bagian batasannya penting: layanan yang
@@ -21,7 +21,7 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Pencabutan sesi | Ganti kata sandi, ganti role, dan nonaktifkan akun mencabut seluruh token refresh milik pengguna | Sesi lama langsung mati saat ada perubahan sensitif |
 | Validasi penerbit | Token dari penerbit lain ditolak | Mencegah token dari sistem lain dipakai di sini |
 | Validasi masa berlaku | Ditolak kalau sudah kedaluwarsa | Token lama tidak berlaku |
-| Penolakan pengguna tidak dikenal | Pesan identik dengan kata sandi salah | Mencegah penyEnumerasi username yang terdaftar |
+| Penolakan pengguna tidak dikenal | Pesan identik dengan kata sandi salah | Mencegah enumerasi username yang terdaftar |
 
 ### 1.2 Kontrol Akses
 
@@ -32,14 +32,14 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Peran dari token | Claim `roles` dipetakan jadi `ROLE_*` oleh `JwtAuthenticationConverter` |
 | Ditolak dengan jelas | 401 untuk belum terautentikasi, 403 untuk tidak berwenang |
 
-### 1.3 KATA SANDI
+### 1.3 Kata Sandi
 
 | Kontrol | Detail |
 |---|---|
 | Hash BCrypt | Salt otomatis, hash berbeda tiap kali untuk kata sandi yang sama |
 | Panjang 8 sampai 72 karakter | BCrypt hanya memakai 72 byte pertama |
 | Variasi jenis karakter | Minimal satu huruf dan satu angka |
-| Kunci akun | 5 kali gagal -> terkunci 15 menit, dihitung **per akun** |
+| Kunci akun | 5 kali gagal → terkunci 15 menit, dihitung **per akun** |
 
 ### 1.4 Bentuk Permintaan
 
@@ -49,15 +49,37 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Batas ukuran halaman | Maksimal 50 baris, ditegakkan di Spring Boot dan diperiksa pengujian regresi |
 | Daftar properti pengurutan | Hanya `id`, `username`, `email`, `active`, `createdAt`, `updatedAt` yang diizinkan |
 
+Batas panjang 72 karakter pada kata sandi dicek di dua tempat dengan
+perbedaan yang disengaja:
+
+| Situasi | Hasil | Kenapa |
+|---|---|---|
+| Kata sandi lebih dari 72 karakter saat **login** | 400 dengan rincian per field | Batas itu soal ukuran hash BCrypt, bukan aturan bisnis login |
+| Kata sandi lebih dari 72 karakter saat **membuat pengguna** | 400 dengan rincian per field | Sama, `PasswordPolicy` juga menolak |
+| Kata sandi **pendek** saat login | 401 dengan pesan kredensial salah | Panjang minimum hanya ditegakkan saat membuat pengguna, supaya login tidak membocorkan aturan |
+
+Pesan 401 selalu sama untuk username yang salah dan kata sandi yang salah.
+Kalau nama penggunanya tidak terdaftar, jawabannya juga 401 dengan pesan yang
+sama persis.
+
 ### 1.5 Header Keamanan
 
-| Header | Nilai |
-|---|---|
-| `Content-Security-Policy` | `default-src 'self'` dan seterusnya. Sumber dari luar diblokir |
-| `X-Frame-Options` | `DENY` |
-| `X-Content-Type-Options` | `nosniff` |
-| `Strict-Transport-Security` | Aktif, termasuk subdomain, 1 tahun |
-| `Cache-Control` | `no-store` pada respons sensitif |
+| Header | Nilai | Sumber |
+|---|---|---|
+| `Content-Security-Policy` | `default-src 'self'` dan seterusnya. Sumber dari luar diblokir | `SecurityConfig` |
+| `X-Frame-Options` | `DENY` | `SecurityConfig` |
+| `X-Content-Type-Options` | `nosniff` | `SecurityConfig` |
+| `Strict-Transport-Security` | Aktif, termasuk subdomain, 1 tahun | `SecurityConfig` |
+| `Cache-Control` | `no-cache, no-store, max-age=0, must-revalidate` | Bawaan Spring Security |
+
+Catatan untuk dua header terakhir:
+
+- `Strict-Transport-Security` hanya dikirim pada permintaan HTTPS. Pada
+  localhost dengan HTTP biasa, header ini memang tidak muncul. Itu perilaku
+  yang benar, bukan tanda konfigurasi gagal.
+- `Cache-Control` dipasang oleh Spring Security secara bawaan untuk **seluruh**
+  respons, bukan hanya respons yang sensitif. Nilainya sudah memenuhi
+  kebutuhan, jadi layanan tidak perlu mengatur header ini sendiri.
 
 ### 1.6 Jejak Audit
 
@@ -80,10 +102,10 @@ sempurna.
 | **Rate limiter per instance** | Kalau dijalankan lebih dari satu instance, batas efektifnya beberapa kali lebih longgar | Kunci akun per akun tetap bekerja. Rate limit global harus ditaruh di gateway |
 | **Belum ada deteksi penyalahgunaan refresh token** | Kalau token refresh dicuri, pemakai baru bisa memakainya sampai token dicabut atau kedaluwarsa | Rotasi membuat token lama tidak bisa dipakai lagi |
 | **Rotasi kunci token memutus seluruh sesi** | Mengganti `JWT_SECRET` membuat semua pengguna logout paksa | Belum ada dukungan dua kunci bersamaan dengan header `kid` |
-| **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk Uninstall berarti(Session) perangkat, revoke token manual |
+| **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk menghapus sesi di satu perangkat, cabut tokennya manual |
 | **Belum ada audit log yang tidak bisa diubah** | Seseorang yang punya akses database bisa mengubah catatan audit | Simpan catatan audit di tempat terpisah kalau sudah dibutuhkan |
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
-| **Belum ada multi-tenancy** | Satu database untuk semua organisasi |-Gunakan database terpisah per organisasi kalau sudah perlu |
+| **Belum ada multi-tenancy** | Satu database untuk semua organisasi | Gunakan database terpisah per organisasi kalau sudah perlu |
 | **Belum ada SAML atau OIDC** | Layanan ini hanya bisa dipakai dengan token sendiri | Integrasi ke identity provider lain belum ada |
 
 ---

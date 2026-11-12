@@ -5,7 +5,7 @@ package id.osprey.iamservice.domain.security;
  * memverifikasinya.
  *
  * Implementasi nyata memakai BCrypt dan berada di lapisan infrastruktur.
- * Domain hanya butuhdua operasi ini.
+ * Domain hanya butuh dua operasi ini.
  */
 public interface PasswordEncoder {
 

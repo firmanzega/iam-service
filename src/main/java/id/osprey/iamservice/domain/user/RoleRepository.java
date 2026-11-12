@@ -28,7 +28,7 @@ public interface RoleRepository {
     /**
      * Mengambil seluruh role.
      *
-     * Jumlah role kecil dan selalu Dimuat sekaligus, jadi tidak perlu paginasi.
+     * Jumlah role kecil dan selalu dimuat sekaligus, jadi tidak perlu paginasi.
      */
     List<Role> findAll();
 }

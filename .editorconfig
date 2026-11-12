@@ -2,7 +2,7 @@
 #
 # Terapkan otomatis oleh sebagian besar editor. Untuk IntelliJ IDEA, file
 # ini ikut terbaca, tapi setelan bawaan IDE bisa menimpanya. Kalau keduanya
-# berbeda,Ikuti file ini.
+# berbeda, ikuti file ini.
 
 root = true
 

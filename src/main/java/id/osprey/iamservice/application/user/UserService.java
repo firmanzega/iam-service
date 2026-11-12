@@ -22,7 +22,7 @@ import java.util.TreeSet;
 /**
  * Use case pengelolaan pengguna.
  *
- * Lapisan ini tidak tahu apa-apa soal HTTP maupun JPA. Dia hanya تعرف aturan
+ * Lapisan ini tidak tahu apa-apa soal HTTP maupun JPA. Dia hanya mengenal aturan
  * bisnis dan port yang dideklarasikan domain.
  */
 @Service

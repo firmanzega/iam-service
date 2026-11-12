@@ -14,8 +14,9 @@ Langkah pertama sebelum panik: cari tahu gejalanya.
 curl -s http://localhost:8080/actuator/health
 
 # Log aplikasi
-# Lihat terminal tempat aplikasi dijalankan, atau:
-docker logs iam-service-db
+# Lihat terminal tempat aplikasi dijalankan.
+# Kalau dijalankan sebagai jar, arahkan keluaran ke berkas:
+#   java -jar target/iam-service-0.0.1-SNAPSHOT.jar > app.log 2>&1
 
 # Riwayat migrasi database
 docker exec iam-service-db psql -U user_osprey -d db_osprey \
@@ -93,7 +94,7 @@ Flyway memeriksa checksum. Kalau berbeda, build gagal.
 - Kalau itu belum pernah dipakai di mana pun: **baiki** berkasnya, lalu jalankan
   build bersih. Itu menghilangkan masalahnya.
 - Kalau sudah dipakai di server lain: **jangan** diedit. Buat migrasi baru
-  yang accomplish perubahannya.
+  yang menjalankan perubahannya.
 
 ### Penyebab B: Migrasi di database tapi berkasnya hilang
 
@@ -104,7 +105,7 @@ docker exec iam-service-db psql -U user_osprey -d db_osprey \
 
 Bandingkan dengan berkas di `src/main/resources/db/migration/`. Kalau ada versi
 di database yang tidak ada di berkas, kemungkinan besar itu hasil penamaan
-ulang yang tidak_clean.
+ulang yang tidak bersih.
 
 ### Penyebab C: Urutan versi bentrok
 
@@ -213,7 +214,14 @@ menunjuk ke tabel yang sama. Lihat
 ### Deploy
 
 ```bash
+# Windows (PowerShell)
+.\mvnw.cmd clean verify
+
+# Linux dan macOS
 ./mvnw clean verify
+```
+
+```bash
 java -jar target/iam-service-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
@@ -239,7 +247,7 @@ cadangan. Karena itu **cadangan database terjadwal** itu wajib.
 ## 10. Dicurigai kebocoran
 
 1. **Cabut seluruh sesi** dengan merotasi `JWT_SECRET`. Semua pengguna
-   forced login ulang.
+   dipaksa login ulang.
 2. **Cek jejak audit** untuk melihat aktivitas yang mencurigakan:
    ```bash
    curl -H "Authorization: Bearer TOKEN_ADMIN" \

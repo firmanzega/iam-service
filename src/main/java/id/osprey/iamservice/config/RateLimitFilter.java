@@ -78,7 +78,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
      *
      * Kenapa bukan semua endpoint:
      *      - Yang paling perlu dilindungi adalah percobaan login, karena di
-     *        situplit attack guessing password berada.
+     *        situ berlangsung serangan tebak kata sandi.
      *      - Batas permintaan untuk endpoint lain biasanya lebih tepat
      *        ditempatkan di gateway atau reverse proxy, karena di sana batasnya
      *        bisa berlaku lintas instance.

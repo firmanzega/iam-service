@@ -55,7 +55,7 @@ variable, karena berkas `.env` dibaca otomatis.
 ## 2. Cara paling mudah: HTTP Client bawaan IntelliJ
 
 Berkas [`http/iam-service.http`](../http/iam-service.http) sudah berisi 40+
-permiintaan yang tersusun berurutan.
+permintaan yang tersusun berurutan.
 
 Cara pakai:
 
@@ -309,6 +309,7 @@ Dokumentasi OpenAPI:
 | <http://localhost:8080/v3/api-docs> | Publik di profil dev |
 
 Di profil produksi, dokumentasi dimatikan seluruhnya. Kedua `springdoc.api-docs.enabled` dan `springdoc.swagger-ui.enabled` bernilai false, jadi tidak ada halaman HTML yang terekspos ke internet.
+
 ### Kalau Swagger UI tampil kosong putih
 
 Dua penyebab yang paling sering:

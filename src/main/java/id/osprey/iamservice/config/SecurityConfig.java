@@ -34,7 +34,7 @@ import java.util.List;
  *        Karena token tidak disimpan di server, tidak ada sesi yang perlu
  *        disimpan, sehingga aplikasi tetap bisa diskalakan tanpa state.
  *      - CSRF dinonaktifkan. Proteksi CSRF hanya relevan bila kredensial
- *       .browser otomatis ikut pada setiap permintaan. Di sini kredensial
+ *        browser otomatis ikut pada setiap permintaan. Di sini kredensial
  *        ditambahkan manual oleh klien pada header Authorization, jadi permintaan
  *        lintas situs tidak bisa dibuat tanpa mengetahui tokennya.
  *      - CORS memakai daftar origin eksplisit, bukan tanda bintang, karena
@@ -143,7 +143,7 @@ public class SecurityConfig {
     /**
      * Mengubah claim "roles" pada token menjadi GrantedAuthority berbentuk
      * ROLE_ADMIN, ROLE_USER, dan sejenisnya. Prefix ROLE_ wajib agar
-     * hasRole("ADMIN") pada konfigurasi otorisasi bisa mengenali them.
+     * hasRole("ADMIN") pada konfigurasi otorisasi bisa mengenali nilai itu.
      */
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {

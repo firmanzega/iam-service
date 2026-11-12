@@ -98,7 +98,8 @@ public class AuthService implements TokenRevocationService {
      *
      * Token lama langsung dicabut. Ini disebut rotasi token refresh, dan
      * tujuannya: kalau token lama dicuri, pihak yang menyalahgunakan token
-     * baru, dan pemakai asli akan noticing saat token lamanya ditolak.
+     * itu akan tertangkap, dan pemakai asli akan menyadari saat token
+     * lamanya ditolak.
      */
     @Transactional
     public TokenPair refresh(String rawRefreshToken) {

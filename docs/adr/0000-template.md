@@ -23,7 +23,7 @@ kehendak sesaat.
 
 ## Alternatif
 
-Sebutkan semua pilihan yang seriously dipertimbangkan, termasuk yang
+Sebutkan semua pilihan yang sungguh-sungguh dipertimbangkan, termasuk yang
 ditolak. Untuk tiap alternatif, tuliskan kelebihan dan kekurangannya.
 
 | Alternatif | Kelebihan | Kekurangan |

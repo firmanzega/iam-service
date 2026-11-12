@@ -45,8 +45,8 @@ public class RoleJpaEntity {
     /**
      * Membandingkan berdasarkan nama, sama seperti objek domainnya.
      *
-     * Tanpa ini, himpunan role milik pengguna bisadeenpa memeriksa isi,
-     * karena Hibernate memakai identitas objek.
+     * Tanpa ini, himpunan role milik pengguna bisa memuat role yang sama dua
+     * kali, karena Hibernate memakai identitas objek.
      */
     @Override
     public boolean equals(Object other) {

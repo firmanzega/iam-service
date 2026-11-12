@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ main ]
 
-# Jalankan ulangbuild yang gagal saat ada push baru.
+# Jalankan ulang build yang gagal saat ada push baru.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

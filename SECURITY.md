@@ -11,7 +11,7 @@ Kalau menemukan celah keamanan, **jangan** membuka issue publik.
 
 Kirim laporan lewat salah satu cara berikut:
 
-1. Bukaissue privat di tab **Security** repositori ini
+1. Buka issue privat di tab **Security** repositori ini
    (tab **Security** -> **Report a vulnerability**)
 2. Kirim surel ke alamat yang tercantum di halaman profil maintainer repositori
 
@@ -19,16 +19,16 @@ Isi laporan yang membantu:
 
 - Ringkasan masalahnya
 - Langkah untuk memunculkannya
-- Dampak yang-Alasannya
+- Dampak dan alasannya
 - Usulan solusi kalau ada
 
 ### Yang Perlu Dijaga
 
 - Beri waktu yang cukup untuk rilis perbaikan, idealnya 90 hari
 - Jangan sungkapkan data pengguna nyata milik orang lain
-- Jangan publicly disclose sebelum ada fix yang keluar
+- Jangan bocorkan ke publik sebelum ada perbaikan yang keluar
 
-### Yang akan Happens
+### Yang akan Terjadi
 
 Laporan akan dikonfirmasi diterima, diperiksa, dan dicatat di
 `CHANGELOG.md`. Kalau kerentanannya sudah diperbaiki, nama pelapor akan
@@ -36,7 +36,7 @@ disebut di catatan perubahan kecuali diminta tidak.
 
 ---
 
-## Versi yangDidukung
+## Versi yang Didukung
 
 | Versi | Didukung |
 |---|---|
@@ -63,12 +63,12 @@ Bagian yang paling perlu diketahui:
 
 ---
 
-## Tanggung_Jawab Pengguna
+## Tanggung Jawab Pengguna
 
 Gunakan layanan ini sesuai aturan. Yang berikut **tidak** diperbolehkan:
 
 - Mencoba masuk dengan akun yang bukan milik sendiri
-- Mengunivers credentials yang bocor
+- Menggunakan kredensial yang bocor
 - Menjalankan pengujian penetrasi terhadap sistem milik orang lain tanpa izin
 - Menggunakan layanan ini untuk aktivitas yang melanggar hukum
 

@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  * Kenapa dipisah:
  *      - Aturan bisnis seperti deactivate() dan registerFailedLogin() harus
  *        bisa diuji tanpa database dan tanpa JPA.
- *      - Pemetaan kolom, penguncian optimistis, dan relasimany-to-many adalah
+ *      - Pemetaan kolom, penguncian optimistis, dan relasi many-to-many adalah
  *        detail teknis yang tidak perlu bocor ke domain.
  */
 @Entity

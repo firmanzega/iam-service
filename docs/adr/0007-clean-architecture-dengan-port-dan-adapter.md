@@ -56,7 +56,7 @@ Aturan yang dipegang:
 4. **Controller hanya memvalidasi, meneruskan, dan memetakan hasil.**
    Validasi bentuk permintaan ada di DTO, di lapisan antarmuka.
 5. **Tipe paginasi milik domain.** `PaginationRequest` dan `PageResult` berada
-   di `domain/shared`. Adapter yang burdened penerjemahan ke `Pageable` dan
+   di `domain/shared`. Adapter yang menanggung penerjemahan ke `Pageable` dan
    `Page` milik Spring Data.
 
 ### Batas yang disengaja
@@ -85,7 +85,7 @@ ditegakkan otomatis oleh `ArchitectureLayerTest`.
 
 - **A** ditolak karena masalah yang disebut di konteks memang terjadi, bukan
   risiko teoretis.
-- **D** ditolak karenaanotasi JPA di entitas domain tetap membuat
+- **D** ditolak karena anotasi JPA di entitas domain tetap membuat
   aturan bisnis sulit diuji tanpa database, yang justru menjadi alasan utama
   refactor ini.
 

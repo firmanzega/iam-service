@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Memeriksa arah dependensi antar lapisan.
  *
  * Kenapa perlu test ini:
- *      - Aturan arsitektur yang hanya tertulis di dokumen akan slowly
+ *      - Aturan arsitektur yang hanya tertulis di dokumen akan lama-lama
  *        terkikis setiap kali ada penambahan kode. Aturan yang diuji otomatis
  *        tidak bisa dilanggar tanpa membuat build gagal.
  *      - Domain yang diam-diam mulai mengimpor framework adalah cara paling
