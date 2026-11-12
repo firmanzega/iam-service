@@ -7,7 +7,7 @@
 
 Service ini menyimpan data yang bisa diubah oleh lebih dari satu pihak pada saat yang
 sama. Contoh paling nyata: dua admin membuka halaman profil pengguna yang sama, lalu
-satu sama sama menyalin. Keduanya menekan tombol simpan.
+satu sama lain menyalin. Keduanya menekan tombol simpan.
 
 Tanpa penanganan, skenario itu berakhir dengan penimpaan diam-diam. Orang kedua
 mengira perubahan pertamanya tersimpan, padahal sudah ditimpa. Untuk data peran

@@ -292,7 +292,54 @@ masih membawa Jackson 2 untuk keperluan pengujian.
 
 ---
 
-## 4. Library yang Sengaja Tidak Dipakai
+## 4. Perkakas Bantu
+
+Perkakas di folder `tools/` dipakai untuk menjaga kualitas kode dan
+dokumentasi.
+
+| Perkakas | Fungsi |
+|---|---|
+| `tools/check-bahasa.mjs` | Memeriksa kualitas Bahasa Indonesia pada berkas markdown dan berkas `.http` |
+| `tools/dictionary-id/` | Kamus Hunspell Bahasa Indonesia, dipakai hanya pada mode ketat |
+| `tools/kata-teknis.txt` | Istilah teknis yang sah dipakai dalam prosa Indonesia |
+| `tools/kata-salah.txt` | Kata dan frasa yang sudah pernah salah ditulis |
+| `tools/frasa-izin.txt` | Frasa bahasa Inggris yang boleh muncul, misalnya nama resmi layanan |
+
+### Pemeriksa Bahasa
+
+```bash
+# Mode bawaan, tidak butuh pustaka tambahan
+node tools/check-bahasa.mjs README.md docs/libraries.md
+
+# Mode ketat, memeriksa ejaan kata memakai kamus
+npm install nspell
+node tools/check-bahasa.mjs --ketat docs/manual-testing.md
+
+# Untuk teks respons sebelum dikirim
+echo "teks" | node tools/check-bahasa.mjs --stdin
+```
+
+Mode bawaan memeriksa empat hal yang punya ketepatan tinggi:
+
+1. **Aksara asing.** Karakter Mandarin, Cyrillic, Hangul, dan sejenisnya yang
+   menyisip tanpa sengaja.
+2. **Daftar kata salah.** Kata dan frasa yang sudah pernah salah ditulis.
+   Daftar ini bertambah setiap kali kesalahan baru ditemukan.
+3. **Campuran bahasa Inggris.** Kata fungsi bahasa Inggris yang masuk ke prosa
+   Indonesia.
+4. **Kata ganda.** Kata yang ditulis dua kali berturut-turut tanpa disengaja.
+
+Mode ketat menambah pemeriksaan ejaan memakai kamus. Aturan itu **tidak
+dipakai secara bawaan**, karena pada dokumentasi teknis banyak kata teknis
+yang sah namun tidak ada di kamus. False positive membuat alat tidak
+dipakai, dan alat yang tidak dipakai tidak berguna.
+
+Pemeriksaan ini sudah dijalankan oleh hook commit dan alur kerja otomatis.
+Rincianroisnya ada di [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+---
+
+## 5. Library yang Sengaja Tidak Dipakai
 
 | Library | Kenapa tidak |
 |---|---|
@@ -306,7 +353,7 @@ masih membawa Jackson 2 untuk keperluan pengujian.
 
 ---
 
-## 5. Aturan Menambah Dependency Baru
+## 6. Aturan Menambah Dependency Baru
 
 1. **Pakai starter Spring Boot kalau ada.** Itu cara paling aman karena
    versinya sudah dikelola `spring-boot-starter-parent`.

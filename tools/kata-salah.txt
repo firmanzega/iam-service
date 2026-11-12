@@ -1,0 +1,39 @@
+# Kata dan frasa yang pernah salah ditulis.
+#
+# Daftar ini berasal dari kesalahan nyata pada sesi sebelumnya. Kata-kata di
+# sini lolos kamus karena merupakan serapan bahasa Inggris, jadi kamus tidak
+# bisa menandainya.
+#
+# Format: satu kata atau frasa per baris. Huruf besar tidak berpengaruh.
+# Kata fungsi bahasa Inggris tidak ada di sini, karena sudah ditangani
+# oleh aturan pencampuran bahasa.
+#
+# Setiap kali ditemukan kesalahan baru, tambahkan ke sini supaya tidak
+# terulang.
+
+# Kesalahan yang lolos kamus
+whip
+crawing
+Muy
+restauration
+craving
+whims
+Nickatan
+Originalitasikan
+Appeal
+Nursery
+Asylum
+Domicili
+Septuq
+Pabrik
+illing
+kebersistence
+sedangatronomi
+kebNickatan
+per undertakes
+Nadder
+berkumpoul
+
+# Frasa yang salah
+melakukan test
+melakukan check
