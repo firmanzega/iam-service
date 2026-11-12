@@ -2,17 +2,25 @@
 logging:
   level:
     id.osprey.iamservice: DEBUG
+    # SQL dan nilai parameter dicetak lewat level logging, bukan lewat spring.jpa.show-sql.
+    # show-sql hanya mencetak SQL tanpa binding parameter, sehingga tidak berguna
+    # untuk menelusuri masalah parameter yang salah.
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
 
 server:
   port: 8080
 
 spring:
+  flyway:
+    # Menambah lokasi migrasi khusus dev yang berisi data contoh.
+    # Lokasi ini tidak pernah dipindai pada profil lain, termasuk produksi.
+    locations: classpath:db/migration,classpath:db/migration-dev
   datasource:
-    url: jdbc:postgresql://localhost:5433/${POSTGRES_DB}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-    show-sql: true

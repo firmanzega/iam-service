@@ -2,6 +2,26 @@
 logging:
   level:
     id.osprey.iamservice: INFO
+    org.hibernate.SQL: INFO
 
 server:
   port: 9090
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      # Skema divalidasi terhadap hasil migrasi Flyway. Tidak pernah auto-create
+      # di produksi, karena itu bisa menghasilkan skema yang berbeda dari migrasi.
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    validate-on-migrate: true

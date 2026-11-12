@@ -1,9 +1,23 @@
 spring:
   application:
     name: iam-service
+  config:
+    # Import file .env sebagai properties agar aplikasi dan test bisa jalan tanpa
+    # export manual variabel environment. "optional:" berarti file boleh tidak ada
+    # (misalnya di produksi, di mana kredensial disuplai lewat environment variable).
+    # Environment variable asli tetap menang atas isi .env karena prioritasnya lebih tinggi.
+    import: optional:file:.env[.properties]
+  flyway:
+    # Sumber kebenaran skema. Hanya lokasi ini yang berlaku di semua profil.
+    locations: classpath:db/migration
   data:
     web:
       pageable:
         max-page-size: 50
+        # Bentuk JSON Page harus tetap { "content": [...], "page": {...} }.
+        # Ditetapkan lewat properti, BUKAN @EnableSpringDataWebSupport, karena
+        # anotasi tersebut mendaftarkan resolver pagination sendiri sehingga
+        # max-page-size di atas ikut diabaikan.
+        serialization-mode: via_dto
   profiles:
     active: dev
