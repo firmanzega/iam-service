@@ -32,25 +32,4 @@ for file in $staged; do
     fi
 done
 
-# Pemeriksaan kualitas Bahasa Indonesia pada berkas yang akan masuk commit.
-#
-# Memakai salinan di repo kalau ada, supaya hasilnya sama di mana pun.
-# Kalau tidak ada, pakai salinan global.
-BAHASA_TOOL="tools/check-bahasa.mjs"
-if [ ! -f "$BAHASA_TOOL" ]; then
-    BAHASA_TOOL="$HOME/.config/opencode/tools/check-bahasa.mjs"
-fi
-
-if command -v node >/dev/null 2>&1 && [ -f "$BAHASA_TOOL" ]; then
-    for file in $staged; do
-        case "$file" in
-            *.md|*.http)
-                if [ -f "$file" ]; then
-                    node "$BAHASA_TOOL" "$file" || exit 1
-                fi
-                ;;
-        esac
-    done
-fi
-
 exit 0

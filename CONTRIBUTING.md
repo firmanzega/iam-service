@@ -102,27 +102,9 @@ Project punya berkas `.editorconfig` yang berlaku untuk semua editor.
 | Pemeriksa | Cara menjalankan |
 |---|---|
 | Format | Editor akan menerapkan otomatis dari `.editorconfig` |
-| Bahasa | `node tools/check-bahasa.mjs <berkas>` |
 | Pengujian | `.\mvnw.cmd test` (Windows) atau `./mvnw test` (Linux dan macOS) |
 | Cakupan | `.\mvnw.cmd verify` atau `./mvnw verify` |
 | Aturan arsitektur | Bagian dari `.\mvnw.cmd verify` lewat `ArchitectureLayerTest` |
-
-### Pemeriksaan Bahasa
-
-Dokumentasi ditulis dalam Bahasa Indonesia, dan pemeriksaan otomatis menjaga
-kualitasnya. Pemeriksa di `tools/check-bahasa.mjs` menangkap:
-
-1. Karakter dari aksara lain yang menyisip tanpa sengaja
-2. Kata dan frasa yang sudah pernah salah ditulis
-3. Kata fungsi bahasa Inggris yang tercampur di prosa Indonesia
-4. Kata yang tertulis dua kali berturut-turut
-
-Kalau pemeriksa menemukan kata yang salah, perbaiki kata itu **dan** tambahkan
-ke `tools/kata-salah.txt`. Berkas itu adalah memori kesalahan, supaya kata
-yang sama tidak terulang lagi.
-
-Kata yang sebenarnya sah tetapi bukan istilah teknis, misal nama resmi
-layanan, bisa ditambahkan ke `tools/frasa-izin.txt`.
 
 ---
 

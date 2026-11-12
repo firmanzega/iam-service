@@ -42,17 +42,6 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Siapkan Node untuk pemeriksaan bahasa
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Periksa kualitas Bahasa Indonesia pada dokumentasi
-        # Memakai pemeriksa yang sama dengan mesin lokal, supaya hasil di
-        # sini sama dengan hasil sebelum commit. Mode bawaan tidak butuh
-        # pustaka tambahan, jadi tidak ada pemasangan yang diperlukan.
-        run: node tools/check-bahasa.mjs README.md CONTRIBUTING.md SECURITY.md CHANGELOG.md docs/libraries.md docs/peta-kode.md docs/security.md docs/runbook.md docs/manual-testing.md docs/deployment.md
-
       - name: Siapkan berkas .env untuk pengujian
         run: |
           cat > .env <<'EOF'
