@@ -1,13 +1,14 @@
 package id.osprey.iamservice.application.security;
 
+import id.osprey.iamservice.domain.shared.DomainException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import id.osprey.iamservice.domain.shared.DomainException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PasswordPolicyTest {
 
@@ -52,6 +53,6 @@ class PasswordPolicyTest {
         DomainException ex = assertThrows(DomainException.class,
                 () -> policy.validate("abc"));
 
-        assertEquals(true, ex.getMessage().contains("at least one letter and one digit"));
+        assertTrue(ex.getMessage().contains("at least one letter and one digit"));
     }
 }

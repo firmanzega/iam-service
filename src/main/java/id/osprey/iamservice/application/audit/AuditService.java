@@ -2,6 +2,8 @@ package id.osprey.iamservice.application.audit;
 
 import id.osprey.iamservice.domain.audit.AuditLog;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
+import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.shared.PaginationRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,19 @@ public class AuditService {
 
     public AuditService(AuditLogRepository auditLogRepository) {
         this.auditLogRepository = auditLogRepository;
+    }
+
+    /**
+     * Membaca jejak audit dalam bentuk halaman.
+     *
+     * Kenapa lewat use case, bukan repository langsung: aturan siapa yang
+     * boleh membaca dan bagaimana data disajikan tetap milik application.
+     * Controller cukup menerjemahkan HTTP, sehingga penyimpanan bisa diganti
+     * tanpa menyentuh lapisan web.
+     */
+    @Transactional(readOnly = true)
+    public PageResult<AuditLog> findAll(PaginationRequest request) {
+        return auditLogRepository.findAll(request);
     }
 
     @Transactional

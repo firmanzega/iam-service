@@ -9,8 +9,8 @@
 --     berguna untuk pencocokan awalan. Ekstensi pg_trgm menyediakan indeks
 --     yang bisa melayani pola seperti itu.
 --   - Penyaringan berdasarkan status aktif perlu indeks sendiri, karena
---     kehatiakasiaan kolom boolean yang persentasenya kecil membuat
---     PostgreSQL cenderung mengabaikan indeks btree biasa pada kolom itu.
+--     sebaran nilai kolom boolean yang timpang membuat PostgreSQL cenderung
+--     mengabaikan indeks btree biasa pada kolom itu.
 
 CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
 

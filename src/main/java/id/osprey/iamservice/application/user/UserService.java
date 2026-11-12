@@ -35,6 +35,7 @@ public class UserService {
     private static final String AUDIT_ROLES_REPLACED = "ROLES_REPLACED";
     private static final String AUDIT_PASSWORD_CHANGED = "PASSWORD_CHANGED";
     private static final String AUDIT_PASSWORD_RESET = "PASSWORD_RESET";
+    private static final String AUDIT_TOKENS_REVOKED = "TOKENS_REVOKED";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -147,8 +148,9 @@ public class UserService {
         userRepository.save(user);
 
         // Akun yang dinonaktifkan tidak boleh bisa memakai token yang masih hidup.
-        tokenRevocationService.revokeAllTokens(id);
+        long revoked = tokenRevocationService.revokeAllTokens(id);
 
+        auditService.record(actorUserId, AUDIT_TOKENS_REVOKED, id, revokedTokensDetail(revoked));
         auditService.record(actorUserId, AUDIT_USER_DEACTIVATED, id, user.getUsername());
     }
 
@@ -189,8 +191,9 @@ public class UserService {
         user.changePassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
-        tokenRevocationService.revokeAllTokens(id);
+        long revoked = tokenRevocationService.revokeAllTokens(id);
 
+        auditService.record(actorUserId, AUDIT_TOKENS_REVOKED, id, revokedTokensDetail(revoked));
         auditService.record(actorUserId, AUDIT_PASSWORD_CHANGED, id, user.getUsername());
     }
 
@@ -198,8 +201,8 @@ public class UserService {
      * Menetapkan kata sandi baru oleh administrator.
      *
      * Berbeda dari ganti kata sandi sendiri, di sini administrator tidak perlu
-     * mengetahui kata sandi lama pengguna. Gandanya adalah seluruh sesi
-     * pengguna langsung dicabut.
+     * mengetahui kata sandi lama pengguna. Bedanya, seluruh sesi pengguna
+     * langsung dicabut.
      */
     @Transactional
     public void resetPassword(Long id, String newPassword, Long actorUserId) {
@@ -211,8 +214,9 @@ public class UserService {
         user.clearFailedLogins();
         userRepository.save(user);
 
-        tokenRevocationService.revokeAllTokens(id);
+        long revoked = tokenRevocationService.revokeAllTokens(id);
 
+        auditService.record(actorUserId, AUDIT_TOKENS_REVOKED, id, revokedTokensDetail(revoked));
         auditService.record(actorUserId, AUDIT_PASSWORD_RESET, id, user.getUsername());
     }
 
@@ -242,12 +246,25 @@ public class UserService {
         // Role ikut tertanam di dalam access token. Kalau role dicabut, token
         // lama masih membawa role lama sampai kedaluwarsa. Mencabut token
         // refresh membuat pengguna harus login ulang supaya role terbaru berlaku.
-        tokenRevocationService.revokeAllTokens(id);
+        long revoked = tokenRevocationService.revokeAllTokens(id);
 
+        auditService.record(actorUserId, AUDIT_TOKENS_REVOKED, id, revokedTokensDetail(revoked));
         auditService.record(actorUserId, AUDIT_ROLES_REPLACED, id, String.join(",", saved.getRoles().stream()
                 .map(Role::getName).sorted().toList()));
 
         return saved;
+    }
+
+    /**
+     * Rincian jumlah token pada catatan TOKENS_REVOKED.
+     *
+     * Kenapa dicatat per kejadian pemicu: kejadian seperti PASSWORD_CHANGED
+     * menjelaskan alasannya, tetapi tidak menjelaskan berapa sesi yang ikut
+     * mati. Jumlah itu yang dipakai saat menelusuri apakah pencabutan benar
+     * mengenai sesi yang dicurigai.
+     */
+    private String revokedTokensDetail(long revoked) {
+        return "token refresh dicabut: " + revoked;
     }
 
     private User findOrThrow(Long id) {

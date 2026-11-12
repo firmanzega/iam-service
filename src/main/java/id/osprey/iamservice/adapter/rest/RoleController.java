@@ -54,7 +54,7 @@ public class RoleController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public RoleResponse create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateRoleRequest request) {
-        return RoleResponse.from(roleService.create(request.name(), Long.valueOf(jwt.getSubject())));
+        return RoleResponse.from(roleService.create(request.name(), WebMapper.actorId(jwt)));
     }
 
     @Operation(summary = "Hapus role",
@@ -69,6 +69,6 @@ public class RoleController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
-        roleService.delete(id, Long.valueOf(jwt.getSubject()));
+        roleService.delete(id, WebMapper.actorId(jwt));
     }
 }

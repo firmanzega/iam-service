@@ -97,6 +97,9 @@ public class DomainException extends RuntimeException {
         /** Nilai unik sudah dipakai, misalnya username atau email. */
         DUPLICATE_RESOURCE(Category.CONFLICT),
 
+        /** Role masih dipakai pengguna sehingga tidak boleh dihapus. */
+        ROLE_IN_USE(Category.CONFLICT),
+
         /** Aksi tidak diizinkan pada sumber daya yang sedang dikunci. */
         FORBIDDEN_ACTION(Category.FORBIDDEN);
 

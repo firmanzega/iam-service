@@ -18,7 +18,7 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Token JWT HS256 | Access token 15 menit, refresh token 7 hari | Access token pendek membatasi dampak kalau bocor |
 | Refresh token disimpan sebagai hash SHA-256 | Yang tersimpan hanya hash-nya | Kebocoran database tidak langsung berarti kebocoran token |
 | Rotasi refresh token | Token lama dicabut begitu ditukar | Token yang dicuri hanya bisa dipakai sekali |
-| Pencabutan sesi | Ganti kata sandi, ganti role, dan nonaktifkan akun mencabut seluruh token refresh milik pengguna | Sesi lama langsung mati saat ada perubahan sensitif |
+| Pencabutan sesi | Ganti kata sandi, reset kata sandi oleh admin, ganti role, dan nonaktifkan akun mencabut seluruh token refresh milik pengguna | Sesi tidak bisa diperpanjang. Access token yang sudah terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit |
 | Validasi penerbit | Token dari penerbit lain ditolak | Mencegah token dari sistem lain dipakai di sini |
 | Validasi masa berlaku | Ditolak kalau sudah kedaluwarsa | Token lama tidak berlaku |
 | Penolakan pengguna tidak dikenal | Pesan identik dengan kata sandi salah | Mencegah enumerasi username yang terdaftar |
@@ -37,7 +37,7 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Kontrol | Detail |
 |---|---|
 | Hash BCrypt | Salt otomatis, hash berbeda tiap kali untuk kata sandi yang sama |
-| Panjang 8 sampai 72 karakter | BCrypt hanya memakai 72 byte pertama |
+| Panjang 8 sampai 72 karakter | Batas 72 dipilih agar tidak melewati batas BCrypt, yang hanya memakai 72 byte pertama. Pemeriksaan memakai jumlah karakter, jadi kata sandi berisi banyak karakter non-ASCII bisa melewati 72 byte dan kelebihannya diabaikan BCrypt |
 | Variasi jenis karakter | Minimal satu huruf dan satu angka |
 | Kunci akun | 5 kali gagal → terkunci 15 menit, dihitung **per akun** |
 
@@ -84,8 +84,16 @@ Catatan untuk dua header terakhir:
 ### 1.6 Jejak Audit
 
 Semua perubahan penting dicatat: pembuatan pengguna, perubahan data, penggantian
-role, aktivasi, penonaktifan, penggantian kata sandi, login berhasil, login
-gagal, akun terkunci, logout, dan pencabutan token.
+role pengguna, pembuatan dan penghapusan role, aktivasi, penonaktifan,
+penggantian kata sandi, login berhasil, login gagal, akun terkunci, logout, dan
+penukaran token refresh.
+
+Pencabutan token refresh secara massal juga menulis catatan audit tersendiri
+dengan kode aksi `TOKENS_REVOKED`. Catatan itu dibuat per kejadian pemicu,
+misalnya `USER_DEACTIVATED` atau `PASSWORD_CHANGED`, dan memuat aktor pemanggil,
+pengguna target, serta jumlah token yang dicabut. Kejadian pemicunya tetap
+dicatat terpisah, sehingga urutan "apa yang terjadi" dan "berapa sesi yang ikut
+mati" bisa dibaca berdampingan.
 
 Catatan untuk aksi gagal ditulis di transaksi terpisah, supaya tidak hilang
 saat transaksinya dibatalkan.
@@ -119,9 +127,9 @@ sempurna.
 | Penyerang luar | Mengenumerate username | Pesan galat identik |
 | Pengguna biasa | Membaca daftar pengguna | Aturan URL: hanya ADMIN dan AUDITOR |
 | Pengguna biasa | Mengubah akun orang lain | Aturan method: hanya pemilik akun atau ADMIN |
-| Pengguna biasa | Menaiki peran | Penguncian optimistis pada field `version` |
+| Pengguna biasa | Menaiki peran | Aturan URL dan `@PreAuthorize`: hanya ADMIN yang boleh mengganti role |
 | Penyebab kebocoran | Memakai token dari penerbit lain | Validasi claim `iss` |
-| Penyebab kebocoran | Membaca hash kata sandi dari database | Refresh token disimpan terpisah dari hash kata sandi |
+| Penyebab kebocoran | Membaca hash kata sandi dari database | Hash memakai BCrypt dengan salt, dan tidak pernah dikembalikan lewat API |
 
 ---
 

@@ -15,7 +15,7 @@
 @host = http://localhost:8080
 @adminUsername = admin
 @adminPassword = Admin1234
-@memberUsername =anggota
+@memberUsername = anggota
 @memberPassword = Anggota1234
 
 ### ============================================================
@@ -74,15 +74,28 @@ Authorization: Bearer token.ngada.atau.salah
 GET {{host}}/users?size=5
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
+### Buat pengguna biasa lebih dulu, supaya percobaan di bawah punya akun
+### Permintaan ini butuh token ADMIN
+# @name createMember
+POST {{host}}/users
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+Content-Type: application/json
+
+{
+  "username": "{{memberUsername}}",
+  "email": "anggota@mail.com",
+  "password": "{{memberPassword}}"
+}
+
 ### Dengan token user biasa -> 403
 ### Daftar pengguna hanya untuk peran ADMIN dan AUDITOR
-@name loginMember
+# @name loginMember
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
-  "identifier": "anggota",
-  "password": "Anggota1234"
+  "identifier": "{{memberUsername}}",
+  "password": "{{memberPassword}}"
 }
 
 GET {{host}}/users
@@ -90,7 +103,7 @@ Authorization: Bearer {{loginMember.response.body.accessToken}}
 
 ### Melihat akun sendiri sebagai user biasa -> 200
 ### Pengguna biasa hanya boleh melihat akunnya sendiri
-GET {{host}}/users/1
+GET {{host}}/users/{{createMember.response.body.id}}
 Authorization: Bearer {{loginMember.response.body.accessToken}}
 
 ### ============================================================
@@ -112,18 +125,6 @@ Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 ### Ambil satu pengguna
 GET {{host}}/users/1
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
-
-### Buat pengguna baru (hanya ADMIN) -> 201
-# @name createMember
-POST {{host}}/users
-Authorization: Bearer {{loginAdmin.response.body.accessToken}}
-Content-Type: application/json
-
-{
-  "username": "{{memberUsername}}",
-  "email": "anggota@mail.com",
-  "password": "{{memberPassword}}"
-}
 
 ### Buat pengguna dengan username yang sama -> 409
 POST {{host}}/users
@@ -220,7 +221,7 @@ Content-Type: application/json
 ### ============================================================
 
 ### Login sebagai anggota
-# @name loginMember
+# @name loginMemberSaatIni
 POST {{host}}/auth/login
 Content-Type: application/json
 
@@ -231,12 +232,12 @@ Content-Type: application/json
 
 ### Ganti kata sandi sendiri -> 204
 PUT {{host}}/users/{{createMember.response.body.id}}/password
-Authorization: Bearer {{loginMember.response.body.accessToken}}
+Authorization: Bearer {{loginMemberSaatIni.response.body.accessToken}}
 Content-Type: application/json
 
 {
   "currentPassword": "{{memberPassword}}",
-  "password": "PasswordLama1"
+  "newPassword": "PasswordLama1"
 }
 
 ### Ganti kata sandi orang lain -> 403
@@ -333,6 +334,6 @@ Content-Type: application/json
 ### Halaman Swagger UI
 GET {{host}}/swagger-ui.html
 
-### Deskripsi OpenAPI (butuh token ADMIN)
+### Deskripsi OpenAPI (publik di profil dev, mati di profil produksi)
 GET {{host}}/v3/api-docs
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}

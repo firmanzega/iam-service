@@ -24,12 +24,28 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
 - Alur kerja otomatis di GitHub Actions
 - Dokumentasi OpenAPI dengan deskripsi Bahasa Indonesia pada setiap endpoint
 - Jejak audit untuk seluruh perubahan penting
+- Jejak audit `TOKENS_REVOKED` pada setiap pencabutan token refresh massal,
+  memuat aktor pemanggil dan jumlah token yang dicabut
+- Catatan keputusan arsitektur kesembilan tentang perbaikan komentar migrasi
+  terapan lewat repair checksum
 
 ### Diperbaiki
+- Alasan galat saat role yang masih dipakai hendak dihapus kini `ROLE_IN_USE`,
+  bukan `DUPLICATE_RESOURCE`
+- Kata rusak pada komentar migrasi V5, disertai sinkronisasi checksum Flyway di
+  database pengembangan
+- Duplikasi penerjemah pagination dan identitas pelaku di controller, serta
+  pembacaan jejak audit yang melewati lapisan application
+- Logger `AuthService` yang dibuat ulang pada setiap pemanggilan pencabutan token
 - Teks rusak pada komentar kelas Java dan dokumentasi
 - Rujukan dokumen yang menunjuk ke berkas yang tidak ada di repositori
 - Konvensi penamaan pada panduan kontribusi yang bertentangan dengan kode, dan
   istilah artifact yang diterjemahkan di beberapa header tabel
+- Klaim dokumentasi yang tidak sesuai kode: cakupan jejak audit, dampak
+  pencabutan sesi, versi pustaka, akses dokumentasi OpenAPI, dan port profil
+  produksi
+- Koleksi `http/iam-service.http` yang tidak bisa dijalankan dari atas ke bawah
+  dan memakai nama field yang salah pada permintaan ganti kata sandi
 
 ---
 
@@ -54,16 +70,15 @@ kontrol akses berbasis peran, jejak audit, dan dokumentasi.
 - Aturan per URL dan per method untuk endpoint pengguna, role, dan jejak audit
 - Daftar pengguna hanya untuk peran ADMIN dan AUDITOR
 - Hanya pemilik akun yang boleh mengganti kata sandinya sendiri
-- Validasi penerbit token
 
 **Manajemen peran**
 - Pembuatan dan penghapusan role
 - Penggantian seluruh role milik seorang pengguna
 
 **Jejak audit**
-- Catatan untuk pembuatan pengguna, perubahan data, penggantian role,
-  aktivasi, penonaktifan, penggantian kata sandi, login, logout, dan pencabutan
-  token
+- Catatan untuk pembuatan pengguna, perubahan data, penggantian role pengguna,
+  pembuatan dan penghapusan role, aktivasi, penonaktifan, penggantian kata
+  sandi, login, logout, dan penukaran token refresh
 - Akses baca jejak audit untuk peran ADMIN dan AUDITOR
 
 **Lapisan arsitektur**

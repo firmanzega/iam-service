@@ -9,7 +9,7 @@ ketika mau cari tahu "di mana logika ini berada".
 
 ```
 src/main/java/id/osprey/iamservice/
-├── IamServiceApplication.java     titik masuk
+├── IamServiceApplication.java      titik masuk
 ├── domain/                        aturan bisnis murni
 ├── application/                   orkestrasi use case
 ├── infrastructure/                adapter ke framework dan database
@@ -85,12 +85,12 @@ Use case. Mengenal domain, tidak mengenal HTTP maupun JPA.
 
 | Berkas | Peran |
 |---|---|
-| `application/user/UserService.java` | Use case pengguna: buat, ubah, ganti role, ganti kata sandi, kunci, aktifkan |
+| `application/user/UserService.java` | Use case pengguna: cari, lihat, buat, ubah, ganti role, ganti kata sandi sendiri, reset kata sandi, nonaktifkan, aktifkan |
 | `application/auth/AuthService.java` | Use case autentikasi: login, tukar refresh token, logout, cabut semua token. Sekaligus implementasi `TokenRevocationService` |
 | `application/auth/LoginAttemptService.java` | Mencatat kegagalan login di transaksi terpisah |
 | `application/auth/TokenPair.java` | Hasil login berupa pasangan token |
 | `application/role/RoleService.java` | Use case role: daftar, buat, hapus |
-| `application/audit/AuditService.java` | Pencatatan jejak audit. Dua metode: `record` ikut transaksi, `recordIndependently` transaksi terpisah |
+| `application/audit/AuditService.java` | Pencatatan dan pembacaan jejak audit. `record` ikut transaksi, `recordIndependently` memakai transaksi terpisah, `findAll` membaca halaman jejak audit |
 | `application/security/PasswordPolicy.java` | Aturan kekuatan kata sandi |
 
 ---
@@ -134,6 +134,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `adapter/rest/AuthController.java` | Endpoint login, refresh, dan logout |
 | `adapter/rest/RoleController.java` | Endpoint role |
 | `adapter/rest/AuditController.java` | Endpoint jejak audit |
+| `adapter/rest/WebMapper.java` | Penerjemah bersama dari tipe web ke tipe domain: identitas aktor dan permintaan pagination |
 | `adapter/rest/GlobalExceptionHandler.java` | Menerjemahkan galat menjadi JSON. Termasuk pemetaan kategori `DomainException` ke status HTTP |
 | `adapter/rest/ErrorResponse.java` | Bentuk galat yang seragam |
 
@@ -162,7 +163,7 @@ Adapter yang mengimplementasikan port dari domain.
 
 | Berkas | Peran |
 |---|---|
-| `config/SecurityConfig.java` | Aturan keamanan: filter, aturan akses per URL, header keamanan, CORS, publisher dan pembaca token |
+| `config/SecurityConfig.java` | Aturan keamanan: filter, aturan akses per URL, header keamanan, CORS, serta bean `JwtEncoder` dan `JwtDecoder` |
 | `config/IamProperties.java` | Konfigurasi khusus layanan, dibungkus sebagai `@ConfigurationProperties` |
 | `config/DomainConfig.java` | Mengubah konfigurasi menjadi objek domain, misalnya `LoginPolicy` dan `TokenSettings` |
 | `config/RateLimitFilter.java` | Pembatas laju permintaan pada endpoint autentikasi |
@@ -187,7 +188,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `application/user/UserConcurrencyTest.java` | Dua PATCH bersamaan atas satu data |
 | `application/role/RoleServiceTest.java` | Unit test use case role |
 | `application/security/PasswordPolicyTest.java` | Unit test aturan kekuatan kata sandi |
-| `config/PaginationConfigTest.java` | Regression lock batas ukuran halaman |
+| `config/PaginationConfigTest.java` | Mengunci batas ukuran halaman agar tidak berubah tanpa disadari |
 | `config/RateLimitFilterTest.java` | Unit test pembatas laju permintaan |
 
 ---
@@ -197,7 +198,7 @@ Adapter yang mengimplementasikan port dari domain.
 | Lokasi | Isi |
 |---|---|
 | `src/main/resources/application.yaml` | Konfigurasi bersama, batas ukuran halaman, konfigurasi OpenAPI dan Actuator |
-| `src/main/resources/application-dev.yaml` | Profil pengembangan: SQL logged, data contoh, bootstrap administrator |
+| `src/main/resources/application-dev.yaml` | Profil pengembangan: SQL dicatat ke log, data contoh, bootstrap administrator |
 | `src/main/resources/application-prod.yaml` | Profil produksi: pool koneksi, validasi skema, **springdoc dimatikan** |
 | `src/main/resources/db/migration/` | Migrasi skema yang berlaku di semua profil |
 | `src/main/resources/db/migration-dev/` | Data contoh, hanya profil dev |

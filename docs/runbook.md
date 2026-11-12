@@ -96,6 +96,29 @@ Flyway memeriksa checksum. Kalau berbeda, build gagal.
 - Kalau sudah dipakai di server lain: **jangan** diedit. Buat migrasi baru
   yang menjalankan perubahannya.
 
+Ada satu pengecualian sempit, yaitu komentar yang rusak dan tidak mengubah satu
+perintah SQL pun. Aturannya ada di
+[ADR 0009](adr/0009-perbaikan-komentar-migrasi-terapan.md). Langkahnya:
+
+1. Buktikan dulu bahwa diff hanya menyentuh komentar:
+   ```bash
+   git diff --word-diff -- src/main/resources/db/migration/
+   ```
+2. Jalankan repair resmi pada setiap database yang sudah menjalankan migrasi
+   tersebut:
+   ```bash
+   flyway -url=jdbc:postgresql://localhost:5433/db_osprey \
+     -user=user_osprey repair
+   ```
+3. Kalau repair resmi tidak tersedia, checksum baru bisa dihitung sendiri.
+   Checksum Flyway adalah CRC32 dari setiap baris tanpa pemisah baris, dihitung
+   atas byte UTF-8. Sebelum memakai cara ini, bandingkan hasil hitungan untuk
+   beberapa migrasi lain dengan nilai yang sudah ada di `flyway_schema_history`.
+   Kalau semuanya sama, perbarui satu baris versi yang berubah.
+
+Jangan pernah memakai langkah 3 untuk migrasi yang mengubah SQL. Perbedaan satu
+karakter pada perintah SQL tidak boleh disamarkan lewat repair.
+
 ### Penyebab B: Migrasi di database tapi berkasnya hilang
 
 ```bash
@@ -117,7 +140,7 @@ untuk migrasi khusus dev, contoh `V6_5__data_contoh.sql`.
 
 ## 5. Swagger UI Kosong Putih
 
-### Periksa dulu apakah asasnya termuat
+### Periksa dulu apakah asetnya termuat
 
 ```bash
 curl -s -o NUL -w '%{http_code}\n' http://localhost:8080/swagger-ui/index.html
@@ -148,7 +171,7 @@ docker exec iam-service-db psql -U user_osprey -d db_osprey \
 ```
 
 Kalau `locked_until` masih di masa depan, akun terkunci. Tunggu sampai
-kadaluarsanya, atau reset manual:
+kedaluwarsanya, atau reset manual:
 
 ```bash
 docker exec iam-service-db psql -U user_osprey -d db_osprey \
@@ -198,8 +221,8 @@ explain analyze select ... ;
 ```
 
 Kalau pakai `LIKE '%something%'`, indeks B-tree tidak bisa dipakai. Indeks
-trigram yang sudah dibuat untuk `username` dan `email` yang semestinya
-membantu.
+trigram yang sudah dibuat untuk `username` dan `email` seharusnya membantu
+pola seperti itu.
 
 ### Deadlock
 
@@ -240,7 +263,7 @@ sebelumnya:
 4. Jalankan ulang.
 
 Kalau migrasi merusak data dan tidak ada cara memperbaiki, pulihkan dari
-cadangan. Karena itu **cadangan database terjadwal** itu wajib.
+cadangan. Karena itu **cadangan database terjadwal** wajib ada.
 
 ---
 
@@ -266,7 +289,7 @@ cadangan. Karena itu **cadangan database terjadwal** itu wajib.
 
 ---
 
-## 11. Contacts
+## 11. Kontak
 
 | Keperluan | Ke mana |
 |---|---|

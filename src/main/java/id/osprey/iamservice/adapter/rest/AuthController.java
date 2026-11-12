@@ -85,7 +85,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt,
                                        @Valid @RequestBody RefreshRequest request) {
-        authService.logout(Long.valueOf(jwt.getSubject()), request.refreshToken());
+        authService.logout(WebMapper.actorId(jwt), request.refreshToken());
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 }

@@ -90,7 +90,8 @@ public class User {
     /**
      * Mengganti hash kata sandi.
      *
-     * @param newHash hash BCrypt baru, bukan kata sandi mentah
+     * @param newHash hash kata sandi yang sudah dihitung encoder, bukan kata
+     *                sandi mentah. Algoritmanya urusan implementasi encoder.
      */
     public void changePassword(String newHash) {
         this.passwordHash = newHash;

@@ -12,10 +12,12 @@ import java.util.regex.Pattern;
  *      - Panjang minimal 8 karakter adalah batas bawah yang lazim. Yang lebih
  *        penting adalah variasi jenis karakter, karena kata sandi pendek yang
  *        hanya satu jenis karakter mudah ditebak.
- *      - Batas atas 72 karakter berasal dari BCrypt. BCrypt hanya memakai 72
- *        byte pertama, sehingga karakter setelah itu diabaikan. Menerima
- *        kata sandi lebih panjang membuat orang menyangka kata sandinya lebih
- *        kuat padahal tidak.
+ *      - Batas atas 72 karakter menjaga agar kata sandi tidak melewati batas
+ *        BCrypt, yang hanya memakai 72 byte pertama. Perlu diingat bahwa
+ *        pemeriksaan di sini menghitung karakter, bukan byte: kata sandi berisi
+ *        banyak karakter non-ASCII bisa melewati 72 byte walau panjang
+ *        karakternya masih di bawah 72, dan kelebihan itu diabaikan BCrypt.
+ *        Untuk kata sandi ASCII, kedua hitungan itu sama.
  */
 @Component
 public class PasswordPolicy {

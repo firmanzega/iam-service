@@ -1,5 +1,6 @@
 package id.osprey.iamservice.adapter.rest;
 
+import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
@@ -12,12 +13,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import id.osprey.iamservice.domain.security.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * melainkan apakah permintaan benar-benar ditahan atau diteruskan oleh
  * lapisan keamanan. Aturan ini adalah kontrak dengan pemanggil API, jadi
  * harus diuji dari sisi HTTP.
- * @SpringBootTest(properties = "iam.rate-limit.max-requests=10000")
+ *
  * Batas rate limit dinaikkan khusus untuk test ini, karena satu kelas test
  * melakukan banyak login dalam waktu singkat. Perilaku rate limiter sendiri
  * diuji terpisah di RateLimitFilterTest dengan jam yang dikendalikan.
@@ -225,6 +226,12 @@ class AuthSecurityIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"currentPassword\":\"" + PASSWORD + "\",\"newPassword\":\"BaruBanget1\"}"))
                 .andExpect(status().isNoContent());
+
+        Integer revokedRecords = jdbcTemplate.queryForObject(
+                "select count(*) from audit_logs where action = ? and target_user_id = ? and details = ?",
+                Integer.class, "TOKENS_REVOKED", memberId, "token refresh dicabut: 1");
+
+        assertEquals(1, revokedRecords);
     }
 
     @Test

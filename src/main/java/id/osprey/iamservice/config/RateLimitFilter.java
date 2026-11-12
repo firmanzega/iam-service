@@ -114,7 +114,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Kunci pemakaian berasal dari alamat IP. Header seperti X-Forwarded-For
+     * Kunci pembatasan diambil dari alamat IP. Header seperti X-Forwarded-For
      * sengaja tidak dipakai karena isinya bisa dipalsukan oleh penyerang.
      */
     private String clientKey(HttpServletRequest request) {

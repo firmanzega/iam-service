@@ -40,7 +40,9 @@ Konsekuensi teknis:
 - `spring.flyway.validate-on-migrate` bernilai `true` pada profil produksi, supaya
   migrasi yang sudah pernah dijalankan tapi isinya berubah terdeteksi sebelum dipakai.
 - Migrasi bersifat permanen. Tidak pernah mengedit migrasi yang sudah pernah
-  dijalankan; perubahan baru harus berupa migrasi baru.
+  dijalankan; perubahan baru harus berupa migrasi baru. Satu pengecualian
+  sempit untuk komentar yang tidak mengubah SQL diatur di
+  [ADR 0009](0009-perbaikan-komentar-migrasi-terapan.md).
 
 ## Dampak
 

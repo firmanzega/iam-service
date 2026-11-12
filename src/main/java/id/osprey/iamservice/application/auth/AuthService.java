@@ -11,6 +11,8 @@ import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,8 @@ import java.time.Instant;
  */
 @Service
 public class AuthService implements TokenRevocationService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private static final String AUDIT_LOGIN_SUCCESS = "LOGIN_SUCCESS";
     private static final String AUDIT_LOGIN_FAILED = "LOGIN_FAILED";
@@ -96,10 +100,11 @@ public class AuthService implements TokenRevocationService {
     /**
      * Menukar token refresh menjadi pasangan token baru.
      *
-     * Token lama langsung dicabut. Ini disebut rotasi token refresh, dan
-     * tujuannya: kalau token lama dicuri, pihak yang menyalahgunakan token
-     * itu akan tertangkap, dan pemakai asli akan menyadari saat token
-     * lamanya ditolak.
+     * Token lama langsung dicabut. Inilah rotasi token refresh: satu token
+     * hanya bisa dipakai sekali, sehingga token yang dipakai ulang ditolak.
+     * Layanan ini tidak menandai pemakaian ulang sebagai bukti pencurian.
+     * Akibatnya pemakai asli baru tahu tokennya tidak berlaku ketika token
+     * lamanya ditolak dan dia harus login ulang.
      */
     @Transactional
     public TokenPair refresh(String rawRefreshToken) {
@@ -154,17 +159,17 @@ public class AuthService implements TokenRevocationService {
 
     /**
      * Mencabut seluruh token refresh milik seorang pengguna. Dipakai saat
-     * akun dinonaktifkan atau kata sandinya diganti, supaya sesi yang sedang
-     * berjalan ikut hilang.
+     * akun dinonaktifkan, kata sandinya diganti atau direset, dan role-nya
+     * diubah, supaya sesi tidak bisa diperpanjang dengan token lama.
      */
     @Override
     @Transactional
-    public void revokeAllTokens(Long userId) {
+    public long revokeAllTokens(Long userId) {
         long revoked = refreshTokenRepository.revokeAllForUser(userId);
         if (revoked > 0) {
-            org.slf4j.LoggerFactory.getLogger(AuthService.class)
-                    .debug("Revoked {} refresh tokens for user {}", revoked, userId);
+            log.debug("Revoked {} refresh tokens for user {}", revoked, userId);
         }
+        return revoked;
     }
 
     private TokenPair issueTokens(User user) {

@@ -187,11 +187,14 @@ class UserServiceTest {
         User user = user();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(2L);
 
         userService.deactivate(1L, ACTOR_ID);
 
         assertFalse(user.isActive());
         verify(tokenRevocationService).revokeAllTokens(1L);
+        verify(auditService).record(eq(ACTOR_ID), eq("TOKENS_REVOKED"), eq(1L),
+                eq("token refresh dicabut: 2"));
         verify(auditService).record(eq(ACTOR_ID), eq("USER_DEACTIVATED"), eq(1L), eq("budi"));
     }
 
@@ -241,11 +244,14 @@ class UserServiceTest {
         when(passwordEncoder.matches("baru", "HASH")).thenReturn(false);
         when(passwordEncoder.encode("baru")).thenReturn("HASH_BARU");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(2L);
 
         userService.changePassword(1L, "lama", "baru", ACTOR_ID);
 
         assertEquals("HASH_BARU", user.getPasswordHash());
         verify(tokenRevocationService).revokeAllTokens(1L);
+        verify(auditService).record(eq(ACTOR_ID), eq("TOKENS_REVOKED"), eq(1L),
+                eq("token refresh dicabut: 2"));
         verify(auditService).record(eq(ACTOR_ID), eq("PASSWORD_CHANGED"), eq(1L), eq("budi"));
     }
 
@@ -255,12 +261,16 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("baru")).thenReturn("HASH_BARU");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(3L);
 
         userService.resetPassword(1L, "baru", ACTOR_ID);
 
         assertEquals("HASH_BARU", user.getPasswordHash());
         verify(passwordEncoder, never()).matches(anyString(), anyString());
         verify(tokenRevocationService).revokeAllTokens(1L);
+        verify(auditService).record(eq(ACTOR_ID), eq("TOKENS_REVOKED"), eq(1L),
+                eq("token refresh dicabut: 3"));
+        verify(auditService).record(eq(ACTOR_ID), eq("PASSWORD_RESET"), eq(1L), eq("budi"));
     }
 
     @Test
@@ -283,11 +293,14 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(roleRepository.findByNameIn(Set.of("USER"))).thenReturn(Set.of(role));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(1L);
 
         userService.replaceRoles(1L, Set.of("USER"), 0L, ACTOR_ID);
 
         assertEquals(1, user.getRoles().size());
         verify(tokenRevocationService).revokeAllTokens(1L);
+        verify(auditService).record(eq(ACTOR_ID), eq("TOKENS_REVOKED"), eq(1L),
+                eq("token refresh dicabut: 1"));
         verify(auditService).record(eq(ACTOR_ID), eq("ROLES_REPLACED"), eq(1L), eq("USER"));
     }
 }

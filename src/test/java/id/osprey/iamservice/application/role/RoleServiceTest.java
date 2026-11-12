@@ -77,7 +77,7 @@ class RoleServiceTest {
 
         DomainException ex = assertThrows(DomainException.class, () -> roleService.delete(1L, ACTOR_ID));
 
-        assertEquals(DomainException.Reason.DUPLICATE_RESOURCE, ex.getReason());
+        assertEquals(DomainException.Reason.ROLE_IN_USE, ex.getReason());
     }
 
     @Test

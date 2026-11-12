@@ -85,7 +85,7 @@ Permintaan
 
 | Komponen | Versi | Keterangan |
 |---|---|---|
-| Java | 21 (LTS) | Sudah terpasang bersama Maven Wrapper |
+| Java | 21 (LTS) | Dipasang terpisah, lalu arahkan `JAVA_HOME` ke JDK 21 |
 | Maven | 3.10+ | Dipakai lewat Maven Wrapper (tidak perlu diinstal) |
 | PostgreSQL | 16 | Jalankan lewat Docker Compose |
 | Docker | - | Hanya untuk menjalankan PostgreSQL |
@@ -165,7 +165,7 @@ curl -X POST http://localhost:8080/auth/login \
 ## Konfigurasi
 
 Semua kredensial dan parameter sensitif dibaca dari environment variable. Berkas `.env`
-diisi otomatis oleh Spring Boot lewat `spring.config.import`, sehingga **tidak perlu
+dibaca otomatis oleh Spring Boot lewat `spring.config.import`, sehingga **tidak perlu
 export manual** untuk menjalankan aplikasi maupun pengujian.
 
 | Variabel | Wajib | Keterangan |
@@ -257,7 +257,7 @@ Semua endpoint berada di bawah `/`, memakai JSON, dan memakai format galat yang 
 | Halaman | Alamat | Akses |
 |---|---|---|
 | Swagger UI | <http://localhost:8080/swagger-ui.html> | Publik |
-| Deskripsi OpenAPI | <http://localhost:8080/v3/api-docs> | ADMIN |
+| Deskripsi OpenAPI | <http://localhost:8080/v3/api-docs> | Publik (dimatikan di profil produksi) |
 
 Di Swagger UI, klik **Authorize** lalu tempel token akses hasil login untuk mencoba
 endpoint yang butuh autentikasi.
@@ -269,7 +269,7 @@ endpoint yang butuh autentikasi.
 ### Uji manual
 
 Panduan lengkap ada di [`docs/manual-testing.md`](docs/manual-testing.md).
-Berkas [`http/iam-service.http`](http/iam-service.http) berisi 40+ permintaan
+Berkas [`http/iam-service.http`](http/iam-service.http) berisi 38 permintaan
 yang bisa langsung dijalankan dari HTTP Client bawaan IntelliJ.
 
 ### Uji otomatis
@@ -355,7 +355,7 @@ terdokumentasi di [`docs/libraries.md`](docs/libraries.md).
 
 ## Dokumentasi
 
-| Document | Isi |
+| Dokumen | Isi |
 |---|---|
 | [`docs/onboarding.md`](docs/onboarding.md) | Panduan hari pertama untuk developer baru |
 | [`docs/libraries.md`](docs/libraries.md) | Setiap library yang dipakai, kenapa dipilih, dan di mana digunakan |
@@ -396,7 +396,7 @@ src/main/java/id/osprey/iamservice/
 
 src/main/resources/
 ├── db/migration/       migrasi Flyway (sumber kebenaran skema)
-├── db/migration-dev/  data contoh, hanya profil dev
+├── db/migration-dev/   data contoh, hanya profil dev
 └── application*.yaml
 
 docs/adr/          catatan keputusan arsitektur
@@ -429,5 +429,6 @@ Ringkasnya:
 | [0006](docs/adr/0006-transaksi-terpisah-untuk-jejak-audit.md) | Transaksi terpisah untuk jejak audit |
 | [0007](docs/adr/0007-clean-architecture-dengan-port-dan-adapter.md) | Clean Architecture dengan port dan adapter |
 | [0008](docs/adr/0008-lepaskan-kunci-asing-jejak-audit.md) | Lepaskan kunci asing pada tabel jejak audit |
+| [0009](docs/adr/0009-perbaikan-komentar-migrasi-terapan.md) | Perbaikan komentar migrasi terapan lewat repair checksum |
 
 Panduan deployment ada di [`docs/deployment.md`](docs/deployment.md).

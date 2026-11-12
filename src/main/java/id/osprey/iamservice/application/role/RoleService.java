@@ -60,7 +60,7 @@ public class RoleService {
         try {
             roleRepository.delete(role);
         } catch (DataIntegrityViolationException ex) {
-            throw new DomainException(DomainException.Reason.DUPLICATE_RESOURCE,
+            throw new DomainException(DomainException.Reason.ROLE_IN_USE,
                     "Role is still assigned to one or more users");
         }
 

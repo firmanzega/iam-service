@@ -1,5 +1,6 @@
 package id.osprey.iamservice.adapter.rest.dto;
 
+import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.User;
 
 import java.util.Set;
@@ -24,6 +25,6 @@ public record UserResponse(Long id, String username, String email, boolean activ
                 user.getEmail(),
                 user.isActive(),
                 user.getVersion(),
-                user.getRoles().stream().map(role -> role.getName()).collect(Collectors.toSet()));
+                user.getRoles().stream().map(Role::getName).collect(Collectors.toSet()));
     }
 }

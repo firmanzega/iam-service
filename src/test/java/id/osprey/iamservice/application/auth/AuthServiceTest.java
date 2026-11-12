@@ -245,8 +245,9 @@ class AuthServiceTest {
     void revokeAllTokens_delegatesToRepository() {
         when(refreshTokenRepository.revokeAllForUser(1L)).thenReturn(2L);
 
-        authService.revokeAllTokens(1L);
+        long revoked = authService.revokeAllTokens(1L);
 
+        assertEquals(2L, revoked);
         verify(refreshTokenRepository).revokeAllForUser(1L);
     }
 }

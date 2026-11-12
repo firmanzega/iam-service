@@ -2,6 +2,7 @@ package id.osprey.iamservice.config;
 
 import id.osprey.iamservice.domain.auth.LoginPolicy;
 import id.osprey.iamservice.domain.auth.TokenSettings;
+import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
@@ -12,7 +13,6 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
-import id.osprey.iamservice.domain.security.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +30,11 @@ import java.util.Set;
  *      - Hanya aktif pada profil "dev" dan hanya kalau properti
  *        iam.dev-bootstrap.enabled bernilai true. Di produksi, kelas ini tidak
  *        pernah dimuat, sehingga tidak ada akun bawaan yang bisa dieksploitasi.
- *      - Kata sandi diambil dari environment variable, bukan ditulis di kode.
+ *      - Kata sandi diambil dari environment variable IAM_DEV_ADMIN_PASSWORD.
+ *        Kalau variabel itu kosong, dipakai nilai bawaan pengembangan supaya
+ *        layanan tetap bisa dicoba tanpa konfigurasi tambahan. Nilai bawaan
+ *        itu hanya hidup di profil dev dan wajib diganti sebelum dipakai
+ *        bersama orang lain.
  */
 @Component
 @Profile("dev")

@@ -2,7 +2,6 @@ package id.osprey.iamservice.infrastructure.persistence;
 
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
-import id.osprey.iamservice.domain.shared.SortSpec;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -52,17 +51,5 @@ final class PaginationTranslator {
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages());
-    }
-
-    /**
-     * Menerjemahkan Pageable dari lapisan web menjadi permintaan domain.
-     */
-    static PaginationRequest toRequest(Pageable pageable) {
-        return new PaginationRequest(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                pageable.getSort().stream()
-                        .map(order -> new SortSpec(order.getProperty(), order.isDescending()))
-                        .toList());
     }
 }

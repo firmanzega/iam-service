@@ -1,9 +1,6 @@
 package id.osprey.iamservice.adapter.rest;
 
 import id.osprey.iamservice.application.user.UserService;
-import id.osprey.iamservice.domain.shared.PaginationRequest;
-import id.osprey.iamservice.domain.shared.SortSpec;
-import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.adapter.rest.dto.ChangePasswordRequest;
 import id.osprey.iamservice.adapter.rest.dto.CreateUserRequest;
 import id.osprey.iamservice.adapter.rest.dto.PageResponse;
@@ -12,6 +9,7 @@ import id.osprey.iamservice.adapter.rest.dto.ReplaceRolesRequest;
 import id.osprey.iamservice.adapter.rest.dto.ResetPasswordRequest;
 import id.osprey.iamservice.adapter.rest.dto.UpdateUserRequest;
 import id.osprey.iamservice.adapter.rest.dto.UserResponse;
+import id.osprey.iamservice.domain.user.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -65,10 +63,10 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
     public PageResponse<UserResponse> list(@RequestParam(required = false) String q,
-                                           @PageableDefault(size = 10, sort = ("id")) Pageable pageable) {
+                                           @PageableDefault(size = 10, sort = "id") Pageable pageable) {
 
         PageResponse<UserResponse> response = PageResponse.from(
-                userService.search(q, toRequest(pageable)), UserResponse::from);
+                userService.search(q, WebMapper.toRequest(pageable)), UserResponse::from);
 
         return response;
     }
@@ -101,7 +99,8 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody CreateUserRequest request) {
-        User created = userService.create(request.username(), request.email(), request.password(), actorId(jwt));
+        User created = userService.create(request.username(), request.email(), request.password(),
+                WebMapper.actorId(jwt));
         return UserResponse.from(created);
     }
 
@@ -119,7 +118,8 @@ public class UserController {
     public UserResponse update(@AuthenticationPrincipal Jwt jwt,
                                 @PathVariable Long id,
                                 @Valid @RequestBody UpdateUserRequest request) {
-        User updated = userService.update(id, request.username(), request.email(), request.version(), actorId(jwt));
+        User updated = userService.update(id, request.username(), request.email(), request.version(),
+                WebMapper.actorId(jwt));
         return UserResponse.from(updated);
     }
 
@@ -134,10 +134,11 @@ public class UserController {
             @ApiResponse(responseCode = "409", description = "Versi data sudah berubah oleh pihak lain")
     })
     @PatchMapping("/{id}")
-    public UserResponse update(@AuthenticationPrincipal Jwt jwt,
-                                @PathVariable Long id,
-                                @Valid @RequestBody PatchUserRequest request) {
-        User updated = userService.patch(id, request.username(), request.email(), request.version(), actorId(jwt));
+    public UserResponse patch(@AuthenticationPrincipal Jwt jwt,
+                               @PathVariable Long id,
+                               @Valid @RequestBody PatchUserRequest request) {
+        User updated = userService.patch(id, request.username(), request.email(), request.version(),
+                WebMapper.actorId(jwt));
         return UserResponse.from(updated);
     }
 
@@ -155,7 +156,7 @@ public class UserController {
     @PostMapping("/{id}/deactivate")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivate(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
-        userService.deactivate(id, actorId(jwt));
+        userService.deactivate(id, WebMapper.actorId(jwt));
     }
 
     @Operation(summary = "Aktifkan kembali pengguna",
@@ -169,7 +170,7 @@ public class UserController {
     @PostMapping("/{id}/activate")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void activate(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
-        userService.activate(id, actorId(jwt));
+        userService.activate(id, WebMapper.actorId(jwt));
     }
 
     @Operation(summary = "Ganti seluruh role pengguna",
@@ -193,7 +194,8 @@ public class UserController {
     public UserResponse updateRoles(@AuthenticationPrincipal Jwt jwt,
                                     @PathVariable Long id,
                                     @Valid @RequestBody ReplaceRolesRequest request) {
-        User updated = userService.replaceRoles(id, request.roleNames(), request.version(), actorId(jwt));
+        User updated = userService.replaceRoles(id, request.roleNames(), request.version(),
+                WebMapper.actorId(jwt));
         return UserResponse.from(updated);
     }
 
@@ -206,7 +208,7 @@ public class UserController {
      *      - Kalau aturan ditulis manual di dalam method, ada kemungkinan
      *        endpoint baru dibuat tanpa aturan sama sekali.
      *
-     * Bandingkan nama pada token dengan id pada path. Nama pada token adalah
+     * Bandingkan subjek pada token dengan id pada path. Subjek token adalah
      * claim "sub" yang diisi dengan id pengguna.
      */
     @Operation(summary = "Ganti kata sandi sendiri",
@@ -227,7 +229,8 @@ public class UserController {
     public void changePassword(@AuthenticationPrincipal Jwt jwt,
                                 @PathVariable Long id,
                                 @Valid @RequestBody ChangePasswordRequest request) {
-        userService.changePassword(id, request.currentPassword(), request.newPassword(), actorId(jwt));
+        userService.changePassword(id, request.currentPassword(), request.newPassword(),
+                WebMapper.actorId(jwt));
     }
 
     /**
@@ -248,25 +251,6 @@ public class UserController {
     public void resetPassword(@AuthenticationPrincipal Jwt jwt,
                                @PathVariable Long id,
                                @Valid @RequestBody ResetPasswordRequest request) {
-        userService.resetPassword(id, request.newPassword(), actorId(jwt));
-    }
-
-    /**
-     * Identitas pelaku perubahan, diambil dari claim "sub" pada token.
-     */
-    private Long actorId(Jwt jwt) {
-        return jwt == null ? null : Long.valueOf(jwt.getSubject());
-    }
-
-    /**
-     * Menerjemahkan pagination dari lapisan web menjadi permintaan domain.
-     */
-    private PaginationRequest toRequest(Pageable pageable) {
-        return new PaginationRequest(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                pageable.getSort().stream()
-                        .map(order -> new SortSpec(order.getProperty(), order.isDescending()))
-                        .toList());
+        userService.resetPassword(id, request.newPassword(), WebMapper.actorId(jwt));
     }
 }

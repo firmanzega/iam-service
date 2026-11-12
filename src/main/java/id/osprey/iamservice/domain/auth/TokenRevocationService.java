@@ -16,6 +16,7 @@ public interface TokenRevocationService {
      * misalnya penggantian kata sandi, penggantian role, atau akun dinonaktifkan.
      *
      * @param userId identitas pengguna
+     * @return jumlah token refresh yang dicabut
      */
-    void revokeAllTokens(Long userId);
+    long revokeAllTokens(Long userId);
 }
