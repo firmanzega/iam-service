@@ -1,0 +1,44 @@
+# Pembaruan dependensi otomatis.
+#
+# Fokus utama adalah patch keamanan, karena layanan ini memegang kredensial.
+# Pembaruan versi mayor belum otomatis karena bisa merusak apa saja.
+
+version: 2
+
+updates:
+  # Dependency Java, kelompokkan per bulan supaya tidak membanjiri pull request.
+  - package-ecosystem: maven
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "security"
+    groups:
+      spring-boot:
+        patterns:
+          - "org.springframework.boot"
+          - "org.springframework"
+      security:
+        patterns:
+          - "org.springframework.security"
+          - "com.nimbusds"
+      database:
+        patterns:
+          - "org.flywaydb"
+          - "org.postgresql"
+          - "com.zaxxer"
+      documentation:
+        patterns:
+          - "org.springdoc"
+          - "io.swagger"
+
+  # Alur kerja otomatis
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    labels:
+      - "dependencies"
+      - "ci"

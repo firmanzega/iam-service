@@ -353,6 +353,23 @@ terdokumentasi di [`docs/libraries.md`](docs/libraries.md).
 
 ---
 
+## Dokumentasi
+
+| Dokumen | Isi |
+|---|---|
+| [`docs/libraries.md`](docs/libraries.md) | Setiap library yang dipakai, kenapa dipilih, dan di mana digunakan |
+| [`docs/peta-kode.md`](docs/peta-kode.md) | Peta kode: peran setiap berkas |
+| [`docs/security.md`](docs/security.md) | Model keamanan, kontrol yang ada, dan batasannya |
+| [`docs/runbook.md`](docs/runbook.md) | Apa yang dilakukan saat ada masalah |
+| [`docs/deployment.md`](docs/deployment.md) | Panduan deployment dan manajemen secret |
+| [`docs/manual-testing.md`](docs/manual-testing.md) | Panduan uji manual lengkap |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Konvensi penamaan, format commit, alur review |
+| [`SECURITY.md`](SECURITY.md) | Kebijakan pelaporan kerentanan |
+| [`CHANGELOG.md`](CHANGELOG.md) | Riwayat perubahan per versi |
+| [`docs/adr/`](docs/adr/) | Catatan keputusan arsitektur |
+
+---
+
 ## Struktur Proyek
 
 ```
@@ -382,6 +399,9 @@ src/main/resources/
 
 docs/adr/          catatan keputusan arsitektur
 docs/libraries.md  daftar library yang dipakai dan alasannya
+docs/peta-kode.md  peta peran setiap berkas
+docs/security.md   model keamanan dan batasannya
+docs/runbook.md    tindakan saat ada masalah
 docs/deployment.md panduan deployment dan manajemen secret
 docs/manual-testing.md panduan uji manual lengkap
 http/              koleksi permintaan untuk uji manual

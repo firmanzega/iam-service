@@ -11,20 +11,27 @@
 	<groupId>id.osprey</groupId>
 	<artifactId>iam-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
+	<name>iam-service</name>
+	<description>Layanan Identity and Access Management untuk mengelola pengguna, role, dan akses ke sistem lain. Menyediakan autentikasi berbasis token JWT, kontrol akses berbasis peran, dan jejak audit.</description>
+	<url>https://github.com/firmanzega/iam-service</url>
 	<licenses>
-		<license/>
+		<license>
+			<name>MIT License</name>
+			<url>https://opensource.org/licenses/MIT</url>
+			<distribution>repo</distribution>
+		</license>
 	</licenses>
 	<developers>
-		<developer/>
+		<developer>
+			<name>Firman Zega</name>
+			<url>https://github.com/firmanzega</url>
+		</developer>
 	</developers>
 	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
+		<connection>scm:git:https://github.com/firmanzega/iam-service.git</connection>
+		<developerConnection>scm:git:git@github.com:firmanzega/iam-service.git</developerConnection>
+		<url>https://github.com/firmanzega/iam-service</url>
+		<tag>HEAD</tag>
 	</scm>
 	<properties>
 		<java.version>21</java.version>

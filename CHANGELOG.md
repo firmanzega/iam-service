@@ -1,0 +1,97 @@
+# Changelog
+
+Semua perubahan penting pada proyek ini dicatat di berkas ini.
+
+Format-nya mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/),
+dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
+
+---
+
+## [Belum Dirilis]
+
+Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
+
+### Ditambahkan
+- Dokumentasi library yang dipakai beserta alasan dan versinya
+- Peta kode yang menunjukkan peran setiap berkas
+- Panduan kontribusi berisi konvensi penamaan dan alur review
+- Dokumen model keamanan beserta batas-batasnya
+- Kebijakan pelaporan kerentanan
+- Pemeriksaan cakupan kode otomatis dengan ambang 80 persen
+- Alur kerja otomatis di GitHub Actions
+- Dokumentasi OpenAPI dengan deskripsi Bahasa Indonesia pada setiap endpoint
+- Jejak audit untuk seluruh perubahan penting
+
+---
+
+## [0.1.0] - 2026-11-12
+
+Versi pertama yang lengkap: layanan identitas dan akses dengan autentikasi,
+kontrol akses berbasis peran, jejak audit, dan dokumentasi.
+
+### Ditambahkan
+
+**Autentikasi**
+- Token JWT HS256 dengan access token 15 menit dan refresh token 7 hari
+- Penyimpanan refresh token sebagai hash SHA-256
+- Rotasi refresh token, token lama langsung dicabut setelah ditukar
+- Pencabutan seluruh sesi saat ganti kata sandi, ganti role, atau nonaktifkan akun
+- Login dengan username maupun email
+- Kunci akun otomatis setelah lima kali gagal, dihitung per akun
+- Penolakan login dengan pesan identik untuk username salah dan password salah
+- Validasi penerbit token
+
+**Kontrol akses**
+- Aturan per URL dan per method untuk endpoint pengguna, role, dan jejak audit
+- Daftar pengguna hanya untuk peran ADMIN dan AUDITOR
+- Hanya pemilik akun yang boleh mengganti kata sandinya sendiri
+- Validasi penerbit token
+
+**Manajemen peran**
+- Pembuatan dan penghapusan role
+- Penggantian seluruh role milik seorang pengguna
+
+**Jejak audit**
+- Catatan untuk pembuatan pengguna, perubahan data, penggantian role,
+  aktivasi, penonaktifan, penggantian kata sandi, login, logout, dan pencabutan
+  token
+- Akses baca jejak audit untuk peran ADMIN dan AUDITOR
+
+**Lapisan arsitektur**
+- Pemisahan menjadi lapisan domain, application, infrastructure, dan adapter
+- Repository sebagai port di domain dengan adapter di infrastruktur
+- Entitas domain tanpa anotasi JPA
+- Galat domain dengan kategori, dipetakan ke status HTTP di lapisan adapter
+- Pengujian otomatis yang memeriksa arah dependensi antar lapisan
+
+**Basis data**
+- Migrasi Flyway sebagai satu sumber kebenaran skema
+- Tabel refresh token dan jejak audit
+- Indeks kunci asing, indeks trigram untuk pencarian, dan indeks status aktif
+- Data contoh pada lokasi migrasi terpisah yang hanya dipindai di profil dev
+
+**Dokumentasi**
+- README lengkap dengan konfigurasi, daftar endpoint, dan struktur proyek
+- Delapan catatan keputusan arsitektur
+- Panduan deployment dan manajemen secret
+- Panduan uji manual dengan contoh keluaran sungguhan
+- Koleksi permintaan HTTP siap pakai
+
+**Operasional**
+- Endpoint kesehatan dan metrik lewat Spring Boot Actuator
+- Dokumentasi OpenAPI dengan Swagger UI, dimatikan di profil produksi
+- Alur kerja otomatis di GitHub Actions
+- Pemeriksaan cakupan kode dengan ambang 80 persen
+
+### Diperbaiki
+- Batas ukuran halaman yang diam-diam diabaikan karena anotasi
+  `@EnableSpringDataWebSupport`
+- Kegagalan pengujian di mesin baru karena berkas `.env` tidak dibaca otomatis
+- Profil produksi yang gagal start karena tidak ada konfigurasi datasource
+- Pengurutan pada kolom hash kata sandi yang diizinkan
+- Pengujian yang meninggalkan data sampah di database
+- Deadlock saat dua pembaruan pengguna berjalan bersamaan
+- Halaman Swagger UI yang tampil kosong putih
+
+[Belum Dirilis]: https://github.com/firmanzega/iam-service/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/firmanzega/iam-service/releases/tag/v0.1.0

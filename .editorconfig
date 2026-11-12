@@ -1,0 +1,47 @@
+# Konfigurasi editor untuk iam-service
+#
+# Terapkan otomatis oleh sebagian besar editor. Untuk IntelliJ IDEA, file
+# ini ikut terbaca, tapi setelan bawaan IDE bisa menimpanya. Kalau keduanya
+# berbeda,Ikuti file ini.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+[*.{java,kt}]
+indent_size = 4
+
+[*.{yaml,yml}]
+indent_size = 2
+
+[*.{xml,pom.xml}]
+indent_size = 4
+
+[*.{json,jsonc}]
+indent_size = 2
+
+[*.{md,http}]
+indent_size = 4
+trim_trailing_whitespace = false
+
+[*.sql]
+indent_size = 4
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
+[*.sh]
+end_of_line = lf
+
+[*.properties]
+end_of_line = lf
+
+[Makefile]
+indent_style = tab
