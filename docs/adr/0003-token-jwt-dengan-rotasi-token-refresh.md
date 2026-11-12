@@ -21,7 +21,7 @@ Kebutuhan yang muncul:
 
 | Alternatif | Kelebihan | Kekurangan |
 |---|---|---|
-| **A. Sesi di server (cookie)** | Sederhana, pencabutan mudah | Butuh penyimpanan state,skala horizontalnya mahal |
+| **A. Sesi di server (cookie)** | Sederhana, pencabutan mudah | Butuh penyimpanan state, skala horizontalnya mahal |
 | **B. Token JWT tanpa refresh** | Paling sederhana | Masa berlaku token access jadi tradeoff: pendek berarti sering login, panjang berarti token yang dicuri tetap berlaku lama |
 | **C. Token JWT access + refresh dengan rotasi** | Pencabusan mungkin, access token bisa pendek | Butuh penyimpanan token refresh dan logika rotasi |
 | **D. Token opaque + tabel penyimpanan** | Pencabutan mudah, isi token tidak terbaca | Butuh lookup ke database pada setiap permintaan |
@@ -29,7 +29,7 @@ Kebutuhan yang muncul:
 
 ## Keputusan
 
-**Menggunakan token JWT beranda tangan HS256, terdiri atas dua jenis:**
+**Menggunakan token JWT bertanda tangan HS256, terdiri atas dua jenis:**
 
 | Jenis | Masa berlaku | Isi | Disimpan di server |
 |---|---|---|---|

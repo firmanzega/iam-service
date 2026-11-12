@@ -1,6 +1,6 @@
 # Glosarium
 
-Kamus istilah yang dipakai di proyek ini. Tujuannya satu: biar orang yang baru
+Kamus istilah yang dipakai di proyek ini. Tujuannya satu: supaya orang yang baru
 membaca kode tidak menebak-nebak apa arti suatu kata.
 
 Format tiap entri: istilah Indonesia, padanannya dalam bahasa Inggris, lalu
@@ -13,7 +13,7 @@ artinya dalam konteks layanan ini.
 | Istilah | Inggris | Arti |
 |---|---|---|
 | IAM | Identity and Access Management | Layanan yang mengurus identitas pengguna dan hak aksesnya ke sistem lain |
-| Peran | Role | Namai kelompok hak akses, misalnya `ADMIN` atau `AUDITOR`. Disimpan di tabel `roles` |
+| Peran | Role | Nama kelompok hak akses, misalnya `ADMIN` atau `AUDITOR`. Disimpan di tabel `roles` |
 | Hak akses | Authority, GrantedAuthority | Bentuk izin spesifik yang dipakai Spring Security, selalu berawalan `ROLE_` |
 | RBAC | Role-Based Access Control | Model akses berbasis peran: izin ikut peran, bukan melekat langsung ke pengguna |
 | Penegakan aturan | Enforcement | Lapisan yang menolak permintaan yang tidak memenuhi aturan, ada di `SecurityConfig` dan `@PreAuthorize` |
@@ -33,7 +33,7 @@ artinya dalam konteks layanan ini.
 | Tanda tangan | Signature | Bukti keaslian token, dihitung dengan kunci HMAC HS256 |
 | Masa berlaku | Time to live, TTL | Lamanya token masih diterima |
 | Pencabutan | Revocation | Tanda bahwa token sudah tidak boleh dipakai, disimpan di tabel `refresh_tokens` |
-| Pencabutan seluruh sesi | Revoke all | Menghapus semua token refresh milik satu pengguna sekaligus |
+| Pencabutan seluruh sesi | Revoke all | Mencabut semua token refresh milik satu pengguna sekaligus |
 
 ## 3. Kata Sandi dan Kunci
 
@@ -65,7 +65,7 @@ artinya dalam konteks layanan ini.
 | Checksum | Checksum | Sidik jari isi migrasi. Kalau berubah, Flyway menolak jalan karena migrasi lama sudah pernah dipakai |
 | Di luar urutan | Out of order | Migrasi dengan nomor versi lebih besar yang dijalankan sebelum migrasi bernomor lebih kecil |
 | Penguncian optimistis | Optimistic locking | Menolak perubahan kalau data sudah berubah sejak dibaca, ditandai lewat kolom `version` |
-| Versi | Version | Angka pada kolom `version`, dipakai bersama `If-Match` saat mengubah data |
+| Versi | Version | Angka pada kolom `version`, dikirim sebagai field `version` di body permintaan saat mengubah data. Layanan ini tidak memakai header `If-Match` |
 | Konflik versi | Version conflict | Situasi saat penguncian optimistis menolak perubahan, kode galat 409 |
 | Halaman | Page | Potongan data yang dikembalikan sekaligus, punya nomor halaman dan jumlah baris per halaman |
 | Batas ukuran halaman | Max page size | Batas keras jumlah baris per halaman, 50 di layanan ini |

@@ -63,7 +63,7 @@ jobs:
         # gagal kalau ambang itu tidak tercapai.
         run: ./mvnw --batch-mode --no-transfer-progress verify
 
-      - name: Ungah laporan cakupan
+      - name: Unggah laporan cakupan
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -71,7 +71,7 @@ jobs:
           path: target/site/jacoco/
           retention-days: 14
 
-      - name: Ungah laporan pengujian
+      - name: Unggah laporan pengujian
         if: always()
         uses: actions/upload-artifact@v4
         with:

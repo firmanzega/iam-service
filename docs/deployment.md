@@ -121,6 +121,10 @@ $env:SPRING_PROFILES_ACTIVE = "dev"
 .\mvnw.cmd spring-boot:run
 ```
 
+Profil `prod` memakai port `9090`, sedangkan profil `dev` memakai `8080`.
+Nilainya ada di `application-prod.yaml`; kalau butuh port lain, timpa lewat
+environment variable `SERVER_PORT`.
+
 ---
 
 ## 3. Bagian yang Dibuka ke Publik
@@ -128,8 +132,8 @@ $env:SPRING_PROFILES_ACTIVE = "dev"
 | Endpoint | Akses | Catatan |
 |---|---|---|
 | `/actuator/health` | Publik | Isinya tidak sensitif karena detail komponen tidak ditampilkan |
-| `/swagger-ui.html` | Publik | Hanya kerangka halaman, tanpa deskripsi API |
-| `/v3/api-docs` | ADMIN | Deskripsi API hanya untuk internal |
+| `/swagger-ui.html` | Publik | Hanya tersedia di profil dev; springdoc dimatikan di profil produksi |
+| `/v3/api-docs` | Publik | Sama seperti Swagger UI: hidup di dev, dimatikan di produksi. Jangan bergantung pada role untuk menutupnya |
 | `/auth/login` | Publik | Wajib ada, tapi perlu rate limit dan kunci akun |
 
 ---

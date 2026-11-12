@@ -53,7 +53,7 @@ Pengecualian: nama yang sudah menjadi bagian dari antarmuka pustaka, seperti
 Nama artifact kode sendiri juga ditulis dalam bahasa Inggris, bahkan ketika
 disebut di dalam tabel dokumentasi. Jadi tulis `Class`, `Interface`, `Record`,
 `Enum`, `Method`, `Field`, `Constant`, dan `Package`, bukan terjemahannya.
-Yang boleh diterjemahkan adalah penjelasan aturannya, bukan nama bendahnya.
+Yang boleh diterjemahkan adalah penjelasan aturannya, bukan nama bendanya.
 
 ---
 
@@ -150,7 +150,7 @@ Baris pertama ringkas dan memakai kata kerja sekarang: "tambah", "perbaiki",
 "pindahkan", "hapus".
 
 Baris di bawahnya boleh berisi penjelasan **kenapa** perubahan itu perlu.
-Yang "apa" sudah terbaca dari diffnya.
+Yang "apa" sudah terbaca dari diff-nya.
 
 Contoh:
 
@@ -223,7 +223,7 @@ Kalau baru pertama kali bergabung, mulai dari
 
 1. Pakai starter Spring Boot kalau ada. Itu cara paling aman karena versinya
    sudah dikelola `spring-boot-starter-parent`.
-2. Pastikan benar-benar dipakai. Kalau cuma satu kelas yang memakainya,
+2. Pastikan benar-benar dipakai. Kalau hanya satu kelas yang memakainya,
    pustaka penuh mungkin berlebihan.
 3. Kalau pustaka itu menyentuh lapisan domain, bungkus di balik port.
 4. Perbarui `docs/libraries.md`.
@@ -237,9 +237,9 @@ Semua issue, pull request, dan komentar pakai Bahasa Indonesia yang baku.
 Jangan pakai istilah yang belum jelas artinya bagi pembaca baru.
 
 Istilah teknis berbahasa Inggris boleh dipakai, tapi pakai yang sama terus-menerus
-supaya tidak membingungkan. Contoh yang perlu dibedakan: `password` dan
-`kata sandi`, `token refresh` dan `token akses`. Istilah yang dipakai di kode
-sudah punya artinya di [`docs/glossary.md`](docs/glossary.md).
+supaya tidak membingungkan. Pilih satu sebutan untuk satu hal, lalu pakai
+sebutan itu di seluruh dokumen. Istilah yang dipakai di kode sudah punya
+artinya di [`docs/glossary.md`](docs/glossary.md).
 
 Untuk perubahan besar, usulkan pendekatan lebih dulu di issue atau
 diskusi sebelum menulis kodenya. Perubahan yang besar tanpa kesepakatan lebih

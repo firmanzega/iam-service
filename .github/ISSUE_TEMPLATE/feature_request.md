@@ -12,8 +12,8 @@ Apa yang mau ditambahkan, dalam satu kalimat.
 
 ## Masalah yang Diselesaikan
 
-Feature ini memecahkan masalah apa? Kalau tidak ada masalah yang nyata,
-tulis dulu feature-nya kecil. Usulan tanpa alasan sulit di-review.
+Fitur ini memecahkan masalah apa? Kalau tidak ada masalah yang nyata, tulis
+dulu usulannya kecil. Usulan tanpa alasan sulit ditinjau.
 
 ## Usulan
 

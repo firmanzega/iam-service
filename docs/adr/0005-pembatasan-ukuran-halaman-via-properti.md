@@ -1,4 +1,4 @@
-# ADR 0005 - Pembatasan Ukuran Halaman Lewat Properti Spring Boot
+# ADR 0005 — Pembatasan Ukuran Halaman Lewat Properti Spring Boot
 
 - **Status**: Dipakai
 - **Tanggal**: 2026-01-11
@@ -10,7 +10,7 @@ baris yang dikembalikan. Tanpa batas, klien bisa meminta `size=1000000`.
 
 Dampaknya bukan sekadar "balasan besar". Setiap baris pengguna ikut menarik
 relasi role-nya, jadi satu permintaan bisa menarik gugus baris dari database.
-Ini penolakan layanan yang tidak butuh banyak usaha untuk dilakukan.
+Ini penolakan layanan yang bisa dilakukan tanpa banyak usaha.
 
 Yang membuat masalah ini tidak langsung terlihat: konfigurasi
 `spring.data.web.pageable.max-page-size` **sudah ada** di berkas konfigurasi,

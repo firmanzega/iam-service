@@ -25,7 +25,7 @@ Isi laporan yang membantu:
 ### Yang Perlu Dijaga
 
 - Beri waktu yang cukup untuk rilis perbaikan, idealnya 90 hari
-- Jangan sungkapkan data pengguna nyata milik orang lain
+- Jangan ungkapkan data pengguna nyata milik orang lain
 - Jangan bocorkan ke publik sebelum ada perbaikan yang keluar
 
 ### Yang akan Terjadi

@@ -1,9 +1,9 @@
-# ADR 0000 - Template Catatan Keputusan Arsitektur
+# ADR 0000 — Template Catatan Keputusan Arsitektur
 
 > Salin berkas ini menjadi `docs/adr/NNNN-judul-keputusan.md`, lalu isi
 > bagiannya. Ganti `NNNN` dengan nomor urut berikutnya, dua digit.
 
-# ADR NNNN - Judul Keputusan
+# ADR NNNN — Judul Keputusan
 
 - **Status**: Dipakai | Usulan | Ditolak | Digantikan oleh ADR NNNN
 - **Tanggal**: YYYY-MM-DD

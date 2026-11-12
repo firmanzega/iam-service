@@ -1,4 +1,4 @@
-# ADR 0007 - Clean Architecture dengan Port dan Adapter
+# ADR 0007 — Clean Architecture dengan Port dan Adapter
 
 - **Status**: Dipakai
 - **Tanggal**: 2026-01-11

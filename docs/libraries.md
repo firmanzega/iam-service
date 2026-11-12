@@ -2,7 +2,7 @@
 
 Dokumen ini menjelaskan setiap pustaka yang dipakai di layanan ini: apa
 fungsinya, kenapa dipilih, dan di mana penggunaannya. Tujuannya supaya
-pemancing proyek ini tidak perlu menebak-nebak kenapa sebuah library ada.
+pembaca proyek ini tidak perlu menebak-nebak kenapa sebuah library ada.
 
 Semua versi library dikelola oleh `spring-boot-starter-parent`, kecuali
 `springdoc` yang dikunci manual karena tidak ikut dikelola Spring Boot.
@@ -17,8 +17,8 @@ Semua versi library dikelola oleh `spring-boot-starter-parent`, kecuali
 | Data | `spring-boot-starter-data-jpa` | 4.1.2 |
 | Database | `postgresql` | 42.7.14 |
 | Migrasi | `spring-boot-starter-flyway` + `flyway-database-postgresql` | 12.4.0 |
-| Keamanan | `spring-boot-starter-security` | 7.1.2 |
-| Token | `spring-boot-starter-oauth2-resource-server` + Nimbus | 10.9.1 |
+| Keamanan | `spring-boot-starter-security` | 4.1.2 (Spring Security 7.1.2) |
+| Token | `spring-boot-starter-oauth2-resource-server` + Nimbus | 4.1.2 (Nimbus 10.9.1) |
 | Hash kata sandi | `spring-security-crypto` | 7.1.2 |
 | Validasi | `spring-boot-starter-validation` | 4.1.2 |
 | Dokumentasi | `springdoc-openapi-starter-webmvc-ui` | 3.2.0 |
@@ -53,19 +53,19 @@ serialisasi JSON.
 **Apa itu:** Starter untuk lapisan persistensi berbasis JPA. Menggabungkan
 Spring Data JPA, Hibernate ORM, dan Spring JDBC.
 
-**Kenapa dipakai:** Menempatkan entitas dengan basis data tanpa menulis SQL
-manual, serta repository generik dan penguncian optimistis lewat
-annotasi `@Version`.
+**Kenapa dipakai:** Memetakan entitas ke basis data tanpa menulis SQL manual,
+serta menyediakan repository generik dan penguncian optimistis lewat
+anotasi `@Version`.
 
 **Dipakai di:** `infrastructure/persistence/*`
 
 **Yang perlu diperhatikan:**
 
-- **Hibernate 7** sekarang punya `ddl-auto: validate` yang dipakai di
-  profil dev dan produksi. Skema harus cocok dengan hasil migrasi Flyway.
+- Skema divalidasi lewat `spring.jpa.hibernate.ddl-auto: validate` di profil
+  dev dan produksi. Skema database harus cocok dengan hasil migrasi Flyway.
 - Penguncian optimistis bekerja lewat kolom `version`. Kalau kolom itu
   dihapus dari entity, mekanismenya ikut hilang.
-- HQL diparse dengan **ANTLR**, makanya `antlr4-runtime` ikut terbawa.
+- HQL diurai dengan **ANTLR**, karena itu `antlr4-runtime` ikut terbawa.
 
 ### 2.3 `postgresql` (JDBC Driver)
 
@@ -78,10 +78,10 @@ annotasi `@Version`.
 
 **Yang perlu diperhatikan:**
 
-- Driver ini menyediakan **klien PostgreSQL** untuk Management API, jadi
-  `pg_trgm` dan `TIMESTAMP WITH TIME ZONE` bisa dipakai tanpa pustaka
-  tambahan.
--IRONMENT Pool-nya adalah **HikariCP**, bukan PgBouncer. Untuk beban tinggi,
+- Driver ini memetakan tipe PostgreSQL seperti `TIMESTAMP WITH TIME ZONE` dan
+  `JSONB` ke tipe Java yang sesuai, sehingga tidak perlu pustaka tambahan.
+  Ekstensi `pg_trgm` sendiri dipasang lewat migrasi Flyway, bukan lewat driver.
+- Pool koneksinya adalah **HikariCP**, bukan PgBouncer. Untuk beban tinggi,
   connection pool eksternal lebih baik.
 
 ### 2.4 `spring-boot-starter-flyway` + `flyway-database-postgresql`
@@ -106,7 +106,7 @@ diaudit. Lihat [ADR 0001](adr/0001-flyway-sebagai-sumber-kebenaran-skema.md).
 ### 2.5 `spring-boot-starter-security`
 
 **Apa itu:** Framework keamanan Spring. Menyediakan filter autentikasi,
-otorisasi URL,_method, dan pengaman kata sandi.
+otorisasi per URL dan per method, serta pengaman kata sandi.
 
 **Kenapa dipakai:** Layanan ini mengatur identitas dan akses. Tanpa Security,
 setiap endpoint bisa dipanggil siapa saja.
@@ -140,10 +140,11 @@ pustaka Nimbus untuk itu.
 **Yang perlu diperhatikan:**
 
 - Pustaka yang benar-benar bekerja adalah **Nimbus JOSE JWT**
-  (`com.nimbusds.jose.jwt`). Spring Security hanya mengonfigurasi decoder
-  dan encoder di atasnya.
-- Header `kid` pada token dipakai untuk menandai kunci mana yang dipakai.
-  Ini prasyarat untuk rotasi kunci tanpa memutus sesi lama.
+  (`com.nimbusds.jose` dan `com.nimbusds.jwt`). Spring Security hanya
+  mengonfigurasi decoder dan encoder di atasnya.
+- Layanan ini belum memasang header `kid` pada token. Header itu baru
+  dibutuhkan kalau nanti ada rotasi kunci tanpa memutus sesi lama, karena ia
+  menandai kunci mana yang dipakai.
 - **Validasi issuer** (`iss`) harus diaktifkan. Tanpa itu, token yang
   ditandatangani dengan kunci yang sama tapi penerbit berbeda akan diterima.
 
@@ -159,9 +160,10 @@ filter keamanan.
 
 **Yang perlu diperhatikan:**
 
-- **BCrypt hanya memakai 72 byte pertama.** Karakter setelah itu
-  diabaikan. Karena itu aturan kekuatan kata sandi membatasi panjangnya di
-  72 karakter.
+- **BCrypt hanya memakai 72 byte pertama.** Byte setelah itu diabaikan.
+  Karena itu aturan kekuatan kata sandi membatasi panjang masukan, walau
+  pemeriksaannya memakai jumlah karakter sehingga kata sandi non-ASCII tetap
+  bisa melewati 72 byte.
 - BCrypt dengan **salt bawaan** menghasilkan hash berbeda setiap kali untuk
   kata sandi yang sama. Itu perilaku yang benar, bukan bug.
 
@@ -181,7 +183,7 @@ yaitu lapisan antarmuka, bukan di dalam logika bisnis.
   `@Validated` atau parameter tidak diberi `@Valid`. Di sini setiap
   parameter body diberi `@Valid`.
 - Aturan kekuatan kata sandi **tidak** pakai anotasi, karena aturan itu
- _domain_ dan dipakai juga oleh reset kata sandi oleh admin.
+  milik *domain* dan dipakai juga oleh reset kata sandi oleh admin.
 
 ### 2.9 `springdoc-openapi-starter-webmvc-ui`
 
@@ -210,7 +212,7 @@ yang selalu sesuai dengan kode.
 ### 2.10 `spring-boot-starter-actuator`
 
 **Apa itu:** Endpoint operasional Spring Boot untuk kesehatan, metrik, dan
-informasi lingkungan.
+informasi aplikasi.
 
 **Kenapa dipakai:** Orkestrasi butuh tahu apakah layanan sehat. Metriknya
 juga berguna untuk melihat perilaku nyata di produksi.
@@ -230,8 +232,8 @@ juga berguna untuk melihat perilaku nyata di produksi.
 | Library | Isi |
 |---|---|
 | `spring-boot-starter-test` | JUnit 5, Mockito, AssertJ, Hamcrest, JSONassert |
-| `spring-boot-starter-webmvc-test` | MockMvc, {@code @WebMvcTest}, JSON Path |
-| `spring-boot-starter-data-jpa-test` | {@code @DataJpaTest} dan pengujian database |
+| `spring-boot-starter-webmvc-test` | MockMvc, `@WebMvcTest`, JSON Path |
+| `spring-boot-starter-data-jpa-test` | `@DataJpaTest` dan pengujian database |
 
 **Kenapa dipisah:** Spring Boot 4 memecah paket pengujian menjadi beberapa
 starter per modul. Yang dipakai hanya yang sesuai.
@@ -239,9 +241,9 @@ starter per modul. Yang dipakai hanya yang sesuai.
 **Yang perlu diperhatikan:**
 
 - **Mockito memakai Byte Buddy** untuk membuat tiruan. Peringatan
-  "Mockito is currently self-attaching" muncul karena Java-agent akan
-  dimuat secara dinamis. Peringatan ini belum menjadi masalah, tapi akan
-  menjadi someday kalau Java melarang pemuatan agent dinamis.
+  "Mockito is currently self-attaching" muncul karena Java-agent dimuat
+  secara dinamis. Peringatan ini belum menjadi masalah, tetapi akan menjadi
+  masalah kalau suatu saat Java melarang pemuatan agent dinamis.
 - **JSONassert** dipakai oleh pengujian integrasi untuk membandingkan JSON
   tanpa bergantung pada urutan field.
 
@@ -249,37 +251,37 @@ starter per modul. Yang dipakai hanya yang sesuai.
 
 ## 3. Dependency Transitif yang Perlu Dipahami
 
-Kadang library yang paling sering bikin bingung justru yang tidak disebut
+Kadang library yang paling sering membuat bingung justru yang tidak disebut
 langsung di `pom.xml`.
 
 | Library | Versi | Peran |
 |---|---|---|
-| `tools.jackson.databind` | 3.1.7 | **Jackson 3**. Serializer dan deserializer JSON |
-| `com.fasterxml.jackson.annotation` | 2.21.7 | Anotasi Jackson. Jackson 3 masih memakai paket anotasi yang lama |
-| `org.hibernate.orm.core` | 7.4.13 | Hibernate ORM, implementasi JPA |
-| `org.hibernate.validator` | 9.1.5 | Implementasi Jakarta Bean Validation |
-| `com.nimbusds.jose.jwt` | 10.9.1 | Pembuat dan pembaca JWT |
-| `com.zaxxer.hikari` | 7.0.2 | Connection pool untuk koneksi database |
-| `io.swagger.v3.oas.models` | 3.2.0 | Model objek OpenAPI |
-| `swagger.ui` | 5.34.0 | Aset web Swagger UI |
-| `org.webjars.locator_lite` | 1.0.1 | Pencari aset webjar |
-| `org.yaml.snakeyaml` | 2.6 | Pembaca berkas YAML, dipakai untuk berkas konfigurasi |
-| `ch.qos.logback.classic` | 1.5.38 | Implementasi logging |
-| `org.slf4j` | 2.0.x | Facade logging yang dipakai kode aplikasi |
-| `io.micrometer` | 1.17.2 | Pengumpulan metrik |
-| `net.bytebuddy` | 1.18.15 | Pembuat kelas tiruan untuk Mockito |
-| `org.jspecify` | 1.0.1 | Anotasi nullability |
+| `tools.jackson.core:jackson-databind` | 3.1.7 | **Jackson 3**. Serializer dan deserializer JSON |
+| `com.fasterxml.jackson.core:jackson-annotations` | 2.21 | Anotasi Jackson. Jackson 3 masih memakai paket anotasi yang lama |
+| `org.hibernate.orm:hibernate-core` | 7.4.13.Final | Hibernate ORM, implementasi JPA |
+| `org.hibernate.validator:hibernate-validator` | 9.1.5.Final | Implementasi Jakarta Bean Validation |
+| `com.nimbusds:nimbus-jose-jwt` | 10.9.1 | Pembuat dan pembaca JWT |
+| `com.zaxxer:HikariCP` | 7.0.2 | Connection pool untuk koneksi database |
+| `io.swagger.core.v3:swagger-core-jakarta` | 2.2.55 | Model objek OpenAPI |
+| `org.webjars:swagger-ui` | 5.34.0 | Aset web Swagger UI |
+| `org.webjars:webjars-locator-lite` | 1.1.5 | Pencari aset webjar |
+| `org.yaml:snakeyaml` | 2.6 | Pembaca berkas YAML, dipakai untuk berkas konfigurasi |
+| `ch.qos.logback:logback-classic` | 1.5.38 | Implementasi logging |
+| `org.slf4j:slf4j-api` | 2.0.20 | Facade logging yang dipakai kode aplikasi |
+| `io.micrometer:micrometer-core` | 1.17.2 | Pengumpulan metrik |
+| `net.bytebuddy:byte-buddy` | 1.18.15 | Pembuat kelas tiruan untuk Mockito |
+| `org.jspecify:jspecify` | 1.0.1 | Anotasi nullability |
 | `org.antlr:antlr4-runtime` | 4.13.2 | Parser HQL milik Hibernate |
-| `jakarta.validation-api` | 3.1.1 | Antarmuka Bean Validation |
-| `jakarta.persistence-api` | 3.2.0 | Antarmuka JPA |
-| `org.apache.tomcat.embed.core` | 11.0.27 | Server HTTP tempat aplikasi berjalan |
+| `jakarta.validation:jakarta.validation-api` | 3.1.1 | Antarmuka Bean Validation |
+| `jakarta.persistence:jakarta.persistence-api` | 3.2.0 | Antarmuka JPA |
+| `org.apache.tomcat.embed:tomcat-embed-core` | 11.0.27 | Server HTTP tempat aplikasi berjalan |
 
 ### Jebakan Jackson 3
 
 Spring Boot 4 memakai **Jackson 3**, yang paketnya pindah ke `tools.jackson`:
 
 ```java
-// Jackson 3, untuk serialize dan deserialize
+// Jackson 3, untuk serialisasi dan deserialisasi
 import tools.jackson.databind.ObjectMapper;
 
 // anotasi masih di paket lama
@@ -298,10 +300,10 @@ masih membawa Jackson 2 untuk keperluan pengujian.
 |---|---|
 | **Lombok** | Membuat setter otomatis pada entitas domain. Entitas di sini sengaja **tidak punya setter** untuk bagian sensitif, dan aturan bisnisnya memakai method bermakna. Lombok juga menambah annotation processor yang memperlambat build |
 | **MapStruct** | Pemetaan di proyek ini masih sedikit dan masih jelas ditulis manual. Menambah pustaka pemetaan untuk empat agregat tidak sebanding dengan konfigurasinya |
+| **QueryDSL** | Query yang dipakai masih bisa ditulis jelas dengan Spring Data dan satu query JPQL. QueryDSL menambah generator kelas dan langkah build baru |
 | **Bucket4j** | Rate limiter bawaan sudah cukup untuk satu instance, dan kunci akun per akun sudah menjadi lapisan kedua. Kalau nanti butuh rate limit global, tempatnya di gateway, bukan di aplikasi |
 | **Redis** | Belum ada kebutuhan terdistribusi. Menambahkannya berarti menambah infrastruktur untuk masalah yang belum terjadi |
 | **Testcontainers** | Database pengembangan lokal sudah ada lewat Docker Compose. Testcontainers lebih berguna kalau butuh pengujian dengan banyak versi database sekaligus |
-| **MapStruct, QueryDSL, Project Lombok** | Semuanya menambah lapisan abstraksi. Aturan di proyek ini cukup terbaca apa adanya |
 | **Resilience4j** | Belum ada panggilan ke layanan luar yang perlu retry atau circuit breaker |
 
 ---
@@ -310,11 +312,11 @@ masih membawa Jackson 2 untuk keperluan pengujian.
 
 1. **Pakai starter Spring Boot kalau ada.** Itu cara paling aman karena
    versinya sudah dikelola `spring-boot-starter-parent`.
-2. **Pastikan benar-benar dipakai.** Kalau cuma satu kelas yang memakainya,
+2. **Pastikan benar-benar dipakai.** Kalau hanya satu kelas yang memakainya,
    pustaka penuh mungkin berlebihan.
-3. **KECEPAKAN:** kalau pustaka itu menyentuh lapisan domain, aturan di
-   Bagian 3 pada [ADR 0007](adr/0007-clean-architecture-dengan-port-dan-adapter.md)
-   berlaku. Bungkus di balik port.
+3. **Bungkus di balik port.** Kalau pustaka itu menyentuh lapisan domain,
+   aturan di Bagian 3 pada [ADR 0007](adr/0007-clean-architecture-dengan-port-dan-adapter.md)
+   berlaku.
 4. **Perbarui dokumen ini** setiap ada dependency baru, supaya alasan memilih
    pustaka dan tempat penggunaannya tidak basi.
 5. **Jalankan build bersih** untuk memastikan cakupan dan pengujian masih

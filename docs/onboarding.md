@@ -1,6 +1,6 @@
 # Onboarding
 
-Panduan hari pertama untuk developer yang baru bergabung. Kalau kamu cuma butuh
+Panduan hari pertama untuk developer yang baru bergabung. Kalau kamu hanya butuh
 sepintas, bagian [1 sampai 4](#1-siapkan-alat) cukup untuk menjalankan
 layanan.
 
@@ -187,7 +187,7 @@ Urutannya penting, supaya tidak ada aturan bisnis yang bocor ke lapisan HTTP.
    `infrastructure/persistence/`.
 4. Tambahkan controller di `adapter/rest/`, lengkap dengan anotasi OpenAPI
    supaya kontrak di Swagger ikut sinkron.
-5. Tambahkan pengujian di `src/test/java/` yang menebak lokasi yang sama.
+5. Tambahkan pengujian di `src/test/java/` dengan struktur paket yang sama.
 6. Perbarui dokumentasi: README bagian Daftar Endpoint, dan `docs/peta-kode.md`
    kalau ada berkas baru.
 

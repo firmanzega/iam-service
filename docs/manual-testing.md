@@ -54,7 +54,7 @@ variable, karena berkas `.env` dibaca otomatis.
 
 ## 2. Cara paling mudah: HTTP Client bawaan IntelliJ
 
-Berkas [`http/iam-service.http`](../http/iam-service.http) sudah berisi 40+
+Berkas [`http/iam-service.http`](../http/iam-service.http) sudah berisi 38
 permintaan yang tersusun berurutan.
 
 Cara pakai:

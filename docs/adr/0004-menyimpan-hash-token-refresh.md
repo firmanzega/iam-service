@@ -21,7 +21,7 @@ semua akun adalah satu query SELECT.
 | Alternatif | Kelebihan | Kekurangan |
 |---|---|---|
 | **A. Simpan token mentah** | Sederhana, perbandingan cepat | Kebocoran database langsung berarti kebocoran token |
-| **B. Simpan hash SHA-256** | Token tidak bisa dipakai langsung dari dump database | Perbandingan tetap cepat, biayanya kecil |
+| **B. Simpan hash SHA-256** | Token tidak bisa dipakai langsung dari dump database | Token asli tidak bisa dipulihkan dari hash |
 | **C. Simpan hash bcrypt** | Untuk password, ketahanan tinggi | Terlalu lambat untuk lookup pada setiap permintaan, dan tidak diperlukan |
 | **D. Enkripsi, bukan hash** | Bisa dikembalikan ke bentuk semula | Kalau kunci bocor, semua token bocor |
 
@@ -66,11 +66,11 @@ acak, sehingga isinya pasti berbeda.
 
 **Alternatif yang ditolak**
 
-- **A** ditolak karena berhasil menghilangkan satu lapisan risiko
-  kebocoran data.
-- **C** ditolak karena bcrypt memang lambat. Hash yang lambat itu memang
- pilihan untuk alasan yang salah: tujuannya memperlambat penyerang yang
-  mencoba banyak password, sementara di sini tidak ada tebakan yang dilakukan.
+- **A** ditolak karena kebocoran database langsung berarti kebocoran token yang
+  bisa dipakai.
+- **C** ditolak karena bcrypt memang lambat. Kelambatan itu dipilih untuk
+  memperlambat tebakan kata sandi, sementara di sini tidak ada tebakan yang
+  dilakukan.
 - **D** ditolak karena kunci enkripsi adalah satu titik kegagalan. Kalau kunci
   bocor, seluruh token bisa dibaca sekaligus, sedangkan hash tidak pernah bisa
   dibalik.

@@ -8,7 +8,7 @@
 Tabel `audit_logs` awalnya memakai kunci asing ke `users` pada kolom
 `actor_user_id` dan `target_user_id`, dengan aturan `ON DELETE SET NULL`.
 
-Pengujian concurrent_update kemudian menunjukkan deadlock yang berulang:
+Pengujian `UserConcurrencyTest` kemudian menunjukkan deadlock yang berulang:
 
 ```
 Process 941 waits for ShareLock on transaction 3143; blocked by process 942.

@@ -8,7 +8,7 @@
 Jejak audit harus mencatat perubahan penting: pengguna dibuat, role diganti, kata
 sandi diubah, login berhasil, login gagal, akun terkunci.
 
-Ada dua jenis kejadian, dan keduanya punya Requirements transaksional yang
+Ada dua jenis kejadian, dan keduanya punya kebutuhan transaksional yang
 **berlawanan**:
 
 | Jenis | Nasib transaksi bisnis | Yang diharapkan dari audit |
@@ -18,7 +18,7 @@ Ada dua jenis kejadian, dan keduanya punya Requirements transaksional yang
 
 Kebutuhan "gagal tetap tercatat" paling terasa pada login gagal. Kalau catatannya
 ikut hilang bersama rollback, percobaan serangan brute force justru tidak
-perekam sama sekali, dan fitur kunci akun jadi tidak berguna.
+terekam sama sekali, dan fitur kunci akun jadi tidak berguna.
 
 ## Alternatif
 
@@ -27,7 +27,7 @@ perekam sama sekali, dan fitur kunci akun jadi tidak berguna.
 | **A. Selalu satu transaksi** | Sederhana | Jejak audit untuk aksi gagal hilang |
 | **B. Selalu transaksi terpisah** | Jejak audit selalu ada | Jejak audit untuk aksi berhasil bisa tersimpan padahal aksi bisnisnya gagal |
 | **C. Pilih per jenis kejadian** | Dua kebutuhan terpenuhi | Ada dua cara pemanggilan, harus disiplin |
-| **D. Tulis ke berkas atau antrean pesan** | Tidak bergantung pada database | Sulit dijamin tertulis,pengoperasiannya lebih berat |
+| **D. Tulis ke berkas atau antrean pesan** | Tidak bergantung pada database | Sulit dijamin tertulis, pengoperasiannya lebih berat |
 
 ## Keputusan
 
@@ -67,7 +67,7 @@ terpisah, karena pada kasus itu datanya sudah ada dan ter-commit.
 **Negatif**
 
 - Ada dua metode dengan nama yang mirip. Bedanya halus tapi penting, dan
- keterangannya harus jelas di tiap pemanggil.
+  keterangannya harus jelas di tiap pemanggil.
 - Transaksi terpisah memakai koneksi database tambahan dari pool. Saat transaksi
   luar masih aktif, dibutuhkan satu koneksi ekstra.
 
