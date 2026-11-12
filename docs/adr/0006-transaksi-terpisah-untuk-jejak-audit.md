@@ -33,7 +33,7 @@ perekam sama sekali, dan fitur kunci akun jadi tidak berguna.
 
 **Memisahkan dua cara pencatatan pada `AuditService`:**
 
-| Metode | Propagasi | Dipakai untuk |
+| Method | Propagasi | Dipakai untuk |
 |---|---|---|
 | `record(...)` | Ikut transaksi yang sedang berjalan | Aksi yang **berhasil** |
 | `recordIndependently(...)` | `REQUIRES_NEW`, transaksi terpisah | Aksi yang **gagal** |

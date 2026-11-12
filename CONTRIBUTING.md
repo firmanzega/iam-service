@@ -11,40 +11,49 @@ perubahan dari siapa pun mudah dibaca orang lain.
 
 | Jenis | Aturan | Contoh |
 |---|---|---|
-| Kelas | `PascalCase` | `UserController.java` |
+| Class | `PascalCase` | `UserController.java` |
 | Record | `PascalCase` | `CreateUserRequest.java` |
-| Antarmuka | `PascalCase` | `UserRepository.java` |
+| Interface | `PascalCase` | `UserRepository.java` |
 | Enum | `PascalCase` | `DomainException.Reason` |
-| Berkas konfigurasi | `kebab-case` | `application-dev.yaml` |
-| Dokumen | `kebab-case` | `manual-testing.md` |
-| Skrip SQL | `UPPER_SNAKE` dengan prefiks versi | `V5__add_search_indexes.sql` |
+| Configuration file | `kebab-case` | `application-dev.yaml` |
+| Document | `kebab-case` | `manual-testing.md` |
+| SQL script | `UPPER_SNAKE` dengan prefiks versi | `V5__add_search_indexes.sql` |
 | Package | huruf kecil tanpa garis | `adapter.rest.dto` |
 
 ### 1.2 Nama Metode dan Field
 
 | Jenis | Aturan | Contoh |
 |---|---|---|
-| Metode | `camelCase`, kata kerja di depan | `findByUsernameOrEmail` |
+| Method | `camelCase`, kata kerja di depan | `findByUsernameOrEmail` |
 | Field | `camelCase` | `failedLoginAttempts` |
-| Konstanta | `UPPER_SNAKE_CASE` | `MAX_PAGE_SIZE` |
-| Paket (layer) | huruf kecil tunggal | `domain`, `application` |
+| Constant | `UPPER_SNAKE_CASE` | `MAX_PAGE_SIZE` |
+| Package (layer) | huruf kecil tunggal | `domain`, `application` |
 
 ### 1.3 Istilah dalam Kode
 
-Semua kode memakai Bahasa Indonesia, termasuk nama kelas, metode, dan
-komentar. Istilah teknis yang lazim dalam Java seperti `Controller`,
-`Repository`, `Service`, `Entity`, `Adapter`, dan `Domain` tetap dipakai apa
-adanya, karena lebih jelas daripada terjemahannya.
+Nama class, method, field, dan constant mengikuti konvensi penamaan Java dalam
+bahasa Inggris. Itu letak kebenarannya, dan itu yang dipakai seluruh pustaka
+di ekosistem ini. Yang memakai Bahasa Indonesia adalah komentar, nama berkas,
+dan dokumentasi.
+
+Istilah teknis yang lazim dalam Java seperti `Controller`, `Repository`,
+`Service`, `Entity`, `Adapter`, dan `Domain` dipakai apa adanya, karena lebih
+jelas daripada terjemahannya.
 
 | Dipakai | Hindari |
 |---|---|
-| `gantiKataSandi` | `updatePassword` |
-| `daftarPengguna` | `getUsers` |
-| `periksaVersi` | `checkVersion` |
+| `changePassword` | `gantiKataSandi` |
+| `search` | `daftarPengguna` |
+| `checkVersion` | `periksaVersi` |
 | `findByUsernameOrEmail` | `cariByNamaPenggunaAtauSurel` |
 
 Pengecualian: nama yang sudah menjadi bagian dari antarmuka pustaka, seperti
 `findById`, `save`, dan `delete`, dibiarkan apa adanya.
+
+Nama artifact kode sendiri juga ditulis dalam bahasa Inggris, bahkan ketika
+disebut di dalam tabel dokumentasi. Jadi tulis `Class`, `Interface`, `Record`,
+`Enum`, `Method`, `Field`, `Constant`, dan `Package`, bukan terjemahannya.
+Yang boleh diterjemahkan adalah penjelasan aturannya, bukan nama bendahnya.
 
 ---
 

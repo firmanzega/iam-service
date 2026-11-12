@@ -28,6 +28,8 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
 ### Diperbaiki
 - Teks rusak pada komentar kelas Java dan dokumentasi
 - Rujukan dokumen yang menunjuk ke berkas yang tidak ada di repositori
+- Konvensi penamaan pada panduan kontribusi yang bertentangan dengan kode, dan
+  istilah artifact yang diterjemahkan di beberapa header tabel
 
 ---
 

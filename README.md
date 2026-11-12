@@ -245,7 +245,7 @@ Semua endpoint berada di bawah `/`, memakai JSON, dan memakai format galat yang 
 
 ### Operasional
 
-| Metode | Path | Akses | Keterangan |
+| Method | Path | Akses | Keterangan |
 |---|---|---|---|
 | GET | `/actuator/health` | Publik | Health check layanan |
 | GET | `/actuator/metrics` | ADMIN | Metrik runtime |
@@ -355,7 +355,7 @@ terdokumentasi di [`docs/libraries.md`](docs/libraries.md).
 
 ## Dokumentasi
 
-| Dokumen | Isi |
+| Document | Isi |
 |---|---|
 | [`docs/onboarding.md`](docs/onboarding.md) | Panduan hari pertama untuk developer baru |
 | [`docs/libraries.md`](docs/libraries.md) | Setiap library yang dipakai, kenapa dipilih, dan di mana digunakan |
