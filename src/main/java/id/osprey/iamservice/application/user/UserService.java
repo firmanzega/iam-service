@@ -1,0 +1,236 @@
+package id.osprey.iamservice.application.user;
+
+import id.osprey.iamservice.application.audit.AuditService;
+import id.osprey.iamservice.application.security.PasswordPolicy;
+import id.osprey.iamservice.domain.auth.TokenRevocationService;
+import id.osprey.iamservice.domain.security.PasswordEncoder;
+import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.user.Role;
+import id.osprey.iamservice.domain.user.RoleRepository;
+import id.osprey.iamservice.domain.user.User;
+import id.osprey.iamservice.domain.user.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Set;
+import java.util.TreeSet;
+
+/**
+ * Use case pengelolaan pengguna.
+ *
+ * Lapisan ini tidak tahu apa-apa soal HTTP maupun JPA. Dia hanya تعرف aturan
+ * bisnis dan port yang dideklarasikan domain.
+ */
+@Service
+public class UserService {
+
+    private static final String AUDIT_USER_CREATED = "USER_CREATED";
+    private static final String AUDIT_USER_UPDATED = "USER_UPDATED";
+    private static final String AUDIT_USER_ACTIVATED = "USER_ACTIVATED";
+    private static final String AUDIT_USER_DEACTIVATED = "USER_DEACTIVATED";
+    private static final String AUDIT_ROLES_REPLACED = "ROLES_REPLACED";
+    private static final String AUDIT_PASSWORD_CHANGED = "PASSWORD_CHANGED";
+    private static final String AUDIT_PASSWORD_RESET = "PASSWORD_RESET";
+
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordPolicy passwordPolicy;
+    private final AuditService auditService;
+    private final TokenRevocationService tokenRevocationService;
+    private final PasswordEncoder passwordEncoder;
+
+    public UserService(UserRepository userRepository,
+                       RoleRepository roleRepository,
+                       PasswordPolicy passwordPolicy,
+                       AuditService auditService,
+                       TokenRevocationService tokenRevocationService,
+                       PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordPolicy = passwordPolicy;
+        this.auditService = auditService;
+        this.tokenRevocationService = tokenRevocationService;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Transactional(readOnly = true)
+    public Page<User> search(String query, Pageable pageable) {
+        return (query == null || query.isBlank())
+                ? userRepository.findAll(pageable)
+                : userRepository.search(query.trim(), pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public User findById(Long id) {
+        return findOrThrow(id);
+    }
+
+    @Transactional
+    public User create(String username, String email, String rawPassword, Long actorUserId) {
+        passwordPolicy.validate(rawPassword);
+
+        String hash = passwordEncoder.encode(rawPassword);
+        User user = userRepository.save(new User(username, email, hash));
+
+        auditService.record(actorUserId, AUDIT_USER_CREATED, user.getId(), user.getUsername());
+
+        return user;
+    }
+
+    @Transactional
+    public User update(Long id, String username, String email, Long version, Long actorUserId) {
+        User user = findOrThrow(id);
+        checkVersion(user, version);
+
+        user.changeUsername(username);
+        user.changeEmail(email);
+
+        User saved = userRepository.save(user);
+        auditService.record(actorUserId, AUDIT_USER_UPDATED, id, saved.getUsername());
+
+        return saved;
+    }
+
+    @Transactional
+    public User patch(Long id, String username, String email, Long version, Long actorUserId) {
+        User user = findOrThrow(id);
+        checkVersion(user, version);
+
+        if (username != null) {
+            user.changeUsername(username);
+        }
+
+        if (email != null) {
+            user.changeEmail(email);
+        }
+
+        User saved = userRepository.save(user);
+        auditService.record(actorUserId, AUDIT_USER_UPDATED, id, saved.getUsername());
+
+        return saved;
+    }
+
+    @Transactional
+    public void deactivate(Long id, Long actorUserId) {
+        User user = findOrThrow(id);
+        user.deactivate();
+        userRepository.save(user);
+
+        // Akun yang dinonaktifkan tidak boleh bisa memakai token yang masih hidup.
+        tokenRevocationService.revokeAllTokens(id);
+
+        auditService.record(actorUserId, AUDIT_USER_DEACTIVATED, id, user.getUsername());
+    }
+
+    @Transactional
+    public void activate(Long id, Long actorUserId) {
+        User user = findOrThrow(id);
+        user.activate();
+        user.clearFailedLogins();
+        userRepository.save(user);
+
+        auditService.record(actorUserId, AUDIT_USER_ACTIVATED, id, user.getUsername());
+    }
+
+    /**
+     * Mengganti kata sandi oleh pemiliknya sendiri.
+     *
+     * Setelah kata sandi berubah, seluruh token refresh milik pengguna dicabut.
+     * Alasannya: bila kata sandi diganti karena ada kecurigaan password bocor,
+     * sesi lama harus ikut mati. Kalau tidak, penyerang yang sudah punya token
+     * masih bisa masuk.
+     */
+    @Transactional
+    public void changePassword(Long id, String currentPassword, String newPassword, Long actorUserId) {
+        User user = findOrThrow(id);
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new DomainException(DomainException.Reason.CURRENT_PASSWORD_MISMATCH,
+                    "Current password is incorrect");
+        }
+
+        passwordPolicy.validate(newPassword);
+
+        if (passwordEncoder.matches(newPassword, user.getPasswordHash())) {
+            throw new DomainException(DomainException.Reason.INVALID_PASSWORD,
+                    "New password must be different from the current one");
+        }
+
+        user.changePassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        tokenRevocationService.revokeAllTokens(id);
+
+        auditService.record(actorUserId, AUDIT_PASSWORD_CHANGED, id, user.getUsername());
+    }
+
+    /**
+     * Menetapkan kata sandi baru oleh administrator.
+     *
+     * Berbeda dari ganti kata sandi sendiri, di sini administrator tidak perlu
+     * mengetahui kata sandi lama pengguna. Gandanya adalah seluruh sesi
+     * pengguna langsung dicabut.
+     */
+    @Transactional
+    public void resetPassword(Long id, String newPassword, Long actorUserId) {
+        User user = findOrThrow(id);
+
+        passwordPolicy.validate(newPassword);
+
+        user.changePassword(passwordEncoder.encode(newPassword));
+        user.clearFailedLogins();
+        userRepository.save(user);
+
+        tokenRevocationService.revokeAllTokens(id);
+
+        auditService.record(actorUserId, AUDIT_PASSWORD_RESET, id, user.getUsername());
+    }
+
+    /**
+     * Mengganti seluruh role pengguna.
+     *
+     * Role yang tidak dikirim akan dilepas. Role yang tidak dikenal ditolak.
+     */
+    @Transactional
+    public User replaceRoles(Long id, Set<String> roleNames, Long version, Long actorUserId) {
+        User user = findOrThrow(id);
+        checkVersion(user, version);
+
+        Set<Role> roles = roleRepository.findByNameIn(roleNames);
+
+        if (roles.size() != roleNames.size()) {
+            Set<String> found = roles.stream().map(Role::getName).collect(java.util.stream.Collectors.toSet());
+            Set<String> missing = new TreeSet<>(roleNames);
+            missing.removeAll(found);
+
+            throw new DomainException(DomainException.Reason.UNKNOWN_ROLE, "Unknown roles: " + missing);
+        }
+
+        user.replaceRoles(roles);
+        User saved = userRepository.save(user);
+
+        // Role ikut tertanam di dalam access token. Kalau role dicabut, token
+        // lama masih membawa role lama sampai kedaluwarsa. Mencabut token
+        // refresh membuat pengguna harus login ulang supaya role terbaru berlaku.
+        tokenRevocationService.revokeAllTokens(id);
+
+        auditService.record(actorUserId, AUDIT_ROLES_REPLACED, id, String.join(",", saved.getRoles().stream()
+                .map(Role::getName).sorted().toList()));
+
+        return saved;
+    }
+
+    private User findOrThrow(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new DomainException(DomainException.Reason.USER_NOT_FOUND, "User not found"));
+    }
+
+    private void checkVersion(User user, Long version) {
+        if (version == null || user.getVersion() != version) {
+            throw new DomainException(DomainException.Reason.CONCURRENT_MODIFICATION,
+                    "The resource was modified by someone else. Reload and try again");
+        }
+    }
+}

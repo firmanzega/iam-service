@@ -24,3 +24,9 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+
+iam:
+  dev-bootstrap:
+    # Membuat satu akun administrator saat pertama kali dijalankan, supaya
+    # ada cara masuk ke sistem. Hanya berlaku pada profil dev.
+    enabled: true

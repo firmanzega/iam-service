@@ -21,3 +21,53 @@ spring:
         serialization-mode: via_dto
   profiles:
     active: dev
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Hanya health dan metrics yang dibuka. Endpoint lain yang punya
+        # actuator bisa membocorkan detail internal layanan.
+        include: health,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    db:
+      enabled: true
+
+iam:
+  jwt:
+    # Kunci penanda tangan token. Wajib diganti di produksi.
+    # Panjang minimal 32 byte.
+    secret: ${JWT_SECRET}
+    issuer: iam-service
+    # Masa berlaku token akses sengaja pendek, karena token akses dipakai pada
+    # setiap permintaan dan token yang berumur panjang memperbesar jendela
+    # pencurian token.
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+  cors:
+    # Daftar origin frontend yang diizinkan. Tanda bintang tidak boleh dipakai
+    # karena permintaan dari origin mana pun akan diterima.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  login:
+    # Jumlah kegagalan login sebelum akun dikunci.
+    max-failed-attempts: 5
+    lock-duration: 15m
+  rate-limit:
+    # Batas permintaan per jendela waktu untuk satu alamat IP, khusus pada
+    # endpoint autentikasi. Tujuannya menahan percobaan login bertubi-tubi.
+    max-requests: 20
+    window: 1m

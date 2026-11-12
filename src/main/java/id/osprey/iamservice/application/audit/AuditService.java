@@ -1,0 +1,39 @@
+package id.osprey.iamservice.application.audit;
+
+import id.osprey.iamservice.domain.audit.AuditLog;
+import id.osprey.iamservice.domain.audit.AuditLogRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Use case pencatatan jejak audit.
+ *
+ * Ada dua cara pencatatan, dan pilihannya penting:
+ *      - record: ikut transaksi yang sedang berjalan. dipakai untuk aksi yang
+ *        sukses, sehingga perubahan bisnis dan catatannya committed
+ *        bersamaan. Tidak mungkin ada perubahan tanpa catatan.
+ *      - recordIndependently: memakai transaksi terpisah. dipakai untuk aksi
+ *        yang gagal, karena transaksinya sendiri dibatalkan. Kalau catatannya
+ *        ikut di transaksi yang sama, jejaknya hilang dan percobaan serangan
+ *        justru tidak terekam.
+ */
+@Service
+public class AuditService {
+
+    private final AuditLogRepository auditLogRepository;
+
+    public AuditService(AuditLogRepository auditLogRepository) {
+        this.auditLogRepository = auditLogRepository;
+    }
+
+    @Transactional
+    public void record(Long actorUserId, String action, Long targetUserId, String details) {
+        auditLogRepository.save(new AuditLog(actorUserId, action, targetUserId, details));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordIndependently(Long actorUserId, String action, Long targetUserId, String details) {
+        auditLogRepository.save(new AuditLog(actorUserId, action, targetUserId, details));
+    }
+}
