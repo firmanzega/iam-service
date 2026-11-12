@@ -1,7 +1,9 @@
 ### IAM Service - Koleksi Permintaan
 ###
 ### Cara pakai:
-###   1. Jalankan aplikasi: ./mvnw spring-boot:run
+###   1. Jalankan aplikasi lebih dulu:
+###      Windows (PowerShell) : .\mvnw.cmd spring-boot:run
+###      Linux dan macOS      : ./mvnw spring-boot:run
 ###   2. Di editor ini (VS Code / IntelliJ / JetBrains HTTP Client),
 ###      jalankan permintaan satu per satu dari atas ke bawah.
 ###   3. Variabel di bawah otomatis terisi dari respons permintaan sebelumnya.

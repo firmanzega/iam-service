@@ -86,13 +86,23 @@ Permintaan
 | Komponen | Versi | Keterangan |
 |---|---|---|
 | Java | 21 (LTS) | Sudah terpasang bersama Maven Wrapper |
-| Maven | 3.10+ | Dipakai lewat `./mvnw` (tidak perlu diinstal) |
+| Maven | 3.10+ | Dipakai lewat Maven Wrapper (tidak perlu diinstal) |
 | PostgreSQL | 16 | Jalankan lewat Docker Compose |
 | Docker | - | Hanya untuk menjalankan PostgreSQL |
 
 ---
 
 ## Menjalankan
+
+> **Perintah Maven Wrapper berbeda antara Windows dan Linux/macOS:**
+>
+> | Sistem | Perintah |
+> |---|---|
+> | **Windows** (PowerShell atau cmd) | `.\mvnw.cmd` |
+> | **Linux dan macOS** | `./mvnw` |
+>
+> Di Windows, `./mvnw` tidak akan dikenali oleh PowerShell. Selalu pakai
+> `.\mvnw.cmd`.
 
 ### 1. Siapkan berkas `.env`
 
@@ -122,6 +132,10 @@ migrasi Flyway saat aplikasi pertama kali dijalankan.
 ### 3. Jalankan aplikasi
 
 ```bash
+# Windows (PowerShell atau cmd)
+.\mvnw.cmd spring-boot:run
+
+# Linux dan macOS
 ./mvnw spring-boot:run
 ```
 
@@ -261,6 +275,10 @@ yang bisa langsung dijalankan dari HTTP Client bawaan IntelliJ.
 ### Uji otomatis
 
 ```bash
+# Windows (PowerShell atau cmd)
+.\mvnw.cmd test
+
+# Linux dan macOS
 ./mvnw test
 ```
 
@@ -277,7 +295,12 @@ secara manual.
 Laporan cakupan kode dihasilkan oleh JaCoCo:
 
 ```bash
+# Windows (PowerShell atau cmd)
+.\mvnw.cmd verify
+
+# Linux dan macOS
 ./mvnw verify
+
 # laporan HTML: target/site/jacoco/index.html
 ```
 

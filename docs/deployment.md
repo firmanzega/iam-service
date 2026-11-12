@@ -113,7 +113,12 @@ menjadi `prod`, lalu profil `dev` dipilih secara eksplisit saat
 mengembangkan:
 
 ```bash
+# Linux dan macOS
 SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+
+# Windows (PowerShell)
+$env:SPRING_PROFILES_ACTIVE = "dev"
+.\mvnw.cmd spring-boot:run
 ```
 
 ---

@@ -3,6 +3,22 @@
 Semua perintah dan keluaran di bawah ini sudah dijalankan sungguhan, jadi
 keluarannya bisa dipakai sebagai acuan.
 
+> ## Penting: Perintah Maven Wrapper
+>
+> Bentuk perintahnya berbeda antara Windows dan Linux/macOS:
+>
+> | Sistem | Perintah |
+> |---|---|
+> | **Windows** (PowerShell atau cmd) | `.\mvnw.cmd` |
+> | **Linux dan macOS** | `./mvnw` |
+>
+> Di Windows, `./mvnw` **tidak akan dikenali** dan PowerShell akan
+> menampilkan galat "The term './mvnw' is not recognized". Selalu pakai
+> `.\mvnw.cmd`, atau `.\mvnw` tanpa ekstensi.
+>
+> Contoh di bawah memakai bentuk Windows. Di Linux dan macOS, ganti
+> `.\mvnw.cmd` menjadi `./mvnw`.
+
 ---
 
 ## 1. Persiapan
@@ -16,7 +32,7 @@ docker compose up -d
 ### Jalankan aplikasi
 
 ```bash
-./mvnw spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 Aplikasi berjalan di <http://localhost:8080>. Tidak perlu export environment
@@ -321,7 +337,7 @@ Dokumentasi OpenAPI:
 | `Failed to configure a DataSource` | PostgreSQL belum jalan. Jalankan `docker compose up -d` |
 | `iam.jwt.secret minimal 32 byte` | `JWT_SECRET` di `.env` kosong atau terlalu pendek. Isi dengan `openssl rand -base64 48` |
 | `Could not resolve placeholder` | Variabel di `.env` belum lengkap. Bandingkan dengan `.env.example` |
-| `Validate failed: Migrations have failed validation` | Migrasi di database tidak sama dengan berkas di `src/main/resources/db/migration`. Untuk database pengembangan yang sudah lama, jalankan `./mvnw flyway:repair` atau hapus volume Docker dan mulai ulang |
+| `Validate failed: Migrations have failed validation` | Migrasi di database tidak sama dengan berkas di `src/main/resources/db/migration`. Untuk database pengembangan yang sudah lama, jalankan `.\mvnw.cmd flyway:repair` atau hapus volume Docker dan mulai ulang |
 
 ### Login selalu gagal
 
@@ -337,7 +353,7 @@ Dokumentasi OpenAPI:
 ```bash
 docker compose down -v
 docker compose up -d
-./mvnw spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 Perintah `down -v` menghapus volume database, jadi seluruh data hilang dan
@@ -346,5 +362,5 @@ asli.**
 
 ### Melihat log
 
-Log aplikasi muncul di terminal tempat `./mvnw spring-boot:run` dijalankan.
+Log aplikasi muncul di terminal tempat `.\mvnw.cmd spring-boot:run` dijalankan.
 Log SQL-nya sudah aktif di profil `dev`, lengkap dengan nilai parameternya.
