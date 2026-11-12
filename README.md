@@ -106,6 +106,10 @@ Isi `JWT_SECRET` dengan kunci acak sepanjang minimal 32 byte:
 openssl rand -base64 48
 ```
 
+Aplikasi menolak start kalau `JWT_SECRET` tidak diisi atau kurang dari 32 byte.
+Jadi secret yang hilang tidak akan pernah membuat layanan berjalan dengan kunci
+lemah atau tidak sengaja.
+
 ### 2. Jalankan database
 
 ```bash
@@ -273,6 +277,34 @@ Cakupan baris harus mencapai **80 persen**. Build gagal kalau ambang itu tidak t
 
 ---
 
+## Manajemen Secret
+
+Untuk pengembangan lokal, `.env` di direktori kerja sudah cukup. Untuk
+server sungguhan, **secret tidak boleh ada di disk**. Panduan lengkapnya ada
+di [`docs/deployment.md`](docs/deployment.md).
+
+Ringkasnya:
+
+| Secret | Environment variable | Sumber yang disarankan |
+|---|---|---|
+| Kunci token | `JWT_SECRET` | Secret manager atau CI/CD |
+| Kata sandi database | `POSTGRES_PASSWORD` | Secret manager atau CI/CD |
+| Sisanya | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_HOST`, `POSTGRES_PORT`, `CORS_ALLOWED_ORIGINS` | Environment variable biasa |
+
+### Pengaman commit
+
+Berkas `.env` sudah dikecualikan oleh `.gitignore`. Ada pengaman tambahan
+berupa hook yang menolak commit berisi berkas `.env`:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Perintah ini cukup dijalankan sekali per mesin. Hook-nya menolak `.env`,
+`.env.local`, dan sejenisnya, tetapi tetap mengizinkan `.env.example`.
+
+---
+
 ## Struktur Proyek
 
 ```
@@ -301,6 +333,7 @@ src/main/resources/
 └── application*.yaml
 
 docs/adr/          catatan keputusan arsitektur
+docs/deployment.md panduan deployment dan manajemen secret
 http/              koleksi permintaan untuk uji manual
 ```
 
@@ -321,3 +354,5 @@ Ringkasnya:
 | [0006](docs/adr/0006-transaksi-terpisah-untuk-jejak-audit.md) | Transaksi terpisah untuk jejak audit |
 | [0007](docs/adr/0007-clean-architecture-dengan-port-dan-adapter.md) | Clean Architecture dengan port dan adapter |
 | [0008](docs/adr/0008-lepaskan-kunci-asing-jejak-audit.md) | Lepaskan kunci asing pada tabel jejak audit |
+
+Panduan deployment ada di [`docs/deployment.md`](docs/deployment.md).

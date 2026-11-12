@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# Mencegah berkas .env masuk ke riwayat git.
+#
+# Kenapa perlu hook kalau .gitignore sudah mengecualikannya:
+#      - .gitignore hanya berlaku untuk berkas yang belum pernah ter-track.
+#        Kalau .env sempat ter-commit, .gitignore tidak akan menghapusnya.
+#      - git add -f dan beberapa alat graphical bisa melewati .gitignore.
+#      - Hook ini gagal lebih awal, sebelum berkas sempat tercatat.
+#
+# Berkas .env.example tetap boleh masuk, karena isinya hanya placeholder.
+
+set -e
+
+forbidden_pattern='^\.env$|^\.env\.local$|^\.env\.production$|^\.env\.development$|^\.env\..*\.local$'
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+for file in $staged; do
+    if echo "$file" | grep -Eq "$forbidden_pattern"; then
+        echo "STOP: $file tidak boleh masuk ke commit."
+        echo ""
+        echo "Berkas .env berisi kredensial asli. Berkas itu hanya boleh ada"
+        echo "di mesin lokal dan sudah dikecualikan oleh .gitignore."
+        echo ""
+        echo "Gunakan .env.example sebagai acuan dan isi kredensial lewat"
+        echo "environment variable."
+        echo ""
+        echo "Kalau berkas ini memang sengaja mau dimasukkan, hapus aturannya"
+        echo "dari .githooks/pre-commit."
+        exit 1
+    fi
+done
+
+exit 0
