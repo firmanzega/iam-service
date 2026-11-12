@@ -159,6 +159,35 @@ location /auth/ {
 }
 ```
 
+### 4.1 Alamat klien di belakang proxy
+
+Rate limiter memakai alamat klien dari `request.getRemoteAddr()`. Aplikasi sudah
+mengatur `server.forward-headers-strategy: native`, sehingga container hanya
+memakai `X-Forwarded-For` bila koneksi datang dari proxy di jaringan internal.
+
+Dua syarat harus dipenuhi:
+
+1. Layanan **tidak boleh** bisa dijangkau langsung dari jaringan publik. Kalau
+   penyerang bisa menghubungi aplikasi tanpa lewat proxy, header itu bisa
+   dipalsukan.
+2. Kalau proxy memakai alamat publik, daftarkan alamatnya di
+   `server.tomcat.remoteip.internal-proxies`. Nilai bawaan hanya mencakup
+   jaringan privat.
+
+Kalau syarat itu tidak bisa dipenuhi, jangan andalkan limiter di aplikasi.
+Tempatkan batas permintaan di gateway, seperti contoh nginx di atas.
+
+### 4.2 Tugas latar
+
+Pembersihan token kedaluwarsa dan pemindaian entri rate limiter berjalan di
+dalam proses aplikasi. Pada deployment banyak instance, setiap instance
+menjalankan pembersihan sendiri. Operasi hapusnya idempoten, jadi hasil
+akhirnya tetap sama. Alasan dan tindak lanjutnya ada di
+[ADR 0010](adr/0010-pemeliharaan-berkala-di-dalam-proses.md).
+
+Penjadwal memakai dua thread, sehingga pemindaian rate limiter tidak menunggu
+pembersihan token selesai.
+
 ---
 
 ## 5. Checklist Sebelum Buka ke Publik
@@ -171,5 +200,7 @@ location /auth/ {
 - [ ] HTTPS sudah aktif, sertifikat sudah valid
 - [ ] Kata sandi akun administrator dev sudah diganti atau akunnya dihapus
 - [ ] `CORS_ALLOWED_ORIGINS` sudah diisi dengan domain yang benar
+- [ ] Layanan hanya bisa dijangkau lewat proxy internal, atau batas permintaan
+      dipindahkan sepenuhnya ke gateway
 - [ ] GitHub Actions hijau pada commit terakhir
 - [ ] Cadangan database terjadwal dan sudah pernah diuji memulihkannya

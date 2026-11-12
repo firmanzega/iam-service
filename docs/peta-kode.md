@@ -111,7 +111,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `AuditLogJpaEntity.java` | Entitas JPA tabel `audit_logs` |
 | `SpringDataUserRepository.java` | Repository Spring Data untuk pengguna |
 | `SpringDataRoleRepository.java` | Repository Spring Data untuk role |
-| `SpringDataRefreshTokenRepository.java` | Repository Spring Data untuk token refresh |
+| `SpringDataRefreshTokenRepository.java` | Repository Spring Data untuk token refresh, termasuk hapus massal token kedaluwarsa |
 | `SpringDataAuditLogRepository.java` | Repository Spring Data untuk jejak audit |
 | `UserPersistenceAdapter.java` | Mengimplementasikan port `UserRepository` |
 | `RolePersistenceAdapter.java` | Mengimplementasikan port `RoleRepository` |
@@ -185,6 +185,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `ArchitectureLayerTest.java` | Memeriksa arah dependensi antar lapisan |
 | `IamServiceApplicationTests.java` | Memastikan konteks aplikasi bisa start |
 | `adapter/rest/AuthSecurityIntegrationTest.java` | Matriks otorisasi lewat HTTP, plus alur ganti kata sandi, kunci akun, dan logout |
+| `adapter/rest/AuditControllerIntegrationTest.java` | Urutan bawaan jejak audit, arah sort eksplisit, dan penolakan properti asing lewat HTTP |
 | `adapter/rest/GlobalExceptionHandlerTest.java` | Pemetaan galat ke status HTTP |
 | `application/auth/AuthServiceTest.java` | Unit test alur autentikasi |
 | `application/auth/RefreshTokenCleanupServiceTest.java` | Unit test aturan penghapusan token kedaluwarsa |
@@ -196,6 +197,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `application/security/PasswordPolicyTest.java` | Unit test aturan kekuatan kata sandi |
 | `config/PaginationConfigTest.java` | Mengunci batas ukuran halaman agar tidak berubah tanpa disadari |
 | `config/RateLimitFilterTest.java` | Unit test pembatas laju permintaan, termasuk pemangkasan antrean dan pembuangan entri basi |
+| `config/RefreshTokenCleanupJobTest.java` | Syarat pembuatan penjadwal dan pemanggilan use case pembersihan |
 
 ---
 
@@ -206,6 +208,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `src/main/resources/application.yaml` | Konfigurasi bersama, batas ukuran halaman, konfigurasi OpenAPI dan Actuator |
 | `src/main/resources/application-dev.yaml` | Profil pengembangan: SQL dicatat ke log, data contoh, bootstrap administrator |
 | `src/main/resources/application-prod.yaml` | Profil produksi: pool koneksi, validasi skema, **springdoc dimatikan** |
+| `src/test/resources/application.properties` | Pengaturan khusus pengujian, misalnya mematikan penjadwal pembersihan token |
 | `src/main/resources/db/migration/` | Migrasi skema yang berlaku di semua profil |
 | `src/main/resources/db/migration-dev/` | Data contoh, hanya profil dev |
 | `http/iam-service.http` | Koleksi permintaan untuk uji manual |

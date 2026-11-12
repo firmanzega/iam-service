@@ -30,6 +30,7 @@ class RefreshTokenCleanupIntegrationTest {
     private static final String USERNAME = "cleanup-test";
     private static final String EXPIRED_HASH = "cleanup-expired-hash";
     private static final String ACTIVE_HASH = "cleanup-active-hash";
+    private static final String REVOKED_HASH = "cleanup-revoked-hash";
 
     @Autowired
     private RefreshTokenCleanupService cleanupService;
@@ -53,8 +54,11 @@ class RefreshTokenCleanupIntegrationTest {
                 passwordEncoder.encode("Rahasia123")));
         userId = user.getId();
 
-        insertToken(EXPIRED_HASH, Instant.now().minus(1, ChronoUnit.DAYS));
-        insertToken(ACTIVE_HASH, Instant.now().plus(1, ChronoUnit.DAYS));
+        insertToken(EXPIRED_HASH, Instant.now().minus(1, ChronoUnit.DAYS), null);
+        insertToken(ACTIVE_HASH, Instant.now().plus(1, ChronoUnit.DAYS), null);
+        // Token yang dicabut tetapi belum kedaluwarsa sengaja dipertahankan
+        // sebagai bukti untuk deteksi pemakaian ulang di masa depan.
+        insertToken(REVOKED_HASH, Instant.now().plus(1, ChronoUnit.DAYS), Instant.now());
     }
 
     @AfterEach
@@ -64,16 +68,21 @@ class RefreshTokenCleanupIntegrationTest {
 
     @Test
     void deleteExpired_removesOnlyExpiredTokens() {
-        cleanupService.deleteExpired(Instant.now());
+        long deleted = cleanupService.deleteExpired(Instant.now());
 
+        assertEquals(1, deleted, "hanya satu token kedaluwarsa yang seharusnya dihapus");
         assertEquals(0, countByHash(EXPIRED_HASH), "token kedaluwarsa seharusnya sudah dihapus");
         assertEquals(1, countByHash(ACTIVE_HASH), "token yang masih berlaku tidak boleh ikut terhapus");
+        assertEquals(1, countByHash(REVOKED_HASH),
+                "token yang dicabut tetapi belum kedaluwarsa harus tetap disimpan");
     }
 
-    private void insertToken(String tokenHash, Instant expiresAt) {
+    private void insertToken(String tokenHash, Instant expiresAt, Instant revokedAt) {
         jdbcTemplate.update(
-                "insert into refresh_tokens (user_id, token_hash, expires_at) values (?, ?, ?)",
-                userId, tokenHash, Timestamp.from(expiresAt));
+                "insert into refresh_tokens (user_id, token_hash, expires_at, revoked_at)"
+                        + " values (?, ?, ?, ?)",
+                userId, tokenHash, Timestamp.from(expiresAt),
+                revokedAt == null ? null : Timestamp.from(revokedAt));
     }
 
     private int countByHash(String tokenHash) {

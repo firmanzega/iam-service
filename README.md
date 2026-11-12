@@ -186,8 +186,17 @@ Parameter lain ada di `src/main/resources/application.yaml` pada blok `iam`:
 | `iam.jwt.refresh-token-ttl` | `7d` | Masa berlaku token refresh |
 | `iam.login.max-failed-attempts` | `5` | Batas kegagalan login sebelum akun terkunci |
 | `iam.login.lock-duration` | `15m` | Lama akun terkunci |
-| `iam.rate-limit.max-requests` | `20` | Batas permintaan per menit pada endpoint autentikasi |
+| `iam.rate-limit.max-requests` | `20` | Batas permintaan per jendela waktu pada endpoint autentikasi |
 | `iam.rate-limit.window` | `1m` | Panjang jendela rate limit |
+| `iam.rate-limit.cleanup-interval` | `10m` | Selang pemindaian entri rate limiter yang sudah tidak aktif |
+| `iam.refresh-token-cleanup.enabled` | `true` | Sakelar pembersihan token refresh kedaluwarsa |
+| `iam.refresh-token-cleanup.interval` | `1h` | Selang pembersihan token refresh kedaluwarsa |
+
+Kalau layanan berjalan di belakang reverse proxy, `server.forward-headers-strategy`
+sudah diatur ke `native`. Container hanya memakai `X-Forwarded-For` bila
+koneksi datang dari proxy di jaringan internal, sehingga rate limiter melihat
+alamat klien yang sebenarnya. Syarat dan konsekuensinya ada di
+[`docs/deployment.md`](docs/deployment.md).
 
 ---
 

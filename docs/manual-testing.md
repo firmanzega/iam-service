@@ -282,6 +282,20 @@ Akun terbuka lagi otomatis setelah 15 menit.
 curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/audit-logs?size=5"
 ```
 
+Tanpa parameter `sort`, hasil diurutkan dari yang terbaru dengan `id` sebagai
+pemecah seri. Properti yang boleh dipakai: `id`, `createdAt`, `action`,
+`actorUserId`, dan `targetUserId`.
+
+```bash
+# Urutkan berdasarkan aksi, menaik
+curl -H "Authorization: Bearer TOKEN_ANDA" \
+  "http://localhost:8080/audit-logs?sort=action,asc&size=5"
+
+# Properti asing ditolak dengan 400, bukan 500
+curl -i -H "Authorization: Bearer TOKEN_ANDA" \
+  "http://localhost:8080/audit-logs?sort=details,desc"
+```
+
 ```
 2026-01-12T06:27:58Z | LOGIN_FAILED   | actor=1382 target=1382 | kata sandi salah
 2026-01-12T06:27:47Z | USER_CREATED  | actor=97   target=1382 | andi

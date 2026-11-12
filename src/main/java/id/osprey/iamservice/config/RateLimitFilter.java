@@ -169,8 +169,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Kunci pembatasan diambil dari alamat IP. Header seperti X-Forwarded-For
-     * sengaja tidak dipakai karena isinya bisa dipalsukan oleh penyerang.
+     * Kunci pembatasan diambil dari alamat IP.
+     *
+     * Kenapa tidak membaca X-Forwarded-For sendiri: isi header itu bisa
+     * dipalsukan kalau layanan masih bisa dijangkau langsung. Kepercayaan pada
+     * header diserahkan ke container lewat
+     * server.forward-headers-strategy=native, yang hanya memakainya bila
+     * koneksi berasal dari proxy di jaringan internal. Tanpa pengaturan itu,
+     * di belakang reverse proxy semua klien akan terlihat memakai satu alamat
+     * dan berbagi kuota yang sama.
      */
     private String clientKey(HttpServletRequest request) {
         return request.getRemoteAddr();

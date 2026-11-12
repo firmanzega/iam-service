@@ -31,9 +31,12 @@ kebocoran sumber daya yang lambat pada layanan yang berjalan lama.
 Memakai **alternatif A** untuk saat ini:
 
 - `RefreshTokenCleanupJob` berjalan setiap jam dan menghapus baris dengan
-  `expires_at` sebelum waktu sekarang.
+  `expires_at` sebelum waktu sekarang. Penghapusan dikirim sebagai satu
+  perintah `DELETE`, bukan memuat setiap baris lalu menghapusnya satu per satu.
 - `RateLimitFilter` memindai dan membuang entri klien yang tidak lagi punya
   permintaan di dalam jendela waktu, setiap sepuluh menit.
+- Kedua tugas memakai dua thread penjadwal, supaya pemindaian rate limiter
+  tidak menunggu pembersihan token selesai.
 - Kedua selang dapat diubah lewat `application.yaml`, dan pembersihan token
   dapat dimatikan lewat `iam.refresh-token-cleanup.enabled`.
 

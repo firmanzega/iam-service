@@ -305,6 +305,11 @@ Kalau kebutuhan pembatasan laju sudah lintas instance, pindahkan batasnya ke
 gateway atau reverse proxy. Rate limiter di dalam proses hanya menghitung
 per instance.
 
+Kalau layanan berada di belakang reverse proxy, periksa juga
+[`deployment.md`](deployment.md) bagian 4.1. Tanpa pengaturan alamat klien yang
+benar, seluruh trafik terlihat berasal dari satu alamat dan kuota dipakai
+bersama.
+
 ---
 
 ## 10. Deploy dan Rollback

@@ -13,9 +13,11 @@ import java.util.List;
  * @param cors daftar origin yang diizinkan untuk memanggil API
  * @param login aturan penguncian akun setelah gagal login berulang
  * @param rateLimit batas jumlah permintaan per jendela waktu
+ * @param refreshTokenCleanup pembersihan token refresh yang sudah kedaluwarsa
  */
 @ConfigurationProperties(prefix = "iam")
-public record IamProperties(Jwt jwt, Cors cors, Login login, RateLimit rateLimit) {
+public record IamProperties(Jwt jwt, Cors cors, Login login, RateLimit rateLimit,
+                            RefreshTokenCleanup refreshTokenCleanup) {
 
     /**
      * @param secret kunci penanda tangan HMAC, panjang minimal 32 byte.
@@ -43,7 +45,15 @@ public record IamProperties(Jwt jwt, Cors cors, Login login, RateLimit rateLimit
     /**
      * @param maxRequests jumlah permintaan maksimum dalam satu jendela waktu.
      * @param window panjang jendela waktu.
+     * @param cleanupInterval selang pemindaian entri klien yang sudah tidak aktif.
      */
-    public record RateLimit(int maxRequests, Duration window) {
+    public record RateLimit(int maxRequests, Duration window, Duration cleanupInterval) {
+    }
+
+    /**
+     * @param enabled sakelar pembersihan token refresh.
+     * @param interval selang antar pembersihan.
+     */
+    public record RefreshTokenCleanup(boolean enabled, Duration interval) {
     }
 }

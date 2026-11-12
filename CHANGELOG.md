@@ -55,6 +55,14 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   produksi
 - Koleksi `http/iam-service.http` yang tidak bisa dijalankan dari atas ke bawah
   dan memakai nama field yang salah pada permintaan ganti kata sandi
+- Pembersihan token refresh kini memakai satu perintah hapus, bukan memuat
+  setiap baris lalu menghapusnya satu per satu
+- Rate limiter kini membaca alamat klien asli saat layanan berada di belakang
+  reverse proxy internal
+- Penjadwal pembersihan token tidak lagi berjalan di lingkungan pengujian, dan
+  dua tugas latar memakai thread terpisah
+- Tabel konfigurasi README yang belum memuat pengaturan pembersihan token dan
+  entri rate limiter
 
 ---
 

@@ -1,3 +1,11 @@
+server:
+  # Saat berjalan di belakang reverse proxy, alamat klien diambil dari header
+  # X-Forwarded-For hanya kalau koneksi datang dari jaringan internal. Tanpa
+  # pengaturan ini, rate limiter akan menghitung alamat proxy untuk semua
+  # pengguna sehingga seluruh trafik berbagi satu kuota.
+  # Pastikan layanan tidak bisa dijangkau langsung dari jaringan publik.
+  forward-headers-strategy: native
+
 spring:
   application:
     name: iam-service
@@ -19,6 +27,12 @@ spring:
         # anotasi tersebut mendaftarkan resolver pagination sendiri sehingga
         # max-page-size di atas ikut diabaikan.
         serialization-mode: via_dto
+  task:
+    scheduling:
+      pool:
+        # Dua tugas latar berjalan berkala. Satu thread bawaan membuat
+        # pemindaian rate limiter menunggu kalau pembersihan token lambat.
+        size: 2
   profiles:
     active: dev
 

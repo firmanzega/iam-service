@@ -51,6 +51,6 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
 
     @Override
     public long deleteExpiredBefore(Instant cutoff) {
-        return repository.deleteByExpiresAtBefore(cutoff);
+        return repository.deleteExpiredBefore(cutoff);
     }
 }

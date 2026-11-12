@@ -25,9 +25,12 @@ public class AuditController {
     }
 
     @Operation(summary = "Daftar jejak audit",
-            description = "Diurutkan dari yang terbaru. Hanya untuk peran ADMIN dan AUDITOR.")
+            description = "Properti sort yang diizinkan: id, createdAt, action, actorUserId, "
+                    + "targetUserId. Tanpa parameter sort, hasil diurutkan dari yang terbaru "
+                    + "dengan id sebagai pemecah seri. Hanya untuk peran ADMIN dan AUDITOR.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Berhasil"),
+            @ApiResponse(responseCode = "400", description = "Properti sort tidak dikenal"),
             @ApiResponse(responseCode = "401", description = "Belum terautentikasi"),
             @ApiResponse(responseCode = "403", description = "Peran tidak cukup")
     })

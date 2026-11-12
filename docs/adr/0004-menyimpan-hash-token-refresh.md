@@ -62,7 +62,8 @@ acak, sehingga isinya pasti berbeda.
   aslinya untuk dipulihkan. Ini kompromi yang disengaja: lebih baik tidak bisa
   dipulihkan daripada bisa dibaca.
 - Token yang sudah dicabut masih ada di tabel sampai dihapus. Perlu pembersihan
-  berkala untuk baris yang sudah kedaluwarsa.
+  berkala untuk baris yang sudah kedaluwarsa; lihat
+  [ADR 0010](0010-pemeliharaan-berkala-di-dalam-proses.md).
 
 **Alternatif yang ditolak**
 
