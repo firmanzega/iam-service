@@ -1,0 +1,350 @@
+# Panduan Uji Manual
+
+Semua perintah dan keluaran di bawah ini sudah dijalankan sungguhan, jadi
+keluarannya bisa dipakai sebagai acuan.
+
+---
+
+## 1. Persiapan
+
+### Jalankan database
+
+```bash
+docker compose up -d
+```
+
+### Jalankan aplikasi
+
+```bash
+./mvnw spring-boot:run
+```
+
+Aplikasi berjalan di <http://localhost:8080>. Tidak perlu export environment
+variable, karena berkas `.env` dibaca otomatis.
+
+### Akun yang tersedia
+
+| Username | Kata sandi | Role | Untuk |
+|---|---|---|---|
+| `admin` | `Admin1234` | ADMIN | Semua operasi |
+| `Dummy1` | `dummy1pass` | ADMIN | Data contoh |
+| `Dummy3` | `dummy3pass` | USER | User biasa, tanpa role khusus |
+| `Dummy2` | `dummy2pass` | AUDITOR | Audit |
+
+> Akun `admin` dibuat otomatis oleh `DevAdminBootstrap` saat profil `dev`
+> aktif dan akun itu belum ada.
+
+---
+
+## 2. Cara paling mudah: HTTP Client bawaan IntelliJ
+
+Berkas [`http/iam-service.http`](../http/iam-service.http) sudah berisi 40+
+permiintaan yang tersusun berurutan.
+
+Cara pakai:
+
+1. Buka `http/iam-service.http` di IntelliJ
+2. Klik **▶️** di sebelah kiri setiap permintaan untuk menjalankannya
+3. Permintaan yang butuh token memakai variabel `@name`, jadi cukup jalankan
+   permintaan login lebih dulu
+
+Variabel yang terisi otomatis:
+
+| Variabel | Terisi dari |
+|---|---|
+| `loginAdmin.response.body.accessToken` | Permintaan login admin |
+| `loginMember.response.body.accessToken` | Permintaan login user biasa |
+
+> Kalau IntelliJ menampilkan "Run with", pilih konfigurasi **HTTP Client**.
+> Kalau `.http` tidak dikenali, pasang plugin **HTTP Client** bawaan IntelliJ.
+
+---
+
+## 3. Dengan curl
+
+### 3.1 Login dan ambil token
+
+```bash
+curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"admin","password":"Admin1234"}'
+```
+
+Keluaran:
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI5NyIsInJvbGVzIjpbIkFETUlOIl0s...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJpYW0tc2VydmljZSIsInN1YiI6Ijk3...",
+  "tokenType": "Bearer",
+  "expiresIn": 900,
+  "roles": ["ADMIN"]
+}
+```
+
+Simpan token aksesnya. Dari sekarang semua perintah memakai:
+
+```bash
+-H "Authorization: Bearer TOKEN_ANDA"
+```
+
+> Di PowerShell, simpan token ke variabel supaya tidak perlu menyalin manual:
+> ```powershell
+> $token = (curl.exe -s -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" --data-raw '{"identifier":"admin","password":"Admin1234"}' | ConvertFrom-Json).accessToken
+> ```
+
+### 3.2 Daftar pengguna
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?size=5"
+```
+
+```json
+{
+  "content": [ { "id": 97, "username": "admin", "email": "admin@iam.local", "active": true, "version": 0, "roles": ["ADMIN"] } ],
+  "page": { "size": 5, "number": 0, "totalElements": 11, "totalPages": 3 }
+}
+```
+
+---
+
+## 4. Skenario Uji
+
+### 4.1 Membuat pengguna
+
+```bash
+curl -X POST http://localhost:8080/users \
+  -H "Authorization: Bearer TOKEN_ANDA" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"andi","email":"andi@mail.com","password":"Andi12345"}'
+```
+
+```json
+{"id":1382,"username":"andi","email":"andi@mail.com","active":true,"version":0,"roles":[]}
+```
+
+### 4.2 User biasa tidak bisa membaca daftar pengguna
+
+```bash
+curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/users"
+```
+
+```
+403 Forbidden
+```
+
+Daftar pengguna hanya untuk peran `ADMIN` dan `AUDITOR`.
+
+### 4.3 User biasa hanya boleh melihat akunnya sendiri
+
+```bash
+# akun sendiri -> 200
+curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/users/1382"
+
+# akun orang lain -> 403
+curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/users/97"
+```
+
+```json
+{"status":403,"error":"Forbidden","timestamp":"...","path":"/users/97","message":"Access denied"}
+```
+
+### 4.4 Memberikan role
+
+```bash
+curl -X PUT http://localhost:8080/users/1382/roles \
+  -H "Authorization: Bearer TOKEN_ANDA" \
+  -H "Content-Type: application/json" \
+  -d '{"roleNames":["AUDITOR"],"version":1}'
+```
+
+```json
+{"id":1382,"username":"andi","email":"andi@mail.com","active":true,"version":2,"roles":["AUDITOR"]}
+```
+
+Role di luar daftar akan ditolak:
+
+```bash
+-d '{"roleNames":["NGADA"],"version":2}'
+```
+
+```json
+{"status":400,"error":"Bad Request","message":"Unknown roles: [NGADA]"}
+```
+
+### 4.5 Mengganti kata sandi sendiri
+
+```bash
+curl -X PUT http://localhost:8080/users/1382/password \
+  -H "Authorization: Bearer TOKEN_ANDA" \
+  -H "Content-Type: application/json" \
+  -d '{"currentPassword":"Andi12345","newPassword":"Andi54321"}'
+```
+
+Keluarannya `204 No Content`. Setelah itu:
+
+| Percobaan | Hasil |
+|---|---|
+| Login dengan kata sandi lama | `401 Invalid credentials` |
+| Login dengan kata sandi baru | `200 OK` |
+
+### 4.6 Membatasi ukuran halaman
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?size=99999"
+```
+
+```json
+"page": { "size": 50, "number": 0, "totalElements": 11, "totalPages": 1 }
+```
+
+Ukuran halaman maksimum 50 baris, berapa pun yang diminta.
+
+### 4.7 Menolak pengurutan pada kolom terlarang
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?sort=passwordHash"
+```
+
+```json
+{
+  "status": 400,
+  "message": "Properties not allowed for sorting: [passwordHash]. Allowed: [updatedAt, createdAt, id, username, email, active]"
+}
+```
+
+### 4.8 Rotasi token refresh
+
+```bash
+# tukar token refresh -> 200, dapat pasangan token baru
+curl -X POST http://localhost:8080/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"TOKEN_REFRESH_LAMA"}'
+
+# pakai token refresh lama lagi -> 401
+```
+
+Token refresh hanya bisa dipakai sekali. Yang berikutnya harus pakai token
+hasil tukaran.
+
+### 4.9 Logout
+
+```bash
+curl -X POST http://localhost:8080/auth/logout \
+  -H "Authorization: Bearer TOKEN_ANDA" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"TOKEN_REFRESH_ANDA"}'
+```
+
+`204 No Content`. Setelah itu token refresh tersebut tidak berlaku lagi.
+
+### 4.10 Kunci akun otomatis
+
+```bash
+# 5x login gagal
+for i in 1 2 3 4 5; do
+  curl -X POST http://localhost:8080/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"identifier":"lockme","password":"SalahTotal1"}'
+done
+```
+
+| Percobaan | Hasil |
+|---|---|
+| 1 sampai 5 | `401 Invalid credentials` |
+| Setelahnya, pakai kata sandi yang **benar** | `423 Locked` |
+
+```json
+{"status":423,"error":"Locked","message":"Account is temporarily locked"}
+```
+
+Akun terbuka lagi otomatis setelah 15 menit.
+
+### 4.11 Melihat jejak audit
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/audit-logs?size=5"
+```
+
+```
+2026-01-12T06:27:58Z | LOGIN_FAILED   | actor=1382 target=1382 | kata sandi salah
+2026-01-12T06:27:47Z | USER_CREATED  | actor=97   target=1382 | andi
+2026-01-12T06:27:47Z | LOGIN_SUCCESS | actor=1382 target=1382 |
+2026-01-12T06:27:36Z | LOGIN_SUCCESS | actor=97   target=97   |
+```
+
+Jejak audit hanya untuk peran `ADMIN` dan `AUDITOR`.
+
+### 4.12 Endpoint operasional
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+```json
+{"groups":["liveness","readiness"],"status":"UP"}
+```
+
+Dokumentasi OpenAPI:
+
+| Alamat | Akses |
+|---|---|
+| <http://localhost:8080/swagger-ui.html> | Publik |
+| <http://localhost:8080/v3/api-docs> | Butuh token ADMIN |
+
+---
+
+## 5. Ringkasan Status Kode
+
+| Kode | Arti | Contoh |
+|---|---|---|
+| `200` | Berhasil | Login, daftar pengguna |
+| `201` | Data dibuat | Buat pengguna, buat role |
+| `204` | Berhasil tanpa body | Ganti kata sandi, logout, aktifkan pengguna |
+| `400` | Permintaan tidak valid | Role tidak dikenal, sort terlarang, body rusak |
+| `401` | Belum terautentikasi | Token hilang, token salah, kata sandi salah |
+| `403` | Tidak berwenang | User biasa akses daftar pengguna |
+| `404` | Data tidak ada | Pengguna dengan id yang tidak ada |
+| `409` | Konflik | Username sudah dipakai, versi data basi |
+| `423` | Terkunci | Akun terkunci setelah 5x gagal login |
+| `429` | Terlalu banyak permintaan | Rate limit endpoint autentikasi |
+| `500` | Galat server | Bug, akan tercatat di log |
+
+---
+
+## 6. Kalau Ada Masalah
+
+### Aplikasi tidak mau start
+
+| Gejala | Penyebab dan solusi |
+|---|---|
+| `Failed to configure a DataSource` | PostgreSQL belum jalan. Jalankan `docker compose up -d` |
+| `iam.jwt.secret minimal 32 byte` | `JWT_SECRET` di `.env` kosong atau terlalu pendek. Isi dengan `openssl rand -base64 48` |
+| `Could not resolve placeholder` | Variabel di `.env` belum lengkap. Bandingkan dengan `.env.example` |
+| `Validate failed: Migrations have failed validation` | Migrasi di database tidak sama dengan berkas di `src/main/resources/db/migration`. Untuk database pengembangan yang sudah lama, jalankan `./mvnw flyway:repair` atau hapus volume Docker dan mulai ulang |
+
+### Login selalu gagal
+
+- Pastikan akun `admin` ada. Cek dengan:
+  ```bash
+  docker exec iam-service-db psql -U user_osprey -d db_osprey -c "select username, active from users;"
+  ```
+- Kalau `admin` tidak ada, hapus database dan mulai ulang. Akun itu dibuat
+  otomatis saat aplikasi pertama kali jalan.
+
+### Data lama tidak sinkron dengan kode
+
+```bash
+docker compose down -v
+docker compose up -d
+./mvnw spring-boot:run
+```
+
+Perintah `down -v` menghapus volume database, jadi seluruh data hilang dan
+dibuat ulang dari migrasi. **Jangan jalankan di server yang sudah berisi data
+asli.**
+
+### Melihat log
+
+Log aplikasi muncul di terminal tempat `./mvnw spring-boot:run` dijalankan.
+Log SQL-nya sudah aktif di profil `dev`, lengkap dengan nilai parameternya.

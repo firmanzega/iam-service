@@ -231,7 +231,7 @@ Semua endpoint berada di bawah `/`, memakai JSON, dan memakai format galat yang 
 
 ### Operasional
 
-| Method | Path | Akses | Keterangan |
+| Metode | Path | Akses | Keterangan |
 |---|---|---|---|
 | GET | `/actuator/health` | Publik | Health check layanan |
 | GET | `/actuator/metrics` | ADMIN | Metrik runtime |
@@ -251,6 +251,14 @@ endpoint yang butuh autentikasi.
 ---
 
 ## Pengujian
+
+### Uji manual
+
+Panduan lengkap ada di [`docs/manual-testing.md`](docs/manual-testing.md).
+Berkas [`http/iam-service.http`](http/iam-service.http) berisi 40+ permintaan
+yang bisa langsung dijalankan dari HTTP Client bawaan IntelliJ.
+
+### Uji otomatis
 
 ```bash
 ./mvnw test
@@ -334,6 +342,7 @@ src/main/resources/
 
 docs/adr/          catatan keputusan arsitektur
 docs/deployment.md panduan deployment dan manajemen secret
+docs/manual-testing.md panduan uji manual lengkap
 http/              koleksi permintaan untuk uji manual
 ```
 
