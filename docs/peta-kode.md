@@ -26,7 +26,7 @@ baliknya dilarang dan dijaga oleh `ArchitectureLayerTest`.
 
 | Berkas | Peran |
 |---|---|
-| `IamServiceApplication.java` | Titik masuk Spring Boot. Mengaktifkan pemindaian properti konfigurasi dengan `@ConfigurationPropertiesScan` |
+| `IamServiceApplication.java` | Titik masuk Spring Boot. Mengaktifkan pemindaian properti konfigurasi dengan `@ConfigurationPropertiesScan` dan penjadwal tugas latar dengan `@EnableScheduling` |
 
 ---
 
@@ -61,6 +61,7 @@ Aturan bisnis murni. **Tidak ada satu pun import framework di sini.**
 |---|---|
 | `AuditLog.java` | Catatan jejak audit |
 | `AuditLogRepository.java` | **Port** untuk penyimpanan jejak audit |
+| `AuditLogSortableProperties.java` | Daftar properti yang boleh jadi kunci pengurutan jejak audit |
 
 ### 3.4 `domain/shared/`
 
@@ -88,6 +89,7 @@ Use case. Mengenal domain, tidak mengenal HTTP maupun JPA.
 | `application/user/UserService.java` | Use case pengguna: cari, lihat, buat, ubah, ganti role, ganti kata sandi sendiri, reset kata sandi, nonaktifkan, aktifkan |
 | `application/auth/AuthService.java` | Use case autentikasi: login, tukar refresh token, logout, cabut semua token. Sekaligus implementasi `TokenRevocationService` |
 | `application/auth/LoginAttemptService.java` | Mencatat kegagalan login di transaksi terpisah |
+| `application/auth/RefreshTokenCleanupService.java` | Menghapus token refresh yang sudah kedaluwarsa. Dipisahkan dari penjadwal supaya aturannya bisa diuji tanpa menyalakan Spring |
 | `application/auth/TokenPair.java` | Hasil login berupa pasangan token |
 | `application/role/RoleService.java` | Use case role: daftar, buat, hapus |
 | `application/audit/AuditService.java` | Pencatatan dan pembacaan jejak audit. `record` ikut transaksi, `recordIndependently` memakai transaksi terpisah, `findAll` membaca halaman jejak audit |
@@ -166,7 +168,8 @@ Adapter yang mengimplementasikan port dari domain.
 | `config/SecurityConfig.java` | Aturan keamanan: filter, aturan akses per URL, header keamanan, CORS, serta bean `JwtEncoder` dan `JwtDecoder` |
 | `config/IamProperties.java` | Konfigurasi khusus layanan, dibungkus sebagai `@ConfigurationProperties` |
 | `config/DomainConfig.java` | Mengubah konfigurasi menjadi objek domain, misalnya `LoginPolicy` dan `TokenSettings` |
-| `config/RateLimitFilter.java` | Pembatas laju permintaan pada endpoint autentikasi |
+| `config/RateLimitFilter.java` | Pembatas laju permintaan pada endpoint autentikasi, sekaligus membuang entri klien yang sudah tidak aktif |
+| `config/RefreshTokenCleanupJob.java` | Penjadwal pembersihan token refresh kedaluwarsa. Bisa dimatikan lewat `iam.refresh-token-cleanup.enabled` |
 | `config/RestAuthenticationEntryPoint.java` | Menjawab permintaan tanpa kredensial dengan 401 |
 | `config/RestAccessDeniedHandler.java` | Menjawab permintaan yang tidak berwenang dengan 403 |
 | `config/SecurityErrorWriter.java` | Menulis galat keamanan dalam bentuk JSON |
@@ -184,12 +187,15 @@ Adapter yang mengimplementasikan port dari domain.
 | `adapter/rest/AuthSecurityIntegrationTest.java` | Matriks otorisasi lewat HTTP, plus alur ganti kata sandi, kunci akun, dan logout |
 | `adapter/rest/GlobalExceptionHandlerTest.java` | Pemetaan galat ke status HTTP |
 | `application/auth/AuthServiceTest.java` | Unit test alur autentikasi |
+| `application/auth/RefreshTokenCleanupServiceTest.java` | Unit test aturan penghapusan token kedaluwarsa |
+| `application/auth/RefreshTokenCleanupIntegrationTest.java` | Membuktikan hanya token kedaluwarsa yang terhapus di database |
+| `application/audit/AuditServiceTest.java` | Mengunci urutan bawaan dan penolakan properti sort asing |
 | `application/user/UserServiceTest.java` | Unit test use case pengguna |
 | `application/user/UserConcurrencyTest.java` | Dua PATCH bersamaan atas satu data |
 | `application/role/RoleServiceTest.java` | Unit test use case role |
 | `application/security/PasswordPolicyTest.java` | Unit test aturan kekuatan kata sandi |
 | `config/PaginationConfigTest.java` | Mengunci batas ukuran halaman agar tidak berubah tanpa disadari |
-| `config/RateLimitFilterTest.java` | Unit test pembatas laju permintaan |
+| `config/RateLimitFilterTest.java` | Unit test pembatas laju permintaan, termasuk pemangkasan antrean dan pembuangan entri basi |
 
 ---
 

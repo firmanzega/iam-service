@@ -4,6 +4,7 @@ import id.osprey.iamservice.domain.auth.RefreshToken;
 import id.osprey.iamservice.domain.auth.RefreshTokenRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Optional;
 
 /**
@@ -46,5 +47,10 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
     @Override
     public long revokeAllForUser(Long userId) {
         return repository.deleteByUserIdAndRevokedAtIsNull(userId);
+    }
+
+    @Override
+    public long deleteExpiredBefore(Instant cutoff) {
+        return repository.deleteByExpiresAtBefore(cutoff);
     }
 }

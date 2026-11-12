@@ -32,6 +32,7 @@ docker exec iam-service-db psql -U user_osprey -d db_osprey \
 | Login selalu gagal | Akun terkunci atau data hilang | [Bagian 6](#6-login-selalu-gagal) |
 | Semua orang logout | Kunci token dirotasi | [Bagian 7](#7-semua-pengguna-terlogout) |
 | Lambat atau timeout | Koneksi database habis | [Bagian 8](#8-lambat-atau-timeout) |
+| Tabel `refresh_tokens` membesar terus | Pembersihan berkala mati | [Bagian 9](#9-pemeliharaan-berkala-tidak-berjalan) |
 
 ---
 
@@ -232,7 +233,81 @@ menunjuk ke tabel yang sama. Lihat
 
 ---
 
-## 9. Deploy dan Rollback
+## 9. Pemeliharaan Berkala Tidak Berjalan
+
+Dua tugas latar berjalan di dalam proses aplikasi, bukan lewat penjadwal
+terpisah. Alasannya ada di
+[ADR 0010](adr/0010-pemeliharaan-berkala-di-dalam-proses.md).
+
+| Tugas | Selang bawaan | Kunci konfigurasi |
+|---|---|---|
+| Hapus token refresh yang sudah kedaluwarsa | 1 jam | `iam.refresh-token-cleanup.enabled`, `iam.refresh-token-cleanup.interval` |
+| Buang entri rate limiter yang tidak aktif | 10 menit | `iam.rate-limit.cleanup-interval` |
+
+Kalau tugas tidak berjalan, gejalanya jarang langsung terlihat. Yang muncul
+adalah tabel yang membesar perlahan, atau memori proses yang naik seiring
+jumlah alamat IP yang pernah memanggil layanan.
+
+### 9.1 Token refresh menumpuk
+
+Hitung dulu berapa baris yang seharusnya sudah terhapus:
+
+```bash
+docker exec iam-service-db psql -U user_osprey -d db_osprey \
+  -c "select count(*) as sudah_kedaluwarsa from refresh_tokens where expires_at < now();"
+```
+
+Kalau jumlahnya besar dan terus bertambah, periksa dua hal:
+
+1. **Sakelar menyala.** Pastikan `iam.refresh-token-cleanup.enabled` tidak
+   diisi `false`. Kalau properti itu tidak ada, nilainya dianggap menyala.
+2. **Penjadwal aktif.** Salah satu penyebab paling umum adalah
+   `@EnableScheduling` hilang dari kelas aplikasi. Tanpa anotasi itu, method
+   `@Scheduled` tidak pernah dipanggil dan tidak ada galat apa pun.
+
+Saat pembersihan berhasil menghapus baris, log menampilkan:
+
+```
+Menghapus N token refresh yang sudah kedaluwarsa
+```
+
+Baris itu hanya muncul kalau ada yang dihapus, jadi tidak adanya log bukan
+bukti bahwa penjadwal mati. Tunggu satu siklus penuh sebelum menyimpulkan.
+
+Pembersihan manual bisa dijalankan bila tabel sudah terlalu besar dan tidak
+mau menunggu siklus berikutnya:
+
+```bash
+docker exec iam-service-db psql -U user_osprey -d db_osprey \
+  -c "delete from refresh_tokens where expires_at < now();"
+```
+
+Perintah itu hanya menyentuh token yang **sudah kedaluwarsa**. Jangan
+menambahkan syarat lain, misalnya menghapus semua token yang dicabut, karena
+baris itu masih dipakai untuk menelusuri pemakaian ulang token.
+
+### 9.2 Memori rate limiter naik
+
+`RateLimitFilter` menyimpan satu antrean waktu per alamat IP. Entri dibuang
+saat pemindaian berkala, dan antrean lama dipangkas ketika klien itu kembali
+memanggil. Kalau jumlah entri dicurigai terus naik:
+
+- Pastikan `iam.rate-limit.cleanup-interval` tidak diisi nilai yang sangat
+  besar. Nilai bawaan sepuluh menit.
+- Periksa apakah ada klien yang membanjiri layanan dari banyak alamat IP.
+  Pemindaian hanya membuang entri yang **sudah** di luar jendela waktu; entri
+  baru tetap bertambah selama serangan berlangsung.
+- Menjalankan ulang proses adalah cara paling cepat mengosongkan peta, tetapi
+  itu juga menghapus penghitung yang sedang berjalan. Lakukan hanya bila
+  memang perlu.
+
+Kalau kebutuhan pembatasan laju sudah lintas instance, pindahkan batasnya ke
+gateway atau reverse proxy. Rate limiter di dalam proses hanya menghitung
+per instance.
+
+---
+
+## 10. Deploy dan Rollback
 
 ### Deploy
 
@@ -267,7 +342,7 @@ cadangan. Karena itu **cadangan database terjadwal** wajib ada.
 
 ---
 
-## 10. Dicurigai kebocoran
+## 11. Dicurigai kebocoran
 
 1. **Cabut seluruh sesi** dengan merotasi `JWT_SECRET`. Semua pengguna
    dipaksa login ulang.
@@ -289,7 +364,7 @@ cadangan. Karena itu **cadangan database terjadwal** wajib ada.
 
 ---
 
-## 11. Kontak
+## 12. Kontak
 
 | Keperluan | Ke mana |
 |---|---|

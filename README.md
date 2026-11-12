@@ -430,5 +430,6 @@ Ringkasnya:
 | [0007](docs/adr/0007-clean-architecture-dengan-port-dan-adapter.md) | Clean Architecture dengan port dan adapter |
 | [0008](docs/adr/0008-lepaskan-kunci-asing-jejak-audit.md) | Lepaskan kunci asing pada tabel jejak audit |
 | [0009](docs/adr/0009-perbaikan-komentar-migrasi-terapan.md) | Perbaikan komentar migrasi terapan lewat repair checksum |
+| [0010](docs/adr/0010-pemeliharaan-berkala-di-dalam-proses.md) | Pemeliharaan berkala di dalam proses aplikasi |
 
 Panduan deployment ada di [`docs/deployment.md`](docs/deployment.md).

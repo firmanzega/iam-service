@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.ObjectMapper;
@@ -20,6 +21,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Membatasi jumlah permintaan dari satu sumber dalam rentang waktu tertentu.
@@ -96,21 +98,74 @@ public class RateLimitFilter extends OncePerRequestFilter {
         long windowMillis = limit.window().toMillis();
         long now = clock.millis();
         long threshold = now - windowMillis;
+        String key = clientKey(request);
 
-        Deque<Long> timestamps = requestTimestamps.computeIfAbsent(clientKey(request), key -> new ArrayDeque<>());
+        // Seluruh perubahan antrean dilakukan di dalam compute, sehingga
+        // pemeriksaan batas dan penambahan waktu berlaku atomik per klien.
+        // Pemindai entri basi juga memakai computeIfPresent pada kunci yang
+        // sama, jadi tidak ada penambahan ke antrean yang sudah dilepas dari
+        // peta.
+        AtomicBoolean limited = new AtomicBoolean(false);
 
-        synchronized (timestamps) {
+        requestTimestamps.compute(key, (client, timestamps) -> {
+            Deque<Long> queue = timestamps == null ? new ArrayDeque<>() : timestamps;
+
+            while (!queue.isEmpty() && queue.peekFirst() < threshold) {
+                queue.pollFirst();
+            }
+
+            if (queue.size() >= limit.maxRequests()) {
+                limited.set(true);
+            } else {
+                queue.addLast(now);
+            }
+
+            return queue;
+        });
+
+        return limited.get();
+    }
+
+    /**
+     * Membuang klien yang tidak lagi punya permintaan di dalam jendela waktu.
+     *
+     * Kenapa perlu: peta menyimpan satu entri per alamat IP. Kalau entri
+     * klien yang sudah tidak aktif dibiarkan, memorinya naik terus seiring
+     * jumlah IP yang pernah memanggil layanan. Pemindai ini berjalan berkala,
+     * bukan pada setiap permintaan, supaya tidak menambah biaya di jalur panas.
+     */
+    @Scheduled(fixedDelayString = "${iam.rate-limit.cleanup-interval:PT10M}")
+    public void scheduledCleanup() {
+        removeStaleClients();
+    }
+
+    /**
+     * Menghapus klien basi dan mengembalikan jumlah entri yang dibuang.
+     * Dipisahkan dari method terjadwal agar bisa diuji langsung.
+     */
+    int removeStaleClients() {
+        IamProperties.RateLimit limit = properties.rateLimit();
+        if (limit == null) {
+            return 0;
+        }
+
+        long threshold = clock.millis() - limit.window().toMillis();
+        int[] removed = {0};
+
+        requestTimestamps.keySet().forEach(key -> requestTimestamps.computeIfPresent(key, (client, timestamps) -> {
             while (!timestamps.isEmpty() && timestamps.peekFirst() < threshold) {
                 timestamps.pollFirst();
             }
 
-            if (timestamps.size() >= limit.maxRequests()) {
-                return true;
+            if (timestamps.isEmpty()) {
+                removed[0]++;
+                return null;
             }
 
-            timestamps.addLast(now);
-            return false;
-        }
+            return timestamps;
+        }));
+
+        return removed[0];
     }
 
     /**

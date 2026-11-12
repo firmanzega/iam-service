@@ -28,10 +28,19 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   memuat aktor pemanggil dan jumlah token yang dicabut
 - Catatan keputusan arsitektur kesembilan tentang perbaikan komentar migrasi
   terapan lewat repair checksum
+- Pembersihan otomatis token refresh yang sudah kedaluwarsa setiap jam, beserta
+  pengaturan selang dan sakelar lewat `application.yaml`
+- Pemindaian berkala entri rate limiter yang sudah tidak aktif, supaya memori
+  tidak tumbuh mengikuti jumlah alamat IP yang pernah memanggil
+- Catatan keputusan arsitektur kesepuluh tentang pemeliharaan berkala di dalam
+  proses aplikasi
 
 ### Diperbaiki
 - Alasan galat saat role yang masih dipakai hendak dihapus kini `ROLE_IN_USE`,
   bukan `DUPLICATE_RESOURCE`
+- Urutan daftar jejak audit yang sebelumnya tidak dijamin: sekarang terbaru
+  lebih dulu dengan `id` sebagai pemecah seri, dan properti sort asing ditolak
+  dengan 400
 - Kata rusak pada komentar migrasi V5, disertai sinkronisasi checksum Flyway di
   database pengembangan
 - Duplikasi penerjemah pagination dan identitas pelaku di controller, serta

@@ -71,3 +71,12 @@ iam:
     # endpoint autentikasi. Tujuannya menahan percobaan login bertubi-tubi.
     max-requests: 20
     window: 1m
+    # Selang pemindaian entri klien yang sudah tidak aktif. Tanpa pemindaian,
+    # satu entri per alamat IP menetap di memori selamanya.
+    cleanup-interval: 10m
+  refresh-token-cleanup:
+    # Token yang sudah kedaluwarsa tidak bisa dipakai lagi, tetapi barisnya
+    # tetap ada. Pembersihan berkala mencegah tabel refresh_tokens tumbuh
+    # tanpa batas.
+    enabled: true
+    interval: 1h
