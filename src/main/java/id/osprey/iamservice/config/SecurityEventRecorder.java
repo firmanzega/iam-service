@@ -1,6 +1,7 @@
 package id.osprey.iamservice.config;
 
 import id.osprey.iamservice.application.audit.AuditService;
+import id.osprey.iamservice.application.security.SecurityRejectionStatsService;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -8,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
 
 /**
  * Mencatat penolakan keamanan ke log, metrik, dan jejak audit.
@@ -25,7 +28,16 @@ import org.springframework.stereotype.Component;
  *        Kalau setiap permintaan seperti itu menulis satu baris, tabel audit
  *        bisa dibanjiri trafik luar dan catatan yang penting justru tenggelam.
  *      - Yang tetap dibutuhkan operator adalah mengetahui bahwa penolakan
- *        terjadi. Untuk itu log WARN dan metrik sudah cukup.
+ *        terjadi. Untuk itu log WARN, metrik, dan agregat per menit sudah
+ *        cukup.
+ *
+ * Kenapa agregat disimpan meskipun 401 tidak masuk jejak audit:
+ *      - Log dan metrik hanya hidup di memori atau sistem luar. Tanpa agregat
+ *        di database, tidak ada cara menjawab "jam berapa lonjakan ini terjadi"
+ *        setelah instance di-restart.
+ *      - Agregatnya sengaja hanya per menit, method, dan alasan. Path dan
+ *        alamat IP dikendalikan pemanggil sehingga bisa dipakai untuk membuat
+ *        tabel membengkak.
  *
  * Kenapa 403 disimpan:
  *      - 403 hanya bisa terjadi setelah identitas terbukti sah. Artinya ada
@@ -52,10 +64,13 @@ public class SecurityEventRecorder {
 
     private final AuditService auditService;
     private final MeterRegistry meterRegistry;
+    private final SecurityRejectionStatsService rejectionStatsService;
 
-    public SecurityEventRecorder(AuditService auditService, MeterRegistry meterRegistry) {
+    public SecurityEventRecorder(AuditService auditService, MeterRegistry meterRegistry,
+                                 SecurityRejectionStatsService rejectionStatsService) {
         this.auditService = auditService;
         this.meterRegistry = meterRegistry;
+        this.rejectionStatsService = rejectionStatsService;
     }
 
     /**
@@ -63,13 +78,15 @@ public class SecurityEventRecorder {
      *
      * Alasan penolakan tidak memuat isi token atau pesan pustaka secara utuh,
      * karena pesan itu bisa memuat potongan kredensial yang tidak boleh masuk
-     * log.
+     * log. Nilainya juga dipakai sebagai kunci agregat, jadi harus berupa kode
+     * pendek yang jumlahnya terbatas.
      */
     public void recordUnauthorized(HttpServletRequest request, String reason) {
         log.warn("Permintaan tanpa kredensial sah ditolak: method={} path={} alasan={}",
                 request.getMethod(), request.getRequestURI(), reason);
 
         count("unauthorized", request.getMethod());
+        persistRejectionStat(request.getMethod(), reason);
     }
 
     /**
@@ -101,6 +118,21 @@ public class SecurityEventRecorder {
         } catch (RuntimeException exception) {
             log.error("Gagal menyimpan jejak penolakan akses: method={} path={}",
                     request.getMethod(), request.getRequestURI(), exception);
+        }
+    }
+
+    /**
+     * Agregat tidak boleh menggagalkan respons 401.
+     *
+     * Kalau tabel agregat sedang tidak bisa ditulis, pemanggil tetap harus
+     * menerima 401 yang jelas. Kegagalan pencatatan cukup dicatat di log
+     * supaya masalah database tidak berubah menjadi 500 yang menyesatkan.
+     */
+    private void persistRejectionStat(String method, String reason) {
+        try {
+            rejectionStatsService.record(Instant.now(), method, reason);
+        } catch (RuntimeException exception) {
+            log.error("Gagal mencatat agregat penolakan: method={} alasan={}", method, reason, exception);
         }
     }
 

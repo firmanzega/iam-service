@@ -3,6 +3,7 @@ package id.osprey.iamservice.domain.auth;
 import id.osprey.iamservice.domain.user.User;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Port untuk menerbitkan token sesi.
@@ -14,14 +15,19 @@ import java.util.List;
 public interface TokenIssuer {
 
     /**
-     * Menerbitkan token akses yang membawa identitas dan role pengguna.
+     * Menerbitkan token akses yang membawa identitas, role pengguna, dan
+     * penanda sesi.
+     *
+     * @param sessionId sesi pemilik token, boleh null untuk token lama
      */
-    String issueAccessToken(User user);
+    String issueAccessToken(User user, UUID sessionId);
 
     /**
-     * Menerbitkan token refresh.
+     * Menerbitkan token refresh untuk sesi tertentu.
+     *
+     * @param sessionId sesi pemilik token, boleh null untuk token lama
      */
-    String issueRefreshToken(User user);
+    String issueRefreshToken(User user, UUID sessionId);
 
     /**
      * Menghitung sidik jari token mentah untuk disimpan di database.

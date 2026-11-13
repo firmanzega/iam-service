@@ -197,6 +197,8 @@ class JwtKeyRingTest {
                 new IamProperties.Cors(List.of("http://localhost:3000")),
                 new IamProperties.Login(5, Duration.ofMinutes(15)),
                 new IamProperties.RateLimit(100, Duration.ofMinutes(1), Duration.ofMinutes(10)),
-                new IamProperties.RefreshTokenCleanup(true, Duration.ofHours(1)));
+                new IamProperties.RefreshTokenCleanup(true, Duration.ofHours(1)),
+                new IamProperties.SessionCleanup(true, Duration.ofHours(1)),
+                new IamProperties.SecurityRejectionStats(true, Duration.ofDays(30), Duration.ofHours(1)));
     }
 }

@@ -2,6 +2,7 @@ package id.osprey.iamservice.infrastructure.persistence;
 
 import id.osprey.iamservice.domain.audit.AuditLog;
 import id.osprey.iamservice.domain.auth.RefreshToken;
+import id.osprey.iamservice.domain.auth.Session;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.User;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -64,7 +66,7 @@ class PersistenceEntityTest {
     @Test
     void refreshTokenEntity_withoutUser_keepsUserNull() {
         Instant expiresAt = Instant.now().plusSeconds(60);
-        RefreshTokenJpaEntity entity = new RefreshTokenJpaEntity("hash", expiresAt);
+        RefreshTokenJpaEntity entity = new RefreshTokenJpaEntity("hash", null, expiresAt);
 
         entity.onCreate();
 
@@ -86,7 +88,7 @@ class PersistenceEntityTest {
         UserJpaEntity userEntity = new UserJpaEntity("budi", "budi@example.com", "hash-kata-sandi");
         Instant revokedAt = Instant.now();
 
-        RefreshTokenJpaEntity entity = new RefreshTokenJpaEntity("token-hash", Instant.now().plusSeconds(60));
+        RefreshTokenJpaEntity entity = new RefreshTokenJpaEntity("token-hash", null, Instant.now().plusSeconds(60));
         entity.setUser(userEntity);
         entity.markRevokedAt(revokedAt);
 
@@ -132,5 +134,42 @@ class PersistenceEntityTest {
         assertTrue(domain.getRoles().contains(new Role("ADMIN")));
         assertEquals(0L, domain.getVersion());
         assertNull(entity.getVersion());
+    }
+
+    @Test
+    void sessionEntity_mapsEveryColumnToDomain() {
+        UUID id = UUID.randomUUID();
+        Instant createdAt = Instant.parse("2026-01-01T10:00:00Z");
+        Instant lastSeenAt = createdAt.plusSeconds(60);
+        Instant revokedAt = createdAt.plusSeconds(120);
+
+        SessionJpaEntity entity = new SessionJpaEntity(id, createdAt);
+        entity.setUser(new UserJpaEntity("budi", "budi@example.com", "hash-kata-sandi"));
+        entity.setDeviceLabel("laptop kantor");
+        entity.setLastSeenAt(lastSeenAt);
+        entity.setRevokedAt(revokedAt);
+
+        assertEquals(id, entity.getId());
+        assertEquals("laptop kantor", entity.getDeviceLabel());
+        assertEquals(lastSeenAt, entity.getLastSeenAt());
+        assertEquals(revokedAt, entity.getRevokedAt());
+
+        Session domain = entity.toDomain();
+        assertEquals(id, domain.getId());
+        assertEquals("laptop kantor", domain.getDeviceLabel());
+        assertEquals(createdAt, domain.getCreatedAt());
+        assertEquals(lastSeenAt, domain.getLastSeenAt());
+        assertEquals(revokedAt, domain.getRevokedAt());
+        assertTrue(domain.isRevoked());
+    }
+
+    @Test
+    void sessionEntity_withoutUser_reportsOwnerAsUnknown() {
+        SessionJpaEntity entity = new SessionJpaEntity(UUID.randomUUID(), Instant.now());
+
+        Session domain = entity.toDomain();
+
+        assertNull(domain.getUserId(),
+                "entitas tanpa relasi pengguna tidak boleh mengarang pemilik sesi");
     }
 }

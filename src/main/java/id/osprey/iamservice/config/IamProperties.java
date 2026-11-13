@@ -14,10 +14,13 @@ import java.util.List;
  * @param login aturan penguncian akun setelah gagal login berulang
  * @param rateLimit batas jumlah permintaan per jendela waktu
  * @param refreshTokenCleanup pembersihan token refresh yang sudah kedaluwarsa
+ * @param sessionCleanup pembersihan sesi perangkat yang sudah tidak aktif
+ * @param securityRejectionStats agregat penolakan 401
  */
 @ConfigurationProperties(prefix = "iam")
 public record IamProperties(Jwt jwt, Cors cors, Login login, RateLimit rateLimit,
-                            RefreshTokenCleanup refreshTokenCleanup) {
+                            RefreshTokenCleanup refreshTokenCleanup, SessionCleanup sessionCleanup,
+                            SecurityRejectionStats securityRejectionStats) {
 
     /**
      * @param secret kunci penanda tangan HMAC, panjang minimal 32 byte.
@@ -71,5 +74,20 @@ public record IamProperties(Jwt jwt, Cors cors, Login login, RateLimit rateLimit
      * @param interval selang antar pembersihan.
      */
     public record RefreshTokenCleanup(boolean enabled, Duration interval) {
+    }
+
+    /**
+     * @param enabled sakelar pembersihan sesi perangkat.
+     * @param interval selang antar pembersihan.
+     */
+    public record SessionCleanup(boolean enabled, Duration interval) {
+    }
+
+    /**
+     * @param enabled sakelar pembersihan agregat penolakan 401.
+     * @param retention lama agregat disimpan sebelum dihapus.
+     * @param interval selang antar pembersihan.
+     */
+    public record SecurityRejectionStats(boolean enabled, Duration retention, Duration interval) {
     }
 }

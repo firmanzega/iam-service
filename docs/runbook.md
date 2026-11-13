@@ -251,14 +251,20 @@ menunjuk ke tabel yang sama. Lihat
 
 ## 9. Pemeliharaan Berkala Tidak Berjalan
 
-Dua tugas latar berjalan di dalam proses aplikasi, bukan lewat penjadwal
+Empat tugas latar berjalan di dalam proses aplikasi, bukan lewat penjadwal
 terpisah. Alasannya ada di
 [ADR 0010](adr/0010-pemeliharaan-berkala-di-dalam-proses.md).
 
 | Tugas | Selang bawaan | Kunci konfigurasi |
 |---|---|---|
 | Hapus token refresh yang sudah kedaluwarsa | 1 jam | `iam.refresh-token-cleanup.enabled`, `iam.refresh-token-cleanup.interval` |
+| Hapus sesi yang dicabut atau tidak aktif | 1 jam | `iam.session-cleanup.enabled`, `iam.session-cleanup.interval` |
+| Hapus agregat penolakan 401 yang melewati retensi | 1 jam | `iam.security-rejection-stats.enabled`, `iam.security-rejection-stats.retention`, `iam.security-rejection-stats.interval` |
 | Buang entri rate limiter yang tidak aktif | 10 menit | `iam.rate-limit.cleanup-interval` |
+
+Penjadwal memakai empat thread (`spring.task.scheduling.pool.size`). Satu
+pembersihan yang lambat tidak menunda jadwal lainnya. Kalau jumlah tugas
+bertambah lagi, ukuran pool ikut dinaikkan.
 
 Kalau tugas tidak berjalan, gejalanya jarang langsung terlihat. Yang muncul
 adalah tabel yang membesar perlahan, atau memori proses yang naik seiring
@@ -302,7 +308,49 @@ Perintah itu hanya menyentuh token yang **sudah kedaluwarsa**. Jangan
 menambahkan syarat lain, misalnya menghapus semua token yang dicabut, karena
 baris itu masih dipakai untuk menelusuri pemakaian ulang token.
 
-### 9.2 Memori rate limiter naik
+### 9.2 Sesi perangkat menumpuk
+
+Setiap login menambah satu baris `sessions`. Sesi yang dicabut atau tidak
+dipakai lebih lama dari masa berlaku token refresh dihapus berkala.
+
+```bash
+docker exec iam-service-db psql -U user_osprey -d db_osprey \
+  -c "select count(*) as tidak_aktif from sessions
+      where revoked_at is not null
+         or last_seen_at < now() - interval '7 days';"
+```
+
+Angka 7 hari mengikuti `iam.jwt.refresh-token-ttl`. Kalau nilainya diubah,
+batas pembersihan ikut berubah, jadi hitung ulang dengan nilai yang berlaku.
+
+Sakelar dan selangnya: `iam.session-cleanup.enabled` dan
+`iam.session-cleanup.interval`. Kalau pembersihan berjalan, log menampilkan:
+
+```
+Menghapus N sesi perangkat yang sudah tidak aktif
+```
+
+Jangan menghapus sesi yang masih aktif secara manual. Baris sesi dipakai untuk
+mencocokkan klaim `session_id`, dan token yang sesinya hilang akan ditolak
+sampai pengguna login ulang.
+
+### 9.3 Agregat penolakan 401 menumpuk
+
+Agregat disimpan per menit, method, dan alasan. Tabelnya tumbuh sebanding
+dengan jumlah kombinasi yang benar-benar terjadi, bukan jumlah permintaan.
+Kalau ukurannya tetap besar, retensinya mungkin terlalu panjang:
+
+```bash
+docker exec iam-service-db psql -U user_osprey -d db_osprey \
+  -c "select count(*) as baris, min(window_start) as paling_lama
+        from security_rejection_stats;"
+```
+
+Atur `iam.security-rejection-stats.retention` sesuai kebijakan penyimpanan.
+Menghapus baris agregat tidak menghilangkan log WARN, jadi penelusuran jangka
+pendek tetap bisa dilakukan.
+
+### 9.4 Memori rate limiter naik
 
 `RateLimitFilter` menyimpan satu antrean waktu per alamat IP. Entri dibuang
 saat pemindaian berkala, dan antrean lama dipangkas ketika klien itu kembali
@@ -326,7 +374,7 @@ Kalau layanan berada di belakang reverse proxy, periksa juga
 benar, seluruh trafik terlihat berasal dari satu alamat dan kuota dipakai
 bersama.
 
-### 9.3 Peringatan dependensi
+### 9.5 Peringatan dependensi
 
 Ada dua jalur pemantauan yang saling melengkapi:
 
@@ -416,11 +464,13 @@ wajib ada.
    **kosongkan** `JWT_SECRET_PREVIOUS`, lalu restart seluruh instance. Semua
    token akses lama langsung ditolak. Jangan pakai prosedur rotasi normal pada
    bagian ini, karena prosedur itu justru mempertahankan kunci lama.
-2. **Cabut seluruh token refresh** di database, supaya sesi tidak bisa
+2. **Cabut seluruh token refresh dan sesi** di database, supaya sesi tidak bisa
    diperpanjang lagi:
    ```bash
    docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
      "update refresh_tokens set revoked_at = now() where revoked_at is null;"
+   docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
+     "update sessions set revoked_at = now() where revoked_at is null;"
    ```
    Setelah kunci dirotasi tanpa kunci sebelumnya, token refresh lama sebenarnya
    sudah tidak bisa dipakai karena tanda tangannya tidak lagi dikenali. Langkah
@@ -530,20 +580,32 @@ Langkah pemeriksaan:
 2. **Cari log WARN** dengan kata `Akses ditolak` atau
    `tanpa kredensial sah`. Sejak perubahan terakhir, kedua kejadian dicatat
    pada level WARN, bukan DEBUG.
-3. **Telusuri 403 di jejak audit**:
+3. **Lihat agregat 401** untuk melihat kapan lonjakan terjadi:
+   ```bash
+   docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
+     "select window_start, http_method, reason, rejection_count
+        from security_rejection_stats
+       where window_start > now() - interval '1 day'
+       order by window_start desc limit 50;"
+   ```
+   Alasan `missing_credentials` berarti header `Authorization` tidak dikirim.
+   Alasan `invalid_token` berarti header ada, tetapi tokennya ditolak. Agregat
+   ini tidak memuat path maupun alamat IP, jadi untuk detail satu permintaan
+   gunakan log WARN.
+4. **Telusuri 403 di jejak audit**:
    ```bash
    docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
      "select actor_user_id, details, count(*) as kejadian, max(created_at) as terakhir
         from audit_logs where action = 'ACCESS_DENIED'
        group by actor_user_id, details order by terakhir desc;"
    ```
-4. **Kalau satu aktor berulang**, nonaktifkan akunnya, periksa role yang
+5. **Kalau satu aktor berulang**, nonaktifkan akunnya, periksa role yang
    diberikan, lalu hubungi pemilik akun. Jangan langsung menghapus jejak
    auditnya.
-5. **Kalau 401 melonjak tanpa pola akun**, curigai pemindaian otomatis.
+6. **Kalau 401 melonjak tanpa pola akun**, curigai pemindaian otomatis.
    Periksa apakah layanan hanya bisa dijangkau lewat proxy, dan apakah batas
    permintaan di gateway masih aktif.
-6. **Kalau perlu menelusuri satu permintaan utuh**, nyalakan sampling tracing
+7. **Kalau perlu menelusuri satu permintaan utuh**, nyalakan sampling tracing
    sementara, lalu cari `traceId` dari baris log yang mencurigakan:
    ```bash
    export OTEL_TRACES_SAMPLING_PROBABILITY=0.1
@@ -553,8 +615,10 @@ Langkah pemeriksaan:
    mengubahnya. Matikan kembali setelah selesai. Sampling `1.0` hanya untuk
    diagnosis jangka pendek.
 
-Penolakan 401 memang **tidak** disimpan ke jejak audit. Kalau butuh riwayat
-dalam jangka panjang, kirim log WARN ke sistem log terpusat.
+Penolakan 401 memang **tidak** disimpan ke jejak audit. Yang tersedia adalah
+log WARN, metrik, dan agregat per menit. Kalau butuh riwayat dalam jangka
+panjang, kirim log WARN ke sistem log terpusat. Agregat di database hanya
+menjawab lonjakan per menit, bukan setiap permintaan.
 
 ---
 

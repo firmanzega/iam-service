@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -161,6 +162,14 @@ class JwtKeyRotationIntegrationTest {
         SignedJWT parsed = SignedJWT.parse(accessToken);
         assertEquals(keyRing.currentKeyId(), parsed.getHeader().getKeyID());
         assertEquals(PREFIX + "pengguna", parsed.getJWTClaimsSet().getStringClaim("username"));
+
+        String sessionId = parsed.getJWTClaimsSet().getStringClaim("session_id");
+        assertNotNull(sessionId, "token akses harus membawa penanda sesi");
+        Integer stored = jdbcTemplate.queryForObject(
+                "select count(*) from sessions where id = ?::uuid"
+                        + " and user_id = (select id from users where username = ?)",
+                Integer.class, sessionId, PREFIX + "pengguna");
+        assertEquals(1, stored, "klaim session_id harus menunjuk sesi yang tersimpan");
     }
 
     private ResultActions callProtectedEndpoint(String token) throws Exception {

@@ -86,9 +86,10 @@ class RefreshTokenReuseIntegrationTest {
 
         assertEquals(2, countTokens(), "dua token seharusnya tetap tersimpan sebagai jejak");
         assertEquals(2, countRevokedTokens(), "seluruh token harus ditandai dicabut");
-        // Kedua permintaan memakai token yang sudah dicabut, jadi keduanya
-        // memang kejadian pemakaian ulang dan tercatat masing-masing.
-        assertEquals(2, countReuseAudit(), "setiap pemakaian ulang harus tercatat");
+        assertEquals(1, countRevokedSessions(), "sesi pemilik ikut dicabut saat pemakaian ulang terdeteksi");
+        // Permintaan kedua memakai token yang dicabut bersama sesinya. Itu bukan
+        // bukti pencurian baru, jadi hanya permintaan pertama yang tercatat.
+        assertEquals(1, countReuseAudit(), "pencabutan sesi tidak boleh dihitung sebagai pemakaian ulang");
     }
 
     private String login() throws Exception {
@@ -139,6 +140,13 @@ class RefreshTokenReuseIntegrationTest {
         return count == null ? 0 : count;
     }
 
+    private int countRevokedSessions() {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from sessions where user_id = ? and revoked_at is not null",
+                Integer.class, userId);
+        return count == null ? 0 : count;
+    }
+
     private void removeTestData() {
         jdbcTemplate.update(
                 "delete from audit_logs where actor_user_id in (select id from users where username = ?)"
@@ -146,6 +154,9 @@ class RefreshTokenReuseIntegrationTest {
                 USERNAME, USERNAME);
         jdbcTemplate.update(
                 "delete from refresh_tokens where user_id in (select id from users where username = ?)",
+                USERNAME);
+        jdbcTemplate.update(
+                "delete from sessions where user_id in (select id from users where username = ?)",
                 USERNAME);
         jdbcTemplate.update(
                 "delete from user_roles where user_id in (select id from users where username = ?)",

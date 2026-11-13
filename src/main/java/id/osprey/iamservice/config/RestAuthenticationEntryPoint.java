@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -42,7 +43,14 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
         log.debug("Unauthorized access on {}: {}", request.getRequestURI(), authException.getMessage());
 
-        securityEventRecorder.recordUnauthorized(request, "kredensial tidak sah");
+        // Alasan dibedakan berdasarkan ada atau tidaknya header Authorization,
+        // bukan berdasarkan kelas exception pustaka. Nilainya dipakai sebagai
+        // kunci agregat, jadi harus berupa kode pendek yang jumlahnya terbatas.
+        String reason = request.getHeader(HttpHeaders.AUTHORIZATION) == null
+                ? "missing_credentials"
+                : "invalid_token";
+
+        securityEventRecorder.recordUnauthorized(request, reason);
 
         errorWriter.write(request, response, HttpStatus.UNAUTHORIZED, "Authentication required");
     }

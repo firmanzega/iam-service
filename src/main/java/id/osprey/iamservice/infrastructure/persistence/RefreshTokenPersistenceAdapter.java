@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Adapter yang memenuhi port RefreshTokenRepository memakai Spring Data JPA.
@@ -32,10 +33,12 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
         // Token yang sudah ada harus diubah, bukan disisipkan lagi. Kalau
         // disisipkan, batasan unik pada token_hash akan dilanggar.
         RefreshTokenJpaEntity entity = refreshToken.getId() == null
-                ? new RefreshTokenJpaEntity(refreshToken.getTokenHash(), refreshToken.getExpiresAt())
+                ? new RefreshTokenJpaEntity(refreshToken.getTokenHash(),
+                        refreshToken.getSessionId(), refreshToken.getExpiresAt())
                 : repository.findById(refreshToken.getId()).orElseThrow();
 
         entity.setUser(userRepository.getReferenceById(refreshToken.getUser().getId()));
+        entity.setSessionId(refreshToken.getSessionId());
 
         if (refreshToken.getRevokedAt() != null) {
             entity.markRevokedAt(refreshToken.getRevokedAt());
@@ -47,6 +50,11 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
     @Override
     public long revokeAllForUser(Long userId, Instant revokedAt) {
         return repository.revokeAllByUserId(userId, revokedAt);
+    }
+
+    @Override
+    public long revokeAllForSession(UUID sessionId, Instant revokedAt) {
+        return repository.revokeAllBySessionId(sessionId, revokedAt);
     }
 
     @Override

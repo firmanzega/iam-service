@@ -226,6 +226,11 @@ Parameter lain ada di `src/main/resources/application.yaml` pada blok `iam`:
 | `iam.rate-limit.cleanup-interval` | `10m` | Selang pemindaian entri rate limiter yang sudah tidak aktif |
 | `iam.refresh-token-cleanup.enabled` | `true` | Sakelar pembersihan token refresh kedaluwarsa |
 | `iam.refresh-token-cleanup.interval` | `1h` | Selang pembersihan token refresh kedaluwarsa |
+| `iam.session-cleanup.enabled` | `true` | Sakelar pembersihan sesi yang dicabut atau tidak aktif |
+| `iam.session-cleanup.interval` | `1h` | Selang pembersihan sesi perangkat |
+| `iam.security-rejection-stats.enabled` | `true` | Sakelar agregat penolakan 401 per menit |
+| `iam.security-rejection-stats.retention` | `30d` | Lama agregat penolakan 401 disimpan |
+| `iam.security-rejection-stats.interval` | `1h` | Selang pembersihan agregat yang melewati retensi |
 
 Kalau layanan berjalan di belakang reverse proxy, `server.forward-headers-strategy`
 sudah diatur ke `native`. Container hanya memakai `X-Forwarded-For` bila
@@ -255,9 +260,19 @@ yang sama. Endpoint operasional Actuator tetap berada di `/actuator`:
 
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
-| POST | `/v1/auth/login` | Publik | Terima token akses dan token refresh |
+| POST | `/v1/auth/login` | Publik | Terima token akses dan token refresh, sekaligus membuka satu sesi perangkat |
 | POST | `/v1/auth/refresh` | Publik | Tukar token refresh (token lama dicabut) |
-| POST | `/v1/auth/logout` | Terautentikasi | Cabut token refresh milik pemanggil |
+| POST | `/v1/auth/logout` | Terautentikasi | Cabut sesi pada token yang dipakai beserta seluruh token refresh di dalamnya |
+| GET | `/v1/auth/sessions` | Terautentikasi | Daftar sesi aktif milik pemanggil, dengan penanda `current` |
+| DELETE | `/v1/auth/sessions/{id}` | Terautentikasi | Cabut satu sesi milik pemanggil. Sesi pengguna lain dijawab 404 |
+
+Login menerima `deviceLabel` opsional sebagai alat bantu pemilik akun. Label itu
+bukan identitas: nilainya berasal dari pemanggil, boleh kosong, dan dipotong pada
+100 karakter. Yang menentukan perangkat adalah id sesi yang dibuat server dan
+dibawa sebagai klaim `session_id` pada kedua token.
+
+Pencabutan satu sesi hanya mematikan perangkat itu. Token akses yang sudah
+terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit.
 
 ### Pengguna
 
@@ -293,6 +308,14 @@ Setiap baris audit mengikat dirinya ke baris sebelumnya lewat hash. Endpoint
 `verify` menghitung ulang seluruh hash dan melaporkan entri rusak pertama
 beserta alasannya. Hasilnya hanya untuk ADMIN, karena id entri yang rusak adalah
 petunjuk langsung bagi siapa pun yang ingin menyembunyikan jejaknya.
+
+Penolakan 401 tidak masuk jejak audit, karena permintaan tanpa kredensial bisa
+dikirim siapa saja tanpa identitas. Yang tersedia untuk 401 adalah log WARN,
+metrik `iam.security.rejected`, dan agregat per menit di
+`security_rejection_stats`. Agregat itu hanya menyimpan menit, method, dan alasan
+(`missing_credentials` atau `invalid_token`), bukan path maupun alamat IP, supaya
+tabelnya tidak bisa dibengkakkan pemanggil. Retensinya diatur lewat
+`iam.security-rejection-stats.retention`.
 
 ### Operasional
 
@@ -438,6 +461,10 @@ Daftar ini sengaja ditulis supaya batasannya jelas sejak awal.
 | Verifikasi rantai membaca seluruh tabel | Endpoint `verify` memuat semua baris audit ke memori | Pindahkan pemeriksaan ke proses terjadwal begitu jumlah barisnya besar |
 | Pemindaian CVE tidak memeriksa seluruh pohon dependensi | `dependency-review-action` hanya memeriksa perubahan pada pull request, sedangkan Trivy memeriksa image yang dibangun | Tinjau peringatan Dependabot secara berkala; Trivy sudah memindai paket yang benar-benar dikirim |
 | Rotasi kunci memerlukan restart serentak | Instance yang belum menerima kunci baru menolak token yang ditandatangani kunci baru | Pastikan konfigurasi semua instance sama, lalu restart bersamaan |
+| Label perangkat berasal dari klien | Nama perangkat bisa dipalsukan atau kosong, sehingga dua perangkat tampak sama | Label hanya alat bantu pemilik akun, bukan identitas. Pencabutan tetap memakai id sesi yang dibuat server |
+| Pencabutan sesi tidak membatalkan token akses | Token akses yang sudah terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit | Masa berlaku pendek adalah kontrolnya. Pencabutan token akses langsung butuh daftar cabut terpusat yang belum ada |
+| Agregat 401 berbutir satu menit | Lonjakan dalam menit yang sama digabung, dan path maupun alamat IP tidak disimpan | Detail per permintaan ada di log WARN yang bisa dikirim ke sistem log terpusat |
+| Riwayat sesi ikut terhapus | Setelah pembersihan, sesi lama tidak lagi terlihat di daftar perangkat | Jejak pencabutan ada di `audit_logs` selama retensi audit, bukan di tabel sesi |
 
 ---
 

@@ -2,6 +2,7 @@ package id.osprey.iamservice.domain.auth;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Port untuk penyimpanan token refresh.
@@ -24,6 +25,15 @@ public interface RefreshTokenRepository {
      * @return jumlah token yang baru dicabut
      */
     long revokeAllForUser(Long userId, Instant revokedAt);
+
+    /**
+     * Mencabut seluruh token refresh dalam satu sesi.
+     *
+     * @param sessionId sesi yang dicabut
+     * @param revokedAt waktu pencabutan yang dicatat
+     * @return jumlah token yang baru dicabut
+     */
+    long revokeAllForSession(UUID sessionId, Instant revokedAt);
 
     /**
      * Menghapus token yang masa berlakunya sudah lewat.

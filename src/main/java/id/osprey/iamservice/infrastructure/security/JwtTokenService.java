@@ -1,6 +1,7 @@
 package id.osprey.iamservice.infrastructure.security;
 
 import id.osprey.iamservice.config.JwtKeyRing;
+import id.osprey.iamservice.config.TokenClaims;
 import id.osprey.iamservice.domain.auth.TokenIssuer;
 import id.osprey.iamservice.domain.auth.TokenSettings;
 import id.osprey.iamservice.domain.user.Role;
@@ -49,17 +50,19 @@ public class JwtTokenService implements TokenIssuer {
     }
 
     /**
-     * Membuat token akses yang membawa identitas dan role pengguna.
+     * Membuat token akses yang membawa identitas, role pengguna, dan penanda
+     * sesi.
      *
-     * @param user pengguna pemilik token
+     * @param user      pengguna pemilik token
+     * @param sessionId sesi pemilik token, boleh null untuk token lama
      * @return token akses yang sudah ditandatangani
      */
     @Override
-    public String issueAccessToken(User user) {
+    public String issueAccessToken(User user, UUID sessionId) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(tokenSettings.accessTokenTtl());
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuer(tokenSettings.issuer())
                 .subject(user.getId().toString())
                 .issuedAt(issuedAt)
@@ -67,14 +70,19 @@ public class JwtTokenService implements TokenIssuer {
                 .claim("username", user.getUsername())
                 .claim(ROLE_CLAIM, roleNames(user))
                 .claim(TOKEN_TYPE_CLAIM, "access")
-                .id(UUID.randomUUID().toString())
-                .build();
+                .id(UUID.randomUUID().toString());
+
+        // Token lama tanpa sesi tetap harus bisa terbit, misalnya saat
+        // penukaran token yang terbit sebelum fitur sesi ada.
+        if (sessionId != null) {
+            claims.claim(TokenClaims.SESSION_ID, sessionId.toString());
+        }
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256)
                 .keyId(keyRing.currentKeyId())
                 .build();
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
     }
 
     /**
@@ -90,24 +98,27 @@ public class JwtTokenService implements TokenIssuer {
      *      - UUID acak membuat setiap token pasti berbeda.
      */
     @Override
-    public String issueRefreshToken(User user) {
+    public String issueRefreshToken(User user, UUID sessionId) {
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(tokenSettings.refreshTokenTtl());
 
-        JwtClaimsSet claims = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuer(tokenSettings.issuer())
                 .subject(user.getId().toString())
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .id(UUID.randomUUID().toString())
-                .claim(TOKEN_TYPE_CLAIM, "refresh")
-                .build();
+                .claim(TOKEN_TYPE_CLAIM, "refresh");
+
+        if (sessionId != null) {
+            claims.claim(TokenClaims.SESSION_ID, sessionId.toString());
+        }
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256)
                 .keyId(keyRing.currentKeyId())
                 .build();
 
-        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();
     }
 
     /**

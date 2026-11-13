@@ -62,6 +62,11 @@ public class SecurityConfig {
                         // karena itulah tujuan token tersebut dibuat.
                         .requestMatchers("/v1/auth/login", "/v1/auth/refresh").permitAll()
                         .requestMatchers("/v1/auth/logout").authenticated()
+                        // Daftar dan pencabutan sesi selalu milik pemanggil.
+                        // Tanpa aturan ini, permintaan akan jatuh ke
+                        // anyRequest().hasRole("ADMIN") dan pengguna biasa
+                        // tidak bisa melihat perangkatnya sendiri.
+                        .requestMatchers("/v1/auth/sessions", "/v1/auth/sessions/**").authenticated()
                         // Aset statis Swagger UI seperti berkas JavaScript dan
                         // CSS-nya dilayani dari path webjars. Kalau path ini
                         // diblokir, halamannya terbuka tapi tetap kosong putih

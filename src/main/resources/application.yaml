@@ -37,9 +37,11 @@ spring:
   task:
     scheduling:
       pool:
-        # Dua tugas latar berjalan berkala. Satu thread bawaan membuat
-        # pemindaian rate limiter menunggu kalau pembersihan token lambat.
-        size: 2
+        # Setiap tugas latar punya jadwal sendiri: pemindaian rate limiter,
+        # pembersihan token refresh, pembersihan sesi, dan pembersihan agregat
+        # penolakan. Ukuran pool disamakan dengan jumlah tugas itu supaya satu
+        # pembersihan yang lambat tidak menunda jadwal lainnya.
+        size: 4
   profiles:
     active: dev
 
@@ -116,4 +118,17 @@ iam:
     # tetap ada. Pembersihan berkala mencegah tabel refresh_tokens tumbuh
     # tanpa batas.
     enabled: true
+    interval: 1h
+  session-cleanup:
+    # Sesi yang tidak dipakai lebih lama dari masa berlaku token refresh tidak
+    # bisa dilanjutkan lagi. Barisnya dihapus supaya daftar perangkat tidak
+    # menyimpan riwayat selamanya.
+    enabled: true
+    interval: 1h
+  security-rejection-stats:
+    # Agregat 401 dipakai untuk melihat lonjakan penolakan tanpa menyimpan
+    # setiap permintaan. Retensinya pendek karena nilainya menurun dengan
+    # cepat setelah kejadian.
+    enabled: true
+    retention: 30d
     interval: 1h

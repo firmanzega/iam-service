@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Repository Spring Data untuk entitas JPA token refresh.
@@ -27,6 +28,16 @@ public interface SpringDataRefreshTokenRepository extends JpaRepository<RefreshT
     @Query("update RefreshTokenJpaEntity token set token.revokedAt = :revokedAt "
             + "where token.user.id = :userId and token.revokedAt is null")
     int revokeAllByUserId(@Param("userId") Long userId, @Param("revokedAt") Instant revokedAt);
+
+    /**
+     * Mencabut seluruh token dalam satu sesi. Dipakai saat pengguna logout
+     * dari satu perangkat atau mencabut sesi itu dari daftar perangkat.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update RefreshTokenJpaEntity token set token.revokedAt = :revokedAt "
+            + "where token.sessionId = :sessionId and token.revokedAt is null")
+    int revokeAllBySessionId(@Param("sessionId") UUID sessionId,
+                             @Param("revokedAt") Instant revokedAt);
 
     /**
      * Menghapus seluruh token kedaluwarsa dalam satu perintah.

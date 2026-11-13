@@ -243,7 +243,12 @@ curl -X POST http://localhost:8080/v1/auth/refresh \
 Token refresh hanya bisa dipakai sekali. Yang berikutnya harus pakai token
 hasil tukaran. Memakai ulang token lama bukan hanya ditolak: itu dianggap bukti
 pencurian, sehingga seluruh sesi pengguna dicabut. Skenario lengkapnya ada di
-[bagian 4.13](#413-pemakaian-ulang-token-refresh-terdeteksi).
+[bagian 4.14](#414-pemakaian-ulang-token-refresh-terdeteksi).
+
+Pemakaian ulang hanya dihitung kalau token dicabut oleh rotasi sementara sesinya
+masih hidup. Token yang dicabut karena logout atau pencabutan sesi memang sudah
+tidak berlaku, dan memakainya lagi tidak menambah catatan
+`REFRESH_TOKEN_REUSE`.
 
 ### 4.9 Logout
 
@@ -254,7 +259,9 @@ curl -X POST http://localhost:8080/v1/auth/logout \
   -d '{"refreshToken":"TOKEN_REFRESH_ANDA"}'
 ```
 
-`204 No Content`. Setelah itu token refresh tersebut tidak berlaku lagi.
+`204 No Content`. Setelah itu seluruh token refresh di sesi tersebut tidak
+berlaku lagi. Perangkat lain milik pengguna yang sama tidak terpengaruh.
+Skenario dua perangkat ada di [bagian 4.16](#416-sesi-per-perangkat).
 
 ### 4.10 Kunci akun otomatis
 
@@ -376,6 +383,10 @@ curl -H "Authorization: Bearer TOKEN_ANDA" \
 Nilai `reason` berisi `unauthorized` untuk 401 dan `access_denied` untuk 403,
 ditambah tag `method`. Naikkan angka itu dengan memicu penolakan, lalu panggil
 ulang untuk melihat pertambahannya.
+
+Metrik hanya hidup di memori proses. Riwayat 401 setelah restart ada di tabel
+`security_rejection_stats`, dan cara memeriksanya ada di
+[bagian 4.17](#417-agregat-penolakan-401).
 
 Dokumentasi OpenAPI:
 
@@ -503,6 +514,74 @@ printf '%s' "$TOKEN" | cut -d. -f1 | base64 -d 2>/dev/null
 
 Nilai `kid` diturunkan dari isi kunci. Kunci yang sama selalu menghasilkan nilai
 yang sama, dan kunci berbeda menghasilkan nilai berbeda.
+
+### 4.16 Sesi per perangkat
+
+Login dua kali dengan label berbeda, lalu bandingkan daftar sesinya.
+
+```bash
+# login dari laptop, simpan pasangan token-nya
+curl -s -X POST http://localhost:8080/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"budi","password":"Rahasia123","deviceLabel":"laptop"}'
+
+# login dari telepon, simpan pasangan token-nya
+curl -s -X POST http://localhost:8080/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"budi","password":"Rahasia123","deviceLabel":"telepon"}'
+
+# daftar sesi memakai access token dari telepon
+curl -H "Authorization: Bearer TOKEN_AKSES_TELEPON" \
+  http://localhost:8080/v1/auth/sessions
+```
+
+Hasil yang diharapkan: dua baris, masing-masing berlabel `laptop` dan `telepon`.
+Hanya sesi telepon yang bernilai `"current": true`.
+
+Setelah logout dari laptop:
+
+```bash
+curl -X POST http://localhost:8080/v1/auth/logout \
+  -H "Authorization: Bearer TOKEN_AKSES_LAPTOP" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"TOKEN_REFRESH_LAPTOP"}'
+```
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Tukar token refresh laptop | `401` |
+| Tukar token refresh telepon | `200`, dan daftar sesi tinggal satu baris |
+
+Sesi milik pengguna lain dijawab sama seperti sesi yang tidak ada:
+
+```bash
+# ID sesi milik pengguna lain, atau ID acak -> 404
+curl -i -X DELETE http://localhost:8080/v1/auth/sessions/ID_SESI \
+  -H "Authorization: Bearer TOKEN_AKSES_ANDA"
+```
+
+`deviceLabel` hanya alat bantu pemilik akun. Nilainya berasal dari pemanggil,
+tidak dipakai sebagai identitas, dan boleh dikosongkan.
+
+### 4.17 Agregat penolakan 401
+
+Panggil endpoint yang dilindungi tanpa token, lalu periksa agregatnya:
+
+```bash
+curl -i http://localhost:8080/v1/users
+
+docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
+  "select window_start, http_method, reason, rejection_count
+     from security_rejection_stats order by window_start desc limit 5;"
+```
+
+Baris bertambah pada `reason=missing_credentials`. Dengan header
+`Authorization: Bearer bukan-token`, alasannya menjadi `invalid_token`.
+Agregatnya per menit, jadi beberapa permintaan pada menit yang sama menambah
+`rejection_count`, bukan menambah baris.
+
+Path dan alamat IP tidak disimpan di tabel ini. Keduanya hanya ada di log WARN,
+supaya penyerang tidak bisa membuat tabel membengkak dengan path acak.
 
 ---
 

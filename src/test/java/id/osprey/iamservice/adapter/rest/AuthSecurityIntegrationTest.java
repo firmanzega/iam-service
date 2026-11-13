@@ -190,6 +190,35 @@ class AuthSecurityIntegrationTest {
                 "penolakan tanpa kredensial tidak boleh menulis jejak audit");
     }
 
+    @Test
+    void unauthorized_isAggregatedPerMinuteAndMethod() throws Exception {
+        long before = rejectionStatCount("GET", "missing_credentials");
+
+        mockMvc.perform(get("/v1/users"))
+                .andExpect(status().isUnauthorized());
+
+        assertEquals(before + 1, rejectionStatCount("GET", "missing_credentials"));
+    }
+
+    @Test
+    void invalidToken_isAggregatedWithItsOwnReason() throws Exception {
+        long before = rejectionStatCount("GET", "invalid_token");
+
+        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer bukan-token-jwt"))
+                .andExpect(status().isUnauthorized());
+
+        assertEquals(before + 1, rejectionStatCount("GET", "invalid_token"));
+    }
+
+    private long rejectionStatCount(String method, String reason) {
+        Long count = jdbcTemplate.queryForObject(
+                "select coalesce(sum(rejection_count), 0) from security_rejection_stats"
+                        + " where http_method = ? and reason = ?",
+                Long.class, method, reason);
+
+        return count == null ? 0 : count;
+    }
+
     private double rejectedCount(String reason, String method) {
         var counter = meterRegistry.find("iam.security.rejected")
                 .tags("reason", reason, "method", method)

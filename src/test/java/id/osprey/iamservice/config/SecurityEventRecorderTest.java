@@ -1,6 +1,7 @@
 package id.osprey.iamservice.config;
 
 import id.osprey.iamservice.application.audit.AuditService;
+import id.osprey.iamservice.application.security.SecurityRejectionStatsService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,7 +27,10 @@ class SecurityEventRecorderTest {
 
     private final AuditService auditService = mock(AuditService.class);
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-    private final SecurityEventRecorder recorder = new SecurityEventRecorder(auditService, meterRegistry);
+    private final SecurityRejectionStatsService rejectionStatsService =
+            mock(SecurityRejectionStatsService.class);
+    private final SecurityEventRecorder recorder =
+            new SecurityEventRecorder(auditService, meterRegistry, rejectionStatsService);
 
     @AfterEach
     void tearDown() {
@@ -37,10 +42,21 @@ class SecurityEventRecorderTest {
     void unauthorizedOnlyCountsMetricAndDoesNotWriteAudit() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v1/users");
 
-        recorder.recordUnauthorized(request, "kredensial tidak sah");
+        recorder.recordUnauthorized(request, "missing_credentials");
 
         assertEquals(1, counterValue("unauthorized", "GET"));
+        verify(rejectionStatsService).record(any(Instant.class), eq("GET"), eq("missing_credentials"));
         verify(auditService, never()).recordIndependently(any(), any(), any(), any());
+    }
+
+    @Test
+    void aggregateFailureDoesNotBreakTheRejectionResponse() {
+        doThrow(new IllegalStateException("database sedang sibuk"))
+                .when(rejectionStatsService).record(any(), any(), any());
+
+        recorder.recordUnauthorized(new MockHttpServletRequest("GET", "/v1/users"), "invalid_token");
+
+        assertEquals(1, counterValue("unauthorized", "GET"));
     }
 
     @Test

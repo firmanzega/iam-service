@@ -4,6 +4,8 @@ import id.osprey.iamservice.application.audit.AuditService;
 import id.osprey.iamservice.domain.auth.LoginPolicy;
 import id.osprey.iamservice.domain.auth.RefreshToken;
 import id.osprey.iamservice.domain.auth.RefreshTokenRepository;
+import id.osprey.iamservice.domain.auth.Session;
+import id.osprey.iamservice.domain.auth.SessionRepository;
 import id.osprey.iamservice.domain.auth.TokenIssuer;
 import id.osprey.iamservice.domain.auth.TokenSettings;
 import id.osprey.iamservice.domain.auth.TokenRevocationService;
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Use case autentikasi: login, penukaran token refresh, dan logout.
@@ -31,9 +35,11 @@ public class AuthService implements TokenRevocationService {
     private static final String AUDIT_ACCOUNT_LOCKED = "ACCOUNT_LOCKED";
     private static final String AUDIT_TOKEN_REFRESHED = "TOKEN_REFRESHED";
     private static final String AUDIT_LOGOUT = "LOGOUT";
+    private static final String AUDIT_SESSION_REVOKED = "SESSION_REVOKED";
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final SessionRepository sessionRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenIssuer tokenIssuer;
     private final LoginAttemptService loginAttemptService;
@@ -44,6 +50,7 @@ public class AuthService implements TokenRevocationService {
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
+                       SessionRepository sessionRepository,
                        PasswordEncoder passwordEncoder,
                        TokenIssuer tokenIssuer,
                        LoginAttemptService loginAttemptService,
@@ -53,6 +60,7 @@ public class AuthService implements TokenRevocationService {
                        RefreshTokenReuseService refreshTokenReuseService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.sessionRepository = sessionRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenIssuer = tokenIssuer;
         this.loginAttemptService = loginAttemptService;
@@ -62,8 +70,15 @@ public class AuthService implements TokenRevocationService {
         this.refreshTokenReuseService = refreshTokenReuseService;
     }
 
+    /**
+     * Login dan membuka sesi baru untuk perangkat pemanggil.
+     *
+     * @param deviceLabel label perangkat dari pemanggil, boleh null. Nilainya
+     *                    tidak dipercaya sebagai identitas; hanya dipakai
+     *                    supaya pemilik akun bisa membedakan sesinya sendiri
+     */
     @Transactional
-    public TokenPair login(String identifier, String password) {
+    public TokenPair login(String identifier, String password, String deviceLabel) {
         Instant now = Instant.now();
 
         User user = userRepository.findByUsernameOrEmail(identifier, identifier).orElse(null);
@@ -95,9 +110,11 @@ public class AuthService implements TokenRevocationService {
         user.clearFailedLogins();
         userRepository.save(user);
 
+        Session session = sessionRepository.save(Session.start(user.getId(), deviceLabel, now));
+
         auditService.record(user.getId(), AUDIT_LOGIN_SUCCESS, user.getId(), null);
 
-        return issueTokens(user);
+        return issueTokens(user, session);
     }
 
     /**
@@ -119,16 +136,30 @@ public class AuthService implements TokenRevocationService {
                 .orElseThrow(() -> new DomainException(DomainException.Reason.INVALID_CREDENTIALS,
                         "Invalid refresh token"));
 
+        Session session = stored.getSessionId() == null
+                ? null
+                : sessionRepository.findById(stored.getSessionId()).orElse(null);
+
         if (stored.isRevoked()) {
-            if (!stored.isExpired(now)) {
+            // Pencabutan karena logout atau pencabutan sesi bukan bukti
+            // pencurian. Yang dianggap pemakaian ulang hanya token yang
+            // dicabut oleh rotasi sementara sesinya masih hidup.
+            boolean sessionRevoked = session != null && session.isRevoked();
+            boolean sessionGone = stored.getSessionId() != null && session == null;
+
+            if (!sessionRevoked && !sessionGone && !stored.isExpired(now)) {
                 refreshTokenReuseService.revokeAllAfterReuse(stored.getUser().getId());
             }
 
-            throw new DomainException(DomainException.Reason.INVALID_CREDENTIALS, "Invalid refresh token");
+            throw invalidRefreshToken();
         }
 
         if (stored.isExpired(now)) {
-            throw new DomainException(DomainException.Reason.INVALID_CREDENTIALS, "Invalid refresh token");
+            throw invalidRefreshToken();
+        }
+
+        if (session != null && session.isRevoked()) {
+            throw invalidRefreshToken();
         }
 
         User user = stored.getUser();
@@ -144,19 +175,35 @@ public class AuthService implements TokenRevocationService {
         stored.revoke(now);
         refreshTokenRepository.save(stored);
 
+        if (session == null) {
+            // Token yang terbit sebelum sesi perangkat ada tetap bisa ditukar.
+            // Sesi baru dibuat sekarang supaya token pengganti punya identitas
+            // sesi dan bisa dicabut sendiri nanti.
+            session = sessionRepository.save(Session.start(user.getId(), null, now));
+        } else {
+            session.touch(now);
+            sessionRepository.save(session);
+        }
+
         auditService.record(user.getId(), AUDIT_TOKEN_REFRESHED, user.getId(), null);
 
-        return issueTokens(user);
+        return issueTokens(user, session);
     }
 
     /**
-     * Mencabut satu token refresh milik pemanggil.
+     * Mencabut satu sesi milik pemanggil beserta seluruh token di dalamnya.
+     *
+     * Logout dari satu perangkat tidak boleh mematikan perangkat lain, jadi
+     * yang dicabut adalah sesi yang tokennya dikirim, bukan seluruh sesi
+     * pengguna.
      *
      * @param userId identitas pemanggil, diambil dari access token
-     * @param rawRefreshToken token refresh yang dicabut
+     * @param rawRefreshToken token refresh milik sesi yang dicabut
      */
     @Transactional
     public void logout(Long userId, String rawRefreshToken) {
+        Instant now = Instant.now();
+
         refreshTokenRepository.findByTokenHash(tokenIssuer.hashToken(rawRefreshToken))
                 .ifPresent(stored -> {
                     if (!stored.getUser().getId().equals(userId)) {
@@ -164,10 +211,60 @@ public class AuthService implements TokenRevocationService {
                                 "Refresh token does not belong to the caller");
                     }
 
-                    stored.revoke(Instant.now());
+                    UUID sessionId = stored.getSessionId();
+                    if (sessionId != null) {
+                        revokeSession(sessionId, now);
+                    }
+
+                    stored.revoke(now);
                     refreshTokenRepository.save(stored);
                     auditService.record(userId, AUDIT_LOGOUT, userId, null);
                 });
+    }
+
+    /**
+     * Daftar sesi aktif pemanggil, terbaru lebih dulu.
+     *
+     * @param userId           identitas pemanggil
+     * @param currentSessionId sesi pada token yang sedang dipakai, boleh null
+     *                         untuk token lama tanpa klaim sesi
+     */
+    @Transactional(readOnly = true)
+    public List<SessionSummary> listSessions(Long userId, UUID currentSessionId) {
+        Instant now = Instant.now();
+        var ttl = tokenSettings.refreshTokenTtl();
+
+        return sessionRepository.findActiveByUser(userId, now.minus(ttl)).stream()
+                .map(session -> new SessionSummary(
+                        session.getId(),
+                        session.getDeviceLabel(),
+                        session.getCreatedAt(),
+                        session.getLastSeenAt(),
+                        session.getLastSeenAt().plus(ttl),
+                        session.getId().equals(currentSessionId)))
+                .toList();
+    }
+
+    /**
+     * Mencabut satu sesi milik pemanggil.
+     *
+     * Sesi yang tidak ada dan sesi milik pengguna lain dijawab sama, yaitu
+     * tidak ditemukan. Kalau keduanya dibedakan, pemanggil bisa memakai
+     * percobaan itu untuk menebak sesi mana yang ada.
+     *
+     * @param userId    identitas pemanggil
+     * @param sessionId sesi yang dicabut
+     */
+    @Transactional
+    public void revokeSession(Long userId, UUID sessionId) {
+        Session session = sessionRepository.findById(sessionId)
+                .filter(found -> found.belongsTo(userId))
+                .orElseThrow(() -> new DomainException(DomainException.Reason.SESSION_NOT_FOUND,
+                        "Session not found"));
+
+        Instant now = Instant.now();
+        revokeSession(session, now);
+        auditService.record(userId, AUDIT_SESSION_REVOKED, userId, "sesi dicabut: " + sessionId);
     }
 
     /**
@@ -178,20 +275,43 @@ public class AuthService implements TokenRevocationService {
     @Override
     @Transactional
     public long revokeAllTokens(Long userId) {
-        long revoked = refreshTokenRepository.revokeAllForUser(userId, Instant.now());
+        Instant now = Instant.now();
+
+        long revoked = refreshTokenRepository.revokeAllForUser(userId, now);
+        sessionRepository.revokeAllForUser(userId, now);
+
         if (revoked > 0) {
             log.debug("Revoked {} refresh tokens for user {}", revoked, userId);
         }
         return revoked;
     }
 
-    private TokenPair issueTokens(User user) {
-        String accessToken = tokenIssuer.issueAccessToken(user);
-        String refreshToken = tokenIssuer.issueRefreshToken(user);
+    private void revokeSession(UUID sessionId, Instant now) {
+        // Kalau baris sesinya sudah tidak ada, token di dalamnya tetap dicabut.
+        // Baris sesi bisa hilang karena pembersihan berkala, dan token yang
+        // masih hidup tanpa sesi tidak boleh lolos dari pencabutan.
+        sessionRepository.findById(sessionId).ifPresentOrElse(
+                session -> revokeSession(session, now),
+                () -> refreshTokenRepository.revokeAllForSession(sessionId, now));
+    }
+
+    private void revokeSession(Session session, Instant now) {
+        session.revoke(now);
+        sessionRepository.save(session);
+        refreshTokenRepository.revokeAllForSession(session.getId(), now);
+    }
+
+    private DomainException invalidRefreshToken() {
+        return new DomainException(DomainException.Reason.INVALID_CREDENTIALS, "Invalid refresh token");
+    }
+
+    private TokenPair issueTokens(User user, Session session) {
+        String accessToken = tokenIssuer.issueAccessToken(user, session.getId());
+        String refreshToken = tokenIssuer.issueRefreshToken(user, session.getId());
 
         Instant expiresAt = Instant.now().plus(tokenSettings.refreshTokenTtl());
         refreshTokenRepository.save(
-                new RefreshToken(user, tokenIssuer.hashToken(refreshToken), expiresAt));
+                new RefreshToken(user, tokenIssuer.hashToken(refreshToken), session.getId(), expiresAt));
 
         return new TokenPair(accessToken, refreshToken,
                 tokenSettings.accessTokenTtl().toSeconds(), tokenIssuer.roleNames(user));

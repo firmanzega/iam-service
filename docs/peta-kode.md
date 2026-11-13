@@ -48,8 +48,10 @@ Aturan bisnis murni. **Tidak ada satu pun import framework di sini.**
 
 | Berkas | Peran |
 |---|---|
-| `RefreshToken.java` | Token refresh beserta status pencabutannya |
+| `RefreshToken.java` | Token refresh beserta status pencabutannya dan sesi pemiliknya |
 | `RefreshTokenRepository.java` | **Port** untuk penyimpanan token refresh |
+| `Session.java` | Sesi satu perangkat. Menyimpan id tetap, label perangkat opsional, waktu terakhir dipakai, dan status pencabutan |
+| `SessionRepository.java` | **Port** untuk penyimpanan sesi, pencarian sesi aktif, pencabutan massal, dan pembersihan |
 | `TokenIssuer.java` | **Port** untuk penerbitan token dan penghitungan hash |
 | `TokenRevocationService.java` | **Port** untuk pencabutan seluruh token milik seorang pengguna |
 | `LoginPolicy.java` | Aturan penguncian akun: jumlah kegagalan dan lama penguncian |
@@ -80,6 +82,7 @@ Aturan bisnis murni. **Tidak ada satu pun import framework di sini.**
 | Berkas | Peran |
 |---|---|
 | `PasswordEncoder.java` | **Port** untuk hash dan verifikasi kata sandi |
+| `SecurityRejectionStatRepository.java` | **Port** untuk agregat penolakan 401 per menit, plus pembersihan berdasarkan retensi |
 
 ---
 
@@ -90,14 +93,17 @@ Use case. Mengenal domain, tidak mengenal HTTP maupun JPA.
 | Berkas | Peran |
 |---|---|
 | `application/user/UserService.java` | Use case pengguna: cari, lihat, buat, ubah, ganti role, ganti kata sandi sendiri, reset kata sandi, nonaktifkan, aktifkan |
-| `application/auth/AuthService.java` | Use case autentikasi: login, tukar refresh token, logout, cabut semua token. Sekaligus implementasi `TokenRevocationService` |
+| `application/auth/AuthService.java` | Use case autentikasi: login dengan sesi perangkat, tukar refresh token, logout satu sesi, daftar sesi, cabut satu sesi, cabut semua token. Sekaligus implementasi `TokenRevocationService` |
 | `application/auth/LoginAttemptService.java` | Mencatat kegagalan login di transaksi terpisah |
 | `application/auth/RefreshTokenCleanupService.java` | Menghapus token refresh yang sudah kedaluwarsa. Dipisahkan dari penjadwal supaya aturannya bisa diuji tanpa menyalakan Spring |
+| `application/auth/SessionCleanupService.java` | Menghapus sesi yang sudah dicabut atau tidak dipakai lebih lama dari masa berlaku token refresh |
+| `application/auth/SessionSummary.java` | Ringkasan sesi untuk daftar perangkat, termasuk penanda sesi pemanggil |
 | `application/auth/RefreshTokenReuseService.java` | Mencabut seluruh sesi dan mencatat `REFRESH_TOKEN_REUSE` di transaksi terpisah saat token yang sudah dicabut dipakai lagi |
 | `application/auth/TokenPair.java` | Hasil login berupa pasangan token |
 | `application/role/RoleService.java` | Use case role: daftar, buat, hapus |
 | `application/audit/AuditService.java` | Pencatatan dan pembacaan jejak audit. `record` ikut transaksi, `recordIndependently` memakai transaksi terpisah, `findAll` membaca halaman jejak audit |
 | `application/security/PasswordPolicy.java` | Aturan kekuatan kata sandi |
+| `application/security/SecurityRejectionStatsService.java` | Mencatat agregat penolakan 401 per menit di transaksi sendiri, dan menghapus agregat yang melewati retensi |
 
 ---
 
@@ -111,15 +117,19 @@ Adapter yang mengimplementasikan port dari domain.
 |---|---|
 | `UserJpaEntity.java` | Entitas JPA tabel `users`, termasuk relasi role dan kolom `version` |
 | `RoleJpaEntity.java` | Entitas JPA tabel `roles` |
-| `RefreshTokenJpaEntity.java` | Entitas JPA tabel `refresh_tokens` |
+| `RefreshTokenJpaEntity.java` | Entitas JPA tabel `refresh_tokens`, termasuk kolom `session_id` |
+| `SessionJpaEntity.java` | Entitas JPA tabel `sessions` |
 | `AuditLogJpaEntity.java` | Entitas JPA tabel `audit_logs`, termasuk kolom hash yang hanya ditulis trigger database |
 | `SpringDataUserRepository.java` | Repository Spring Data untuk pengguna |
 | `SpringDataRoleRepository.java` | Repository Spring Data untuk role |
 | `SpringDataRefreshTokenRepository.java` | Repository Spring Data untuk token refresh, termasuk hapus massal token kedaluwarsa dan pencabutan massal lewat satu `UPDATE` |
+| `SpringDataSessionRepository.java` | Repository Spring Data untuk sesi, termasuk pencarian sesi aktif, pencabutan massal, dan hapus sesi tidak aktif |
 | `SpringDataAuditLogRepository.java` | Repository Spring Data untuk jejak audit |
 | `UserPersistenceAdapter.java` | Mengimplementasikan port `UserRepository` |
 | `RolePersistenceAdapter.java` | Mengimplementasikan port `RoleRepository` |
 | `RefreshTokenPersistenceAdapter.java` | Mengimplementasikan port `RefreshTokenRepository` |
+| `SessionPersistenceAdapter.java` | Mengimplementasikan port `SessionRepository` |
+| `SecurityRejectionStatPersistenceAdapter.java` | Mengimplementasikan port `SecurityRejectionStatRepository` memakai `JdbcTemplate` dan upsert `ON CONFLICT` |
 | `AuditLogPersistenceAdapter.java` | Mengimplementasikan port `AuditLogRepository`, termasuk pembacaan seluruh entri untuk verifikasi rantai |
 | `PaginationTranslator.java` | Menerjemahkan tipe paginasi domain ke dan dari Spring Data |
 
@@ -137,10 +147,10 @@ Adapter yang mengimplementasikan port dari domain.
 | Berkas | Peran |
 |---|---|
 | `adapter/rest/UserController.java` | Endpoint pengguna |
-| `adapter/rest/AuthController.java` | Endpoint login, refresh, dan logout |
+| `adapter/rest/AuthController.java` | Endpoint login, refresh, logout, daftar sesi perangkat, dan pencabutan satu sesi |
 | `adapter/rest/RoleController.java` | Endpoint role |
 | `adapter/rest/AuditController.java` | Endpoint jejak audit dan pemeriksaan keutuhan rantai hash |
-| `adapter/rest/WebMapper.java` | Penerjemah bersama dari tipe web ke tipe domain: identitas aktor dan permintaan pagination |
+| `adapter/rest/WebMapper.java` | Penerjemah bersama dari tipe web ke tipe domain: identitas aktor, klaim sesi, dan permintaan pagination |
 | `adapter/rest/GlobalExceptionHandler.java` | Menerjemahkan galat menjadi JSON. Termasuk pemetaan kategori `DomainException` ke status HTTP |
 | `adapter/rest/ErrorResponse.java` | Bentuk galat yang seragam |
 
@@ -160,6 +170,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `UserResponse.java` | Bentuk data pengguna yang dikembalikan |
 | `RoleResponse.java` | Bentuk data role yang dikembalikan |
 | `TokenResponse.java` | Bentuk pasangan token yang dikembalikan |
+| `SessionResponse.java` | Bentuk satu sesi perangkat yang dikembalikan |
 | `AuditLogResponse.java` | Bentuk catatan audit yang dikembalikan |
 | `AuditChainVerificationResponse.java` | Bentuk hasil pemeriksaan rantai audit yang dikembalikan |
 | `PageResponse.java` | Bentuk halaman data yang dikembalikan |
@@ -176,9 +187,12 @@ Adapter yang mengimplementasikan port dari domain.
 | `config/DomainConfig.java` | Mengubah konfigurasi menjadi objek domain, misalnya `LoginPolicy` dan `TokenSettings` |
 | `config/RateLimitFilter.java` | Pembatas laju permintaan pada endpoint autentikasi, sekaligus membuang entri klien yang sudah tidak aktif |
 | `config/RefreshTokenCleanupJob.java` | Penjadwal pembersihan token refresh kedaluwarsa. Bisa dimatikan lewat `iam.refresh-token-cleanup.enabled` |
-| `config/RestAuthenticationEntryPoint.java` | Menjawab permintaan tanpa kredensial dengan 401, serta mencatat log WARN dan metrik |
+| `config/SessionCleanupJob.java` | Penjadwal pembersihan sesi yang sudah dicabut atau tidak aktif. Bisa dimatikan lewat `iam.session-cleanup.enabled` |
+| `config/SecurityRejectionStatsCleanupJob.java` | Penjadwal pembersihan agregat 401 yang melewati retensi |
+| `config/TokenClaims.java` | Nama klaim token yang dipakai bersama penerbit dan pembaca, misalnya `session_id` |
+| `config/RestAuthenticationEntryPoint.java` | Menjawab permintaan tanpa kredensial dengan 401, mengklasifikasi alasannya, lalu mencatat log WARN dan metrik |
 | `config/RestAccessDeniedHandler.java` | Menjawab permintaan yang tidak berwenang dengan 403, serta mencatat jejak audit, log WARN, dan metrik |
-| `config/SecurityEventRecorder.java` | Aturan pencatatan penolakan keamanan: 403 masuk jejak audit, 401 hanya log dan metrik, dengan metrik `iam.security.rejected` |
+| `config/SecurityEventRecorder.java` | Aturan pencatatan penolakan keamanan: 403 masuk jejak audit, 401 hanya log, metrik, dan agregat per menit |
 | `config/SecurityErrorWriter.java` | Menulis galat keamanan dalam bentuk JSON |
 | `config/OpenApiConfig.java` | Deskripsi OpenAPI dan skema keamanan bearer |
 | `config/DevAdminBootstrap.java` | Membuat akun administrator pada profil dev. **Tidak aktif di produksi** |
@@ -191,11 +205,14 @@ Adapter yang mengimplementasikan port dari domain.
 |---|---|
 | `ArchitectureLayerTest.java` | Memeriksa arah dependensi antar lapisan |
 | `IamServiceApplicationTests.java` | Memastikan konteks aplikasi bisa start |
-| `adapter/rest/AuthSecurityIntegrationTest.java` | Matriks otorisasi lewat HTTP, plus alur ganti kata sandi, kunci akun, dan logout |
+| `adapter/rest/AuthSecurityIntegrationTest.java` | Matriks otorisasi lewat HTTP, plus alur ganti kata sandi, kunci akun, logout, dan agregat penolakan 401 |
+| `adapter/rest/SessionManagementIntegrationTest.java` | Sesi per perangkat lewat HTTP: dua login, penanda `current`, logout satu perangkat, dan sesi milik pengguna lain dijawab 404 |
+| `adapter/rest/WebMapperTest.java` | Pembacaan klaim sesi, termasuk token tanpa klaim, nilai kosong, dan nilai yang bukan UUID |
 | `adapter/rest/AuditControllerIntegrationTest.java` | Urutan bawaan jejak audit, arah sort eksplisit, dan penolakan properti asing lewat HTTP |
 | `adapter/rest/AuditChainVerificationIntegrationTest.java` | Rantai utuh, baris diubah, baris dihapus, dan penolakan AUDITOR, memakai container database sendiri |
 | `adapter/rest/GlobalExceptionHandlerTest.java` | Pemetaan galat ke status HTTP |
-| `application/auth/AuthServiceTest.java` | Unit test alur autentikasi |
+| `application/auth/AuthServiceTest.java` | Unit test alur autentikasi, termasuk sesi per perangkat, pemakaian ulang, dan pencabutan sesi |
+| `application/auth/SessionCleanupServiceTest.java` | Unit test batas waktu pembersihan sesi |
 | `application/auth/RefreshTokenCleanupServiceTest.java` | Unit test aturan penghapusan token kedaluwarsa |
 | `application/auth/RefreshTokenReuseServiceTest.java` | Unit test pencabutan seluruh sesi dan pencatatan audit saat token dipakai ulang |
 | `application/auth/RefreshTokenCleanupIntegrationTest.java` | Membuktikan hanya token kedaluwarsa yang terhapus di database |
@@ -206,6 +223,8 @@ Adapter yang mengimplementasikan port dari domain.
 | `application/user/UserConcurrencyTest.java` | Dua PATCH bersamaan atas satu data |
 | `application/role/RoleServiceTest.java` | Unit test use case role |
 | `application/security/PasswordPolicyTest.java` | Unit test aturan kekuatan kata sandi |
+| `application/security/SecurityRejectionStatsServiceTest.java` | Unit test pemotongan jendela waktu ke menit dan batas retensi agregat |
+| `domain/auth/SessionTest.java` | Unit test aturan sesi: id baru per login, label, `touch`, pencabutan, dan kedaluwarsa |
 | `config/PaginationConfigTest.java` | Mengunci batas ukuran halaman agar tidak berubah tanpa disadari |
 | `config/JwtKeyRingTest.java` | Pemilihan kunci berdasarkan `kid`, token tanpa `kid`, kunci sebelumnya, `kid` asing, penerbit asing, token kedaluwarsa, dan kunci pendek |
 | `config/JwtKeyRotationIntegrationTest.java` | Rotasi kunci lewat HTTP: token kunci lama diterima, `kid` asing dan token kedaluwarsa ditolak, login menulis `kid` kunci aktif |

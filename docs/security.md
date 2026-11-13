@@ -18,9 +18,13 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Token JWT HS256 | Access token 15 menit, refresh token 7 hari | Access token pendek membatasi dampak kalau bocor |
 | Refresh token disimpan sebagai hash SHA-256 | Yang tersimpan hanya hash-nya | Kebocoran database tidak langsung berarti kebocoran token |
 | Rotasi refresh token | Token lama dicabut begitu ditukar | Token yang dicuri hanya bisa dipakai sekali |
-| Deteksi pemakaian ulang | Token yang sudah dicabut tetapi belum kedaluwarsa lalu dipakai lagi dianggap bukti pencurian. Seluruh token refresh pengguna dicabut dan kejadiannya dicatat sebagai `REFRESH_TOKEN_REUSE` | Pencuri yang memegang token hasil rotasi ikut kehilangan akses. Pemilik sah harus login ulang |
-| Pencabutan sesi | Ganti kata sandi, reset kata sandi oleh admin, ganti role, dan nonaktifkan akun mencabut seluruh token refresh milik pengguna. Barisnya ditandai `revoked_at`, tidak dihapus, lalu dibersihkan setelah kedaluwarsa | Sesi tidak bisa diperpanjang. Access token yang sudah terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit. Jejak pencabutan tetap ada untuk menelusuri pemakaian ulang |
+| Sesi per perangkat | Setiap login membuka satu baris `sessions` dengan id sendiri. Token akses dan token refresh membawa klaim `session_id` yang menunjuk baris itu | Satu perangkat bisa dicabut tanpa mematikan perangkat lain |
+| Deteksi pemakaian ulang | Token yang dicabut oleh rotasi, sementara sesinya masih hidup, lalu dipakai lagi dianggap bukti pencurian. Seluruh token refresh dan sesi pengguna dicabut dan kejadiannya dicatat sebagai `REFRESH_TOKEN_REUSE` | Pencuri yang memegang token hasil rotasi ikut kehilangan akses. Pemilik sah harus login ulang |
+| Pencabutan satu sesi | Logout mencabut sesi pada token yang dikirim beserta seluruh token refresh di dalamnya. `DELETE /v1/auth/sessions/{id}` melakukan hal yang sama untuk sesi lain milik pemanggil. Sesi milik pengguna lain dijawab 404 | Perangkat yang hilang bisa dimatikan tanpa mengganggu perangkat lain. Jawaban yang sama mencegah penebakan id sesi |
+| Daftar perangkat | `GET /v1/auth/sessions` hanya menampilkan sesi aktif milik pemanggil, dengan penanda `current` pada sesi yang tokennya dipakai | Pemilik akun bisa mengenali perangkatnya sendiri sebelum mencabut |
+| Pencabutan sesi | Ganti kata sandi, reset kata sandi oleh admin, ganti role, dan nonaktifkan akun mencabut seluruh token refresh dan seluruh sesi milik pengguna. Barisnya ditandai `revoked_at`, tidak dihapus, lalu dibersihkan setelah kedaluwarsa | Sesi tidak bisa diperpanjang. Access token yang sudah terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit. Jejak pencabutan tetap ada untuk menelusuri pemakaian ulang |
 | Pembersihan token kedaluwarsa | Baris dengan `expires_at` yang sudah lewat dihapus berkala setiap jam | Membatasi pertumbuhan tabel dan menjaga pencarian token tetap cepat. Token yang dicabut tetap disimpan sampai kedaluwarsa |
+| Pembersihan sesi tidak aktif | Sesi yang dicabut atau tidak dipakai lebih lama dari masa berlaku token refresh dihapus berkala setiap jam | Daftar perangkat tidak menyimpan riwayat selamanya. Sesi seperti itu sudah tidak bisa dilanjutkan |
 | Validasi penerbit | Token dari penerbit lain ditolak | Mencegah token dari sistem lain dipakai di sini |
 | Validasi masa berlaku | Ditolak kalau sudah kedaluwarsa | Token lama tidak berlaku |
 | Penolakan pengguna tidak dikenal | Pesan identik dengan kata sandi salah | Mencegah enumerasi username yang terdaftar |
@@ -35,7 +39,8 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Aturan per method | `@PreAuthorize`. Hanya pemilik akun yang boleh mengganti kata sandinya sendiri |
 | Peran dari token | Claim `roles` dipetakan jadi `ROLE_*` oleh `JwtAuthenticationConverter` |
 | Ditolak dengan jelas | 401 untuk belum terautentikasi, 403 untuk tidak berwenang |
-| Penolakan tercatat | 403 menulis jejak audit `ACCESS_DENIED` beserta pelakunya. 401 dan 403 menaikkan log ke WARN dan menambah metrik `iam.security.rejected` |
+| Penolakan tercatat | 403 menulis jejak audit `ACCESS_DENIED` beserta pelakunya. 401 dan 403 menaikkan log ke WARN dan menambah metrik `iam.security.rejected`. 401 juga ditambahkan ke agregat per menit di `security_rejection_stats` |
+| Sesi selalu milik pemanggil | `/v1/auth/sessions` dan `/v1/auth/sessions/**` hanya butuh autentikasi, lalu use case memeriksa pemilik barisnya. Sesi milik pengguna lain diperlakukan seperti sesi yang tidak ada |
 
 ### 1.3 Kata Sandi
 
@@ -100,16 +105,20 @@ pengguna target, serta jumlah token yang dicabut. Kejadian pemicunya tetap
 dicatat terpisah, sehingga urutan "apa yang terjadi" dan "berapa sesi yang ikut
 mati" bisa dibaca berdampingan.
 
+Pencabutan lewat `DELETE /v1/auth/sessions/{id}` dicatat sebagai
+`SESSION_REVOKED` beserta id sesinya. Logout tidak menulis aksi itu, karena
+`LOGOUT` sudah menandai kejadiannya.
+
 Catatan untuk aksi gagal ditulis di transaksi terpisah, supaya tidak hilang
 saat transaksinya dibatalkan.
 
 Penolakan akses ditangani dengan aturan yang berbeda, dan perbedaannya
 disengaja:
 
-| Kejadian | Log | Metrik | Jejak audit |
-|---|---|---|---|
-| 401, tidak ada token atau token tidak sah | WARN | `iam.security.rejected`, tag `reason=unauthorized` | **Tidak ditulis** |
-| 403, identitas sah tetapi tidak berwenang | WARN | `iam.security.rejected`, tag `reason=access_denied` | `ACCESS_DENIED` beserta `actor_user_id` dan URI |
+| Kejadian | Log | Metrik | Agregat | Jejak audit |
+|---|---|---|---|---|
+| 401, tidak ada token atau token tidak sah | WARN | `iam.security.rejected`, tag `reason=unauthorized` | `security_rejection_stats` per menit, method, dan alasan | **Tidak ditulis** |
+| 403, identitas sah tetapi tidak berwenang | WARN | `iam.security.rejected`, tag `reason=access_denied` | Tidak | `ACCESS_DENIED` beserta `actor_user_id` dan URI |
 
 Alasan 401 tidak masuk jejak audit: permintaan tanpa kredensial bisa dikirim
 siapa saja tanpa identitas. Kalau setiap permintaan seperti itu menulis satu
@@ -117,8 +126,18 @@ baris, tabel audit bisa dibanjiri trafik luar dan catatan yang penting justru
 tenggelam. Untuk 403, identitas pelakunya sudah terbukti sah, sehingga
 kejadiannya justru perlu bisa ditelusuri sampai ke pengguna.
 
+Agregat 401 menyimpan alasannya dalam dua kode pendek: `missing_credentials`
+kalau header `Authorization` tidak ada, dan `invalid_token` kalau header ada
+tetapi tokennya ditolak. Alasannya sengaja **tidak** memuat path maupun alamat
+IP. Keduanya dikendalikan pemanggil, sehingga penyerang bisa membuat tabel
+membengkak hanya dengan mengirim path acak. Yang tetap terjawab oleh agregat
+ini adalah "kapan lonjakan terjadi, pada method apa, dan karena alasan apa".
+Detail per permintaan tetap ada di log, yang tidak disimpan di database.
+
 Penyimpanan jejak audit penolakan tidak boleh menggagalkan respons. Kalau
-database sedang bermasalah, pemanggil tetap menerima 403, bukan 500.
+database sedang bermasalah, pemanggil tetap menerima 403, bukan 500. Aturan
+yang sama berlaku untuk agregat 401: kegagalan menulis agregat hanya dicatat
+di log, dan pemanggil tetap menerima 401.
 
 #### Rantai hash
 
@@ -189,10 +208,13 @@ sempurna.
 | **Rate limiter bergantung pada alamat klien** | Kalau layanan bisa dijangkau langsung, header `X-Forwarded-For` bisa dipalsukan untuk lolos dari batas | `server.forward-headers-strategy=native` hanya memakai header itu bila koneksi datang dari proxy internal. Pastikan layanan tidak terbuka langsung |
 | **Pemakaian ulang memaksa login ulang** | Percobaan ulang setelah respons jaringan hilang bisa dianggap pencurian, sehingga seluruh sesi pengguna dicabut | Ini konsekuensi yang dipilih. Tanpa tenggang waktu, deteksi tetap tegas; pengguna cukup login ulang |
 | **Rotasi kunci mengharuskan restart serentak** | Instance yang belum menerima kunci baru menolak token yang ditandatangani kunci baru | Pastikan semua instance memakai konfigurasi yang sama. Pada deployment bergulir, sebagian permintaan bisa gagal sementara |
-| **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk menghapus sesi di satu perangkat, cabut tokennya manual |
+| **Pencabutan sesi tidak membatalkan access token** | Access token yang sudah terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit | Masa berlaku pendek adalah kontrolnya. Pencabutan access token secara langsung butuh daftar cabut terpusat, yang belum ada |
+| **Label perangkat berasal dari klien** | Nama perangkat bisa dipalsukan atau kosong, sehingga dua perangkat tampak sama | Label hanya alat bantu pemilik akun, bukan identitas. Pencabutan tetap memakai id sesi yang dibuat server |
+| **Agregat 401 berbutir satu menit** | Lonjakan dalam menit yang sama digabung, dan path maupun alamat IP tidak disimpan | Log WARN memuat path dan tetap tersedia untuk penelusuran. Batas ini sengaja dipilih supaya tabel tidak bisa dibengkakkan pemanggil |
+| **Riwayat sesi ikut terhapus** | Setelah pembersihan, sesi lama tidak lagi terlihat di daftar perangkat | Jejak pencabutan ada di `audit_logs` selama retensi audit, bukan di tabel sesi |
 | **Rantai hash bukan jaminan mutlak** | Rantai mendeteksi perubahan dan penghapusan baris, tetapi pemegang akses tulis database masih bisa menghitung ulang seluruh rantai | Kirim salinan berkala ke penyimpanan append-only di luar database |
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
-| **401 tidak disimpan ke jejak audit** | Percobaan tanpa kredensial tidak bisa ditelusuri sampai pelaku | Log WARN dan metrik `iam.security.rejected` tetap tersedia. Alasan lengkapnya ada di bagian 1.6 |
+| **401 tidak disimpan ke jejak audit** | Percobaan tanpa kredensial tidak bisa ditelusuri sampai pelaku | Log WARN, metrik `iam.security.rejected`, dan agregat per menit tetap tersedia. Alasan lengkapnya ada di bagian 1.6 |
 | **Dependency review hanya memeriksa perubahan** | Kerentanan pada dependensi lama tidak menggagalkan pull request | Dependabot alerts dan peninjauan berkala; jalankan pemindai penuh sebelum rilis besar |
 | **Analisis statis belum mencakup Low** | Temuan berprioritas Low belum memblokir build | Ambang Medium sudah berlaku; pengecualian ditulis per kelas dan pola, bukan mematikan pola global |
 | **Belum ada multi-tenancy** | Satu database untuk semua organisasi | Gunakan database terpisah per organisasi kalau sudah perlu |
@@ -206,6 +228,8 @@ sempurna.
 |---|---|---|
 | Penyerang luar | Tebakan kata sandi | Rate limit, kunci akun, bcrypt |
 | Penyerang luar | Memakai token yang dicuri | Masa berlaku access token pendek, rotasi refresh token, deteksi pemakaian ulang, pencabutan sesi |
+| Penyerang luar | Memakai ulang refresh token hasil rotasi | Deteksi pemakaian ulang mencabut seluruh token refresh dan sesi pengguna |
+| Pengguna biasa | Melihat atau mencabut sesi pengguna lain | Sesi disaring berdasarkan pemilik, dan sesi milik orang lain dijawab 404 tanpa membedakannya dari sesi yang tidak ada |
 | Penyerang luar | Mengenumerate username | Pesan galat identik |
 | Pengguna biasa | Membaca daftar pengguna | Aturan URL: hanya ADMIN dan AUDITOR |
 | Pengguna biasa | Mengubah akun orang lain | Aturan method: hanya pemilik akun atau ADMIN |
@@ -228,6 +252,8 @@ sempurna.
 - [ ] Database produksi tidak berisi akun bawaan `admin` dari profil dev
 - [ ] Image berjalan sebagai pengguna tanpa hak istimewa dan memakai profil `prod`
 - [ ] Dependency review dan Dependabot alerts sudah ditinjau
+- [ ] Retensi `iam.security-rejection-stats.retention` sesuai kebijakan penyimpanan setempat
+- [ ] Pembersihan sesi dan agregat 401 menyala, atau dijadwalkan di luar aplikasi
 - [ ] Endpoint collector tracing diisi kalau sampling dinyalakan
 
 Rinciannya ada di [`deployment.md`](deployment.md).

@@ -45,6 +45,14 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
+        <Class name="id.osprey.iamservice.application.auth.SessionCleanupService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.application.security.SecurityRejectionStatsService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="id.osprey.iamservice.application.role.RoleService"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
@@ -65,7 +73,23 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
+        <Class name="id.osprey.iamservice.config.SecurityRejectionStatsCleanupJob"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.config.SessionCleanupJob"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="id.osprey.iamservice.infrastructure.persistence.RefreshTokenPersistenceAdapter"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.infrastructure.persistence.SecurityRejectionStatPersistenceAdapter"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.infrastructure.persistence.SessionPersistenceAdapter"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 
@@ -86,6 +110,11 @@
     </Match>
     <Match>
         <Class name="id.osprey.iamservice.infrastructure.persistence.RefreshTokenJpaEntity"/>
+        <Method name="setUser"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.infrastructure.persistence.SessionJpaEntity"/>
         <Method name="setUser"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>

@@ -248,14 +248,47 @@ Tempatkan batas permintaan di gateway, seperti contoh nginx di atas.
 
 ### 4.2 Tugas latar
 
-Pembersihan token kedaluwarsa dan pemindaian entri rate limiter berjalan di
-dalam proses aplikasi. Pada deployment banyak instance, setiap instance
-menjalankan pembersihan sendiri. Operasi hapusnya idempoten, jadi hasil
-akhirnya tetap sama. Alasan dan tindak lanjutnya ada di
+Empat tugas berjalan di dalam proses aplikasi: pembersihan token refresh
+kedaluwarsa, pembersihan sesi perangkat, pembersihan agregat penolakan 401, dan
+pemindaian entri rate limiter. Pada deployment banyak instance, setiap instance
+menjalankan pembersihan sendiri. Operasi hapusnya idempoten, jadi hasil akhirnya
+tetap sama. Alasan dan tindak lanjutnya ada di
 [ADR 0010](adr/0010-pemeliharaan-berkala-di-dalam-proses.md).
 
-Penjadwal memakai dua thread, sehingga pemindaian rate limiter tidak menunggu
-pembersihan token selesai.
+Penjadwal memakai empat thread (`spring.task.scheduling.pool.size: 4`), satu per
+tugas, sehingga satu pembersihan yang lambat tidak menunda jadwal lainnya. Kalau
+tugas latar ditambah lagi, ukuran pool ikut dinaikkan.
+
+| Tugas | Kunci konfigurasi | Bawaan |
+|---|---|---|
+| Token refresh kedaluwarsa | `iam.refresh-token-cleanup.enabled`, `iam.refresh-token-cleanup.interval` | menyala, `1h` |
+| Sesi dicabut atau tidak aktif | `iam.session-cleanup.enabled`, `iam.session-cleanup.interval` | menyala, `1h` |
+| Agregat penolakan 401 | `iam.security-rejection-stats.enabled`, `iam.security-rejection-stats.retention`, `iam.security-rejection-stats.interval` | menyala, `30d`, `1h` |
+| Entri rate limiter | `iam.rate-limit.cleanup-interval` | `10m` |
+
+Sesi dianggap tidak aktif kalau `last_seen_at` lebih lama dari
+`iam.jwt.refresh-token-ttl` atau barisnya sudah punya `revoked_at`. Nilai
+`last_seen_at` diperbarui setiap kali token refresh di sesi itu ditukar, bukan
+pada setiap permintaan bertoken akses, supaya tidak ada tulisan database di jalur
+baca.
+
+### 4.3 Sesi per perangkat dan agregat 401
+
+Keduanya menambah tabel baru: `sessions` dan `security_rejection_stats`.
+
+| Hal | Implikasi operasional |
+|---|---|
+| Baris `sessions` | Satu baris per login. Jumlahnya sebanding dengan jumlah login aktif, bukan jumlah pengguna. Pembersihan berkala menjaga tabel tetap kecil |
+| Pencabutan sesi | `revoked_at` ditandai, tidak dihapus, sampai pembersihan berikutnya. Access token yang sudah terbit tetap berlaku paling lama 15 menit |
+| Agregat 401 | Tumbuh sebanding kombinasi menit, method, dan alasan yang benar-benar terjadi. Path dan alamat IP tidak disimpan, jadi tabel tidak bisa dibengkakkan pemanggil |
+| Retensi agregat | Atur `iam.security-rejection-stats.retention` sesuai kebijakan penyimpanan setempat. Menghapus agregat tidak menghilangkan log WARN |
+| Database bermasalah | Kegagalan menulis agregat 401 hanya dicatat di log. Pemanggil tetap menerima 401, bukan 500 |
+
+Kalau migrasi `V8` yang membuat tabel `sessions` dijalankan pada database yang
+sudah berisi pengguna, tidak ada backfill yang perlu ditunggu: sesi lama memang
+tidak ada, dan pengguna cukup login ulang untuk mendapat sesi pertama.
+Token akses yang terbit sebelum migrasi tidak membawa klaim `session_id`, dan
+layanan memperlakukannya sebagai token tanpa sesi, bukan sebagai token tidak sah.
 
 ---
 
@@ -275,6 +308,10 @@ pembersihan token selesai.
 - [ ] GitHub Actions hijau pada commit terakhir
 - [ ] Image container berhasil dibangun dan dijalankan sebagai pengguna tanpa hak istimewa
 - [ ] Cadangan database terjadwal dan sudah pernah diuji memulihkannya
+- [ ] `iam.jwt.refresh-token-ttl` sudah ditinjau, karena nilai itu juga menjadi
+      batas sesi perangkat dianggap tidak aktif
+- [ ] `iam.security-rejection-stats.retention` sudah sesuai kebijakan penyimpanan setempat
+- [ ] Pembersihan sesi dan agregat 401 menyala, atau tugasnya dijadwalkan di luar aplikasi
 - [ ] Endpoint collector tracing diisi kalau tracing dinyalakan, atau sampling dibiarkan `0.0`
 
 Akun `admin` hanya dibuat oleh `DevAdminBootstrap` pada profil `dev`. Kalau

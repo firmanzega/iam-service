@@ -2,6 +2,7 @@ package id.osprey.iamservice.application.auth;
 
 import id.osprey.iamservice.application.audit.AuditService;
 import id.osprey.iamservice.domain.auth.RefreshTokenRepository;
+import id.osprey.iamservice.domain.auth.SessionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,6 +32,9 @@ class RefreshTokenReuseServiceTest {
     RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    SessionRepository sessionRepository;
+
+    @Mock
     AuditService auditService;
 
     @InjectMocks
@@ -44,6 +48,7 @@ class RefreshTokenReuseServiceTest {
 
         assertEquals(3L, revoked);
         verify(refreshTokenRepository).revokeAllForUser(eq(7L), any(Instant.class));
+        verify(sessionRepository).revokeAllForUser(eq(7L), any(Instant.class));
         verify(auditService).record(eq(7L), eq("REFRESH_TOKEN_REUSE"), eq(7L),
                 contains("3 token aktif dicabut"));
     }

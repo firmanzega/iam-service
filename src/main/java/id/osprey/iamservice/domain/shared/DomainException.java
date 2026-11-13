@@ -68,6 +68,9 @@ public class DomainException extends RuntimeException {
         /** Role yang dimaksud tidak ada. */
         ROLE_NOT_FOUND(Category.NOT_FOUND),
 
+        /** Sesi yang dimaksud tidak ada atau bukan milik pemanggil. */
+        SESSION_NOT_FOUND(Category.NOT_FOUND),
+
         /** Kredensial tidak dikenali. Pesannya sama untuk username yang salah
          *  dan kata sandi yang salah, supaya tidak membocorkan username mana
          *  yang terdaftar. */

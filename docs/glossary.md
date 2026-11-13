@@ -33,8 +33,12 @@ artinya dalam konteks layanan ini.
 | Tanda tangan | Signature | Bukti keaslian token, dihitung dengan kunci HMAC HS256 |
 | Masa berlaku | Time to live, TTL | Lamanya token masih diterima |
 | Pencabutan | Revocation | Tanda bahwa token sudah tidak boleh dipakai, disimpan di tabel `refresh_tokens` |
-| Pencabutan seluruh sesi | Revoke all | Mencabut semua token refresh milik satu pengguna sekaligus |
-| Deteksi pemakaian ulang | Reuse detection | Mengenali token refresh yang sudah dicabut lalu dipakai lagi, mencabut seluruh sesi pengguna, dan mencatatnya sebagai `REFRESH_TOKEN_REUSE` |
+| Pencabutan seluruh sesi | Revoke all | Mencabut semua token refresh dan semua sesi milik satu pengguna sekaligus |
+| Sesi per perangkat | Device session | Satu baris `sessions` yang mewakili satu login perangkat. Id-nya tetap meski token refresh di dalamnya berganti karena rotasi |
+| Klaim sesi | Session claim | Klaim `session_id` pada token akses dan token refresh, menunjuk baris sesi pemilik token |
+| Pencabutan sesi | Session revocation | Menandai sesi dengan `revoked_at` dan mencabut seluruh token refresh di dalamnya, tanpa menyentuh perangkat lain |
+| Daftar perangkat | Device list | `GET /v1/auth/sessions`, hanya berisi sesi aktif milik pemanggil |
+| Deteksi pemakaian ulang | Reuse detection | Mengenali token refresh yang dicabut oleh rotasi, sementara sesinya masih hidup, lalu dipakai lagi. Seluruh sesi pengguna dicabut dan kejadiannya dicatat sebagai `REFRESH_TOKEN_REUSE` |
 
 ## 3. Kata Sandi dan Kunci
 
@@ -98,6 +102,7 @@ artinya dalam konteks layanan ini.
 | Istilah | Inggris | Arti |
 |---|---|---|
 | Rate limit | Rate limit | Pembatas jumlah permintaan dari satu sumber dalam rentang waktu tertentu |
+| Agregat penolakan | Rejection aggregate | Hitungan 401 per menit, method, dan alasan di `security_rejection_stats`. Tidak memuat path maupun alamat IP |
 | Jendela waktu | Time window | Rentang waktu yang dipakai menghitung rate limit |
 | Token pembawa | Bearer token | Token yang dipakai dengan sendirinya tanpa bukti kepemilikan tambahan |
 | CORS | Cross-Origin Resource Sharing | Aturan apakah situs lain boleh memanggil API ini |

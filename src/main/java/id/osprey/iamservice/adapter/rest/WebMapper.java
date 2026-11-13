@@ -1,9 +1,12 @@
 package id.osprey.iamservice.adapter.rest;
 
+import id.osprey.iamservice.config.TokenClaims;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
 import id.osprey.iamservice.domain.shared.SortSpec;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.oauth2.jwt.Jwt;
+
+import java.util.UUID;
 
 /**
  * Penerjemah kecil dari tipe web ke tipe domain.
@@ -23,6 +26,31 @@ final class WebMapper {
      */
     static Long actorId(Jwt jwt) {
         return jwt == null ? null : Long.valueOf(jwt.getSubject());
+    }
+
+    /**
+     * Sesi pemilik token, diambil dari claim "session_id".
+     *
+     * Token yang terbit sebelum fitur sesi ada tidak membawa klaim ini. Nilai
+     * seperti itu dikembalikan sebagai null, bukan ditebak dari data lain,
+     * supaya daftar perangkat tidak menandai sesi yang salah sebagai sesi
+     * pemanggil.
+     */
+    static UUID sessionId(Jwt jwt) {
+        if (jwt == null) {
+            return null;
+        }
+
+        String value = jwt.getClaimAsString(TokenClaims.SESSION_ID);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     /**
