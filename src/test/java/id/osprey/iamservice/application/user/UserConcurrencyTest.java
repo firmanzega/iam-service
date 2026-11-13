@@ -105,7 +105,9 @@ class UserConcurrencyTest {
 
         ready.await();       // tunggu kedua thread siap
         start.countDown();   // lepas bersamaan
-        for (Future<?> f : futures) f.get();
+        for (Future<?> f : futures) {
+            f.get();
+        }
         pool.shutdown();
 
         assertEquals(1, success.get());

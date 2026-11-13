@@ -13,4 +13,10 @@ import java.util.Set;
 public record ReplaceRolesRequest(
         @NotNull Set<@NotBlank @Size(max = 50) String> roleNames,
         @NotNull Long version) {
+
+    // Null sengaja diteruskan apa adanya supaya @NotNull tetap bisa
+    // melaporkannya sebagai galat validasi, bukan galat saat deserialisasi.
+    public ReplaceRolesRequest {
+        roleNames = roleNames == null ? null : Set.copyOf(roleNames);
+    }
 }

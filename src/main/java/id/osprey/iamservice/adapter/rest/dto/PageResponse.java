@@ -18,6 +18,12 @@ import java.util.function.Function;
  */
 public record PageResponse<T>(List<T> content, PageInfo page) {
 
+    // Isi halaman dikunci sebagai salinan agar pemanggil tidak bisa
+    // mengubah daftar milik hasil pencarian di lapisan domain.
+    public PageResponse {
+        content = content == null ? List.of() : List.copyOf(content);
+    }
+
     /**
      * @param size jumlah baris per halaman
      * @param number nomor halaman, dimulai dari nol

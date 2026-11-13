@@ -142,7 +142,7 @@ environment variable `SERVER_PORT`.
 | `/actuator/health` | Publik | Isinya tidak sensitif karena detail komponen tidak ditampilkan |
 | `/swagger-ui.html` | Publik | Hanya tersedia di profil dev; springdoc dimatikan di profil produksi |
 | `/v3/api-docs` | Publik | Sama seperti Swagger UI: hidup di dev, dimatikan di produksi. Jangan bergantung pada role untuk menutupnya |
-| `/auth/login` | Publik | Wajib ada, tapi perlu rate limit dan kunci akun |
+| `/v1/auth/login` | Publik | Wajib ada, tapi perlu rate limit dan kunci akun |
 
 ---
 
@@ -161,7 +161,7 @@ reverse proxy:
 ```nginx
 limit_req_zone $binary_remote_addr zone=auth_zone:10m rate=20r/m;
 
-location /auth/ {
+location /v1/auth/ {
     limit_req zone=auth_zone burst=5 nodelay;
     proxy_pass http://iam-service;
 }

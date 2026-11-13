@@ -18,6 +18,12 @@ import java.util.stream.Collectors;
  */
 public record UserResponse(Long id, String username, String email, boolean active, long version, Set<String> roles) {
 
+    // Balasan pengguna memuat salinan role agar perubahan pada objek domain
+    // setelah balasan terbentuk tidak ikut terlihat oleh pemanggil.
+    public UserResponse {
+        roles = roles == null ? Set.of() : Set.copyOf(roles);
+    }
+
     public static UserResponse from(User user) {
         return new UserResponse(
                 user.getId(),

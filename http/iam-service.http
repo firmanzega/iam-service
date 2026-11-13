@@ -24,7 +24,7 @@
 
 ### Login sebagai administrator
 # @name loginAdmin
-POST {{host}}/auth/login
+POST {{host}}/v1/auth/login
 Content-Type: application/json
 
 {
@@ -33,7 +33,7 @@ Content-Type: application/json
 }
 
 ### Login dengan kata sandi salah -> 401 dengan pesan yang sama untuk akun tak dikenal
-POST {{host}}/auth/login
+POST {{host}}/v1/auth/login
 Content-Type: application/json
 
 {
@@ -43,7 +43,7 @@ Content-Type: application/json
 
 ### Tukar token refresh -> token lama langsung dicabut
 # @name refreshToken
-POST {{host}}/auth/refresh
+POST {{host}}/v1/auth/refresh
 Content-Type: application/json
 
 {
@@ -52,7 +52,7 @@ Content-Type: application/json
 
 ### Pakai token hasil tukar
 # @name rotatedToken
-POST {{host}}/auth/refresh
+POST {{host}}/v1/auth/refresh
 Content-Type: application/json
 
 {
@@ -61,7 +61,7 @@ Content-Type: application/json
 
 ### Pakai ulang token pertama -> 401, seluruh sesi dicabut
 # Token pertama sudah dicabut oleh permintaan "Tukar token refresh".
-POST {{host}}/auth/refresh
+POST {{host}}/v1/auth/refresh
 Content-Type: application/json
 
 {
@@ -69,7 +69,7 @@ Content-Type: application/json
 }
 
 ### Token hasil tukar ikut mati -> 401
-POST {{host}}/auth/refresh
+POST {{host}}/v1/auth/refresh
 Content-Type: application/json
 
 {
@@ -81,20 +81,20 @@ Content-Type: application/json
 ### ============================================================
 
 ### Tanpa token -> 401
-GET {{host}}/users
+GET {{host}}/v1/users
 
 ### Token tidak valid -> 401
-GET {{host}}/users
+GET {{host}}/v1/users
 Authorization: Bearer token.ngada.atau.salah
 
 ### Dengan token administrator -> 200
-GET {{host}}/users?size=5
+GET {{host}}/v1/users?size=5
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### Buat pengguna biasa lebih dulu, supaya percobaan di bawah punya akun
 ### Permintaan ini butuh token ADMIN
 # @name createMember
-POST {{host}}/users
+POST {{host}}/v1/users
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -107,7 +107,7 @@ Content-Type: application/json
 ### Dengan token user biasa -> 403
 ### Daftar pengguna hanya untuk peran ADMIN dan AUDITOR
 # @name loginMember
-POST {{host}}/auth/login
+POST {{host}}/v1/auth/login
 Content-Type: application/json
 
 {
@@ -115,12 +115,12 @@ Content-Type: application/json
   "password": "{{memberPassword}}"
 }
 
-GET {{host}}/users
+GET {{host}}/v1/users
 Authorization: Bearer {{loginMember.response.body.accessToken}}
 
 ### Melihat akun sendiri sebagai user biasa -> 200
 ### Pengguna biasa hanya boleh melihat akunnya sendiri
-GET {{host}}/users/{{createMember.response.body.id}}
+GET {{host}}/v1/users/{{createMember.response.body.id}}
 Authorization: Bearer {{loginMember.response.body.accessToken}}
 
 ### ============================================================
@@ -128,23 +128,23 @@ Authorization: Bearer {{loginMember.response.body.accessToken}}
 ### ============================================================
 
 ### Daftar pengguna dengan pencarian
-GET {{host}}/users?q=admin&size=5
+GET {{host}}/v1/users?q=admin&size=5
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### Minta ukuran halaman berlebihan -> dipotong jadi 50
-GET {{host}}/users?size=99999
+GET {{host}}/v1/users?size=99999
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### Urutkan berdasarkan kolom terlarang -> 400
-GET {{host}}/users?sort=passwordHash
+GET {{host}}/v1/users?sort=passwordHash
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### Ambil satu pengguna
-GET {{host}}/users/1
+GET {{host}}/v1/users/1
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### Buat pengguna dengan username yang sama -> 409
-POST {{host}}/users
+POST {{host}}/v1/users
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -155,7 +155,7 @@ Content-Type: application/json
 }
 
 ### Buat pengguna dengan email tidak valid -> 400
-POST {{host}}/users
+POST {{host}}/v1/users
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -167,7 +167,7 @@ Content-Type: application/json
 
 ### Ubah sebagian data pengguna
 # @name patchMember
-PATCH {{host}}/users/{{createMember.response.body.id}}
+PATCH {{host}}/v1/users/{{createMember.response.body.id}}
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -177,7 +177,7 @@ Content-Type: application/json
 }
 
 ### Pakai versi lama -> 409
-PATCH {{host}}/users/{{createMember.response.body.id}}
+PATCH {{host}}/v1/users/{{createMember.response.body.id}}
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -191,11 +191,11 @@ Content-Type: application/json
 ### ============================================================
 
 ### Daftar role
-GET {{host}}/roles
+GET {{host}}/v1/roles
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### Buat role baru -> 201
-POST {{host}}/roles
+POST {{host}}/v1/roles
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -204,7 +204,7 @@ Content-Type: application/json
 }
 
 ### Buat role dengan nama tidak valid -> 400
-POST {{host}}/roles
+POST {{host}}/v1/roles
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -214,7 +214,7 @@ Content-Type: application/json
 
 ### Berikan role ke pengguna
 # @name assignRole
-PUT {{host}}/users/{{createMember.response.body.id}}/roles
+PUT {{host}}/v1/users/{{createMember.response.body.id}}/roles
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -224,7 +224,7 @@ Content-Type: application/json
 }
 
 ### Berikan role yang tidak dikenal -> 400
-PUT {{host}}/users/{{createMember.response.body.id}}/roles
+PUT {{host}}/v1/users/{{createMember.response.body.id}}/roles
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -239,7 +239,7 @@ Content-Type: application/json
 
 ### Login sebagai anggota
 # @name loginMemberSaatIni
-POST {{host}}/auth/login
+POST {{host}}/v1/auth/login
 Content-Type: application/json
 
 {
@@ -248,7 +248,7 @@ Content-Type: application/json
 }
 
 ### Ganti kata sandi sendiri -> 204
-PUT {{host}}/users/{{createMember.response.body.id}}/password
+PUT {{host}}/v1/users/{{createMember.response.body.id}}/password
 Authorization: Bearer {{loginMemberSaatIni.response.body.accessToken}}
 Content-Type: application/json
 
@@ -258,7 +258,7 @@ Content-Type: application/json
 }
 
 ### Ganti kata sandi orang lain -> 403
-PUT {{host}}/users/1/password
+PUT {{host}}/v1/users/1/password
 Authorization: Bearer {{loginMember.response.body.accessToken}}
 Content-Type: application/json
 
@@ -268,7 +268,7 @@ Content-Type: application/json
 }
 
 ### Login dengan kata sandi lama -> 401
-POST {{host}}/auth/login
+POST {{host}}/v1/auth/login
 Content-Type: application/json
 
 {
@@ -277,7 +277,7 @@ Content-Type: application/json
 }
 
 ### Login dengan kata sandi baru -> 200
-POST {{host}}/auth/login
+POST {{host}}/v1/auth/login
 Content-Type: application/json
 
 {
@@ -286,7 +286,7 @@ Content-Type: application/json
 }
 
 ### Reset kata sandi oleh administrator -> 204
-POST {{host}}/users/{{createMember.response.body.id}}/reset-password
+POST {{host}}/v1/users/{{createMember.response.body.id}}/reset-password
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -299,11 +299,11 @@ Content-Type: application/json
 ### ============================================================
 
 ### Nonaktifkan pengguna -> 204
-POST {{host}}/users/{{createMember.response.body.id}}/deactivate
+POST {{host}}/v1/users/{{createMember.response.body.id}}/deactivate
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### Login ke akun yang dinonaktifkan -> 403
-POST {{host}}/auth/login
+POST {{host}}/v1/auth/login
 Content-Type: application/json
 
 {
@@ -312,7 +312,7 @@ Content-Type: application/json
 }
 
 ### Aktifkan kembali -> 204
-POST {{host}}/users/{{createMember.response.body.id}}/activate
+POST {{host}}/v1/users/{{createMember.response.body.id}}/activate
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### ============================================================
@@ -320,7 +320,7 @@ Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 ### ============================================================
 
 ### Daftar jejak audit (hanya ADMIN dan AUDITOR)
-GET {{host}}/audit-logs?size=10
+GET {{host}}/v1/audit-logs?size=10
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
 ### ============================================================
@@ -328,7 +328,7 @@ Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 ### ============================================================
 
 ### Cabut token refresh -> 204
-POST {{host}}/auth/logout
+POST {{host}}/v1/auth/logout
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 Content-Type: application/json
 
@@ -337,7 +337,7 @@ Content-Type: application/json
 }
 
 ### Pakai token refresh yang sudah dicabut -> 401
-POST {{host}}/auth/refresh
+POST {{host}}/v1/auth/refresh
 Content-Type: application/json
 
 {

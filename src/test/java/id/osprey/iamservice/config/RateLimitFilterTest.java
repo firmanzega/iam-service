@@ -57,7 +57,7 @@ class RateLimitFilterTest {
     @Test
     void requestsWithinLimit_arePassedThrough() throws Exception {
         for (int i = 0; i < 3; i++) {
-            MockHttpServletResponse response = callFilter("/auth/login");
+            MockHttpServletResponse response = callFilter("/v1/auth/login");
             assertEquals(200, response.getStatus(), "permintaan ke-" + (i + 1) + " seharusnya lolos");
         }
     }
@@ -65,10 +65,10 @@ class RateLimitFilterTest {
     @Test
     void requestBeyondLimit_isRejectedWithTooManyRequests() throws Exception {
         for (int i = 0; i < 3; i++) {
-            callFilter("/auth/login");
+            callFilter("/v1/auth/login");
         }
 
-        MockHttpServletResponse response = callFilter("/auth/login");
+        MockHttpServletResponse response = callFilter("/v1/auth/login");
 
         assertEquals(429, response.getStatus());
         assertTrue(response.getContentAsString().contains("Too many requests"));
@@ -77,10 +77,10 @@ class RateLimitFilterTest {
     @Test
     void differentClientHasItsOwnCounter() throws Exception {
         for (int i = 0; i < 3; i++) {
-            callFilter("/auth/login");
+            callFilter("/v1/auth/login");
         }
 
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/auth/login");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/v1/auth/login");
         request.setRemoteAddr("10.0.0.2");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -92,7 +92,7 @@ class RateLimitFilterTest {
     @Test
     void requestsOutsideAuthPath_areNotLimited() throws Exception {
         for (int i = 0; i < 10; i++) {
-            MockHttpServletResponse response = callFilter("/users");
+            MockHttpServletResponse response = callFilter("/v1/users");
             assertEquals(200, response.getStatus());
         }
     }
@@ -103,14 +103,14 @@ class RateLimitFilterTest {
         RateLimitFilter local = new RateLimitFilter(properties(), new JsonMapper(), moving);
 
         for (int i = 0; i < 3; i++) {
-            callFilter(local, "/auth/login", "10.0.0.1");
+            callFilter(local, "/v1/auth/login", "10.0.0.1");
         }
 
         // Majukan jam melewati panjang jendela pada instance yang sama,
         // supaya yang diuji benar-benar pemangkasan antrean, bukan filter baru.
         moving.advance(Duration.ofSeconds(61));
 
-        MockHttpServletResponse response = callFilter(local, "/auth/login", "10.0.0.1");
+        MockHttpServletResponse response = callFilter(local, "/v1/auth/login", "10.0.0.1");
         assertEquals(200, response.getStatus());
     }
 
@@ -119,10 +119,10 @@ class RateLimitFilterTest {
         MutableClock moving = new MutableClock(MULAI);
         RateLimitFilter local = new RateLimitFilter(properties(), new JsonMapper(), moving);
 
-        callFilter(local, "/auth/login", "10.0.0.1");
+        callFilter(local, "/v1/auth/login", "10.0.0.1");
 
         moving.advance(Duration.ofSeconds(30));
-        callFilter(local, "/auth/login", "10.0.0.2");
+        callFilter(local, "/v1/auth/login", "10.0.0.2");
 
         // Klien pertama berumur 62 detik, klien kedua 32 detik.
         moving.advance(Duration.ofSeconds(32));

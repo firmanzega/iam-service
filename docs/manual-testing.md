@@ -81,7 +81,7 @@ Variabel yang terisi otomatis:
 ### 3.1 Login dan ambil token
 
 ```bash
-curl -X POST http://localhost:8080/auth/login \
+curl -X POST http://localhost:8080/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"identifier":"admin","password":"Admin1234"}'
 ```
@@ -106,13 +106,13 @@ Simpan token aksesnya. Dari sekarang semua perintah memakai:
 
 > Di PowerShell, simpan token ke variabel supaya tidak perlu menyalin manual:
 > ```powershell
-> $token = (curl.exe -s -X POST http://localhost:8080/auth/login -H "Content-Type: application/json" --data-raw '{"identifier":"admin","password":"Admin1234"}' | ConvertFrom-Json).accessToken
+> $token = (curl.exe -s -X POST http://localhost:8080/v1/auth/login -H "Content-Type: application/json" --data-raw '{"identifier":"admin","password":"Admin1234"}' | ConvertFrom-Json).accessToken
 > ```
 
 ### 3.2 Daftar pengguna
 
 ```bash
-curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?size=5"
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/v1/users?size=5"
 ```
 
 ```json
@@ -129,7 +129,7 @@ curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?size=5"
 ### 4.1 Membuat pengguna
 
 ```bash
-curl -X POST http://localhost:8080/users \
+curl -X POST http://localhost:8080/v1/users \
   -H "Authorization: Bearer TOKEN_ANDA" \
   -H "Content-Type: application/json" \
   -d '{"username":"andi","email":"andi@mail.com","password":"Andi12345"}'
@@ -142,7 +142,7 @@ curl -X POST http://localhost:8080/users \
 ### 4.2 User biasa tidak bisa membaca daftar pengguna
 
 ```bash
-curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/users"
+curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/v1/users"
 ```
 
 ```
@@ -155,20 +155,20 @@ Daftar pengguna hanya untuk peran `ADMIN` dan `AUDITOR`.
 
 ```bash
 # akun sendiri -> 200
-curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/users/1382"
+curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/v1/users/1382"
 
 # akun orang lain -> 403
-curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/users/97"
+curl -H "Authorization: Bearer TOKEN_USER_BIASA" "http://localhost:8080/v1/users/97"
 ```
 
 ```json
-{"status":403,"error":"Forbidden","timestamp":"...","path":"/users/97","message":"Access denied"}
+{"status":403,"error":"Forbidden","timestamp":"...","path":"/v1/users/97","message":"Access denied"}
 ```
 
 ### 4.4 Memberikan role
 
 ```bash
-curl -X PUT http://localhost:8080/users/1382/roles \
+curl -X PUT http://localhost:8080/v1/users/1382/roles \
   -H "Authorization: Bearer TOKEN_ANDA" \
   -H "Content-Type: application/json" \
   -d '{"roleNames":["AUDITOR"],"version":1}'
@@ -191,7 +191,7 @@ Role di luar daftar akan ditolak:
 ### 4.5 Mengganti kata sandi sendiri
 
 ```bash
-curl -X PUT http://localhost:8080/users/1382/password \
+curl -X PUT http://localhost:8080/v1/users/1382/password \
   -H "Authorization: Bearer TOKEN_ANDA" \
   -H "Content-Type: application/json" \
   -d '{"currentPassword":"Andi12345","newPassword":"Andi54321"}'
@@ -207,7 +207,7 @@ Keluarannya `204 No Content`. Setelah itu:
 ### 4.6 Membatasi ukuran halaman
 
 ```bash
-curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?size=99999"
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/v1/users?size=99999"
 ```
 
 ```json
@@ -219,7 +219,7 @@ Ukuran halaman maksimum 50 baris, berapa pun yang diminta.
 ### 4.7 Menolak pengurutan pada kolom terlarang
 
 ```bash
-curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?sort=passwordHash"
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/v1/users?sort=passwordHash"
 ```
 
 ```json
@@ -233,7 +233,7 @@ curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/users?sort=pas
 
 ```bash
 # tukar token refresh -> 200, dapat pasangan token baru
-curl -X POST http://localhost:8080/auth/refresh \
+curl -X POST http://localhost:8080/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"TOKEN_REFRESH_LAMA"}'
 
@@ -248,7 +248,7 @@ pencurian, sehingga seluruh sesi pengguna dicabut. Skenario lengkapnya ada di
 ### 4.9 Logout
 
 ```bash
-curl -X POST http://localhost:8080/auth/logout \
+curl -X POST http://localhost:8080/v1/auth/logout \
   -H "Authorization: Bearer TOKEN_ANDA" \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"TOKEN_REFRESH_ANDA"}'
@@ -261,7 +261,7 @@ curl -X POST http://localhost:8080/auth/logout \
 ```bash
 # 5x login gagal
 for i in 1 2 3 4 5; do
-  curl -X POST http://localhost:8080/auth/login \
+  curl -X POST http://localhost:8080/v1/auth/login \
     -H "Content-Type: application/json" \
     -d '{"identifier":"lockme","password":"SalahTotal1"}'
 done
@@ -281,7 +281,7 @@ Akun terbuka lagi otomatis setelah 15 menit.
 ### 4.11 Melihat jejak audit
 
 ```bash
-curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/audit-logs?size=5"
+curl -H "Authorization: Bearer TOKEN_ANDA" "http://localhost:8080/v1/audit-logs?size=5"
 ```
 
 Tanpa parameter `sort`, hasil diurutkan dari yang terbaru dengan `id` sebagai
@@ -291,11 +291,11 @@ pemecah seri. Properti yang boleh dipakai: `id`, `createdAt`, `action`,
 ```bash
 # Urutkan berdasarkan aksi, menaik
 curl -H "Authorization: Bearer TOKEN_ANDA" \
-  "http://localhost:8080/audit-logs?sort=action,asc&size=5"
+  "http://localhost:8080/v1/audit-logs?sort=action,asc&size=5"
 
 # Properti asing ditolak dengan 400, bukan 500
 curl -i -H "Authorization: Bearer TOKEN_ANDA" \
-  "http://localhost:8080/audit-logs?sort=details,desc"
+  "http://localhost:8080/v1/audit-logs?sort=details,desc"
 ```
 
 ```
@@ -312,7 +312,7 @@ Coba akses daftar pengguna memakai token pengguna biasa, lalu periksa:
 
 ```bash
 curl -H "Authorization: Bearer TOKEN_ANDA" \
-  "http://localhost:8080/audit-logs?sort=createdAt,desc&size=5"
+  "http://localhost:8080/v1/audit-logs?sort=createdAt,desc&size=5"
 ```
 
 Baris terbaru berisi `ACCESS_DENIED` dengan `actorUserId` pelaku dan detail
@@ -372,22 +372,22 @@ diblokir adalah sumber dari luar.
 
 ```bash
 # 1. Login, simpan refresh token pertama
-curl -s -X POST http://localhost:8080/auth/login \
+curl -s -X POST http://localhost:8080/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"identifier":"andi","password":"Rahasia123"}'
 
 # 2. Tukar token pertama, simpan token kedua
-curl -s -X POST http://localhost:8080/auth/refresh \
+curl -s -X POST http://localhost:8080/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"TOKEN_PERTAMA"}'
 
 # 3. Pakai token pertama lagi -> 401
-curl -i -X POST http://localhost:8080/auth/refresh \
+curl -i -X POST http://localhost:8080/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"TOKEN_PERTAMA"}'
 
 # 4. Token kedua ikut mati -> 401
-curl -i -X POST http://localhost:8080/auth/refresh \
+curl -i -X POST http://localhost:8080/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"TOKEN_KEDUA"}'
 ```
@@ -403,7 +403,7 @@ termasuk token kedua. Kejadiannya tercatat di jejak audit:
 
 ```bash
 curl -H "Authorization: Bearer TOKEN_ADMIN" \
-  "http://localhost:8080/audit-logs?size=5"
+  "http://localhost:8080/v1/audit-logs?size=5"
 ```
 
 Cari baris dengan aksi `REFRESH_TOKEN_REUSE`. Baris token yang dicabut tetap

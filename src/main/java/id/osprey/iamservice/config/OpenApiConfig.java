@@ -45,7 +45,7 @@ public class OpenApiConfig {
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")
-                                .description("Token akses hasil dari POST /auth/login")))
+                                .description("Token akses hasil dari POST /v1/auth/login")))
                 .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
     }
 }

@@ -183,7 +183,7 @@ docker exec iam-service-db psql -U user_osprey -d db_osprey \
 Kalau kata sandinya lupa, tetapkan ulang lewat API sebagai administrator:
 
 ```bash
-curl -X POST http://localhost:8080/users/97/reset-password \
+curl -X POST http://localhost:8080/v1/users/97/reset-password \
   -H "Authorization: Bearer TOKEN_ADMIN" \
   -H "Content-Type: application/json" \
   -d '{"newPassword":"PasswordBaru123"}'
@@ -402,7 +402,7 @@ wajib ada.
 2. **Cek jejak audit** untuk melihat aktivitas yang mencurigakan:
    ```bash
    curl -H "Authorization: Bearer TOKEN_ADMIN" \
-     "http://localhost:8080/audit-logs?size=100"
+     "http://localhost:8080/v1/audit-logs?size=100"
    ```
    Perhatikan `LOGIN_FAILED` yang banyak, `ACCOUNT_LOCKED`, perubahan role
    yang tidak wajar, dan `REFRESH_TOKEN_REUSE`.
@@ -421,7 +421,7 @@ wajib ada.
 
 3. **Nonaktifkan akun** yang dicurigai:
    ```bash
-   curl -X POST http://localhost:8080/users/{id}/deactivate \
+   curl -X POST http://localhost:8080/v1/users/{id}/deactivate \
      -H "Authorization: Bearer TOKEN_ADMIN"
    ```
 4. **Rotasi kredensial database** kalau yang bocor adalah akses database.

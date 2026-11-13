@@ -24,7 +24,7 @@ import java.util.List;
 
 @Tag(name = "Role", description = "Kelola daftar role yang tersedia")
 @RestController
-@RequestMapping("/roles")
+@RequestMapping("/v1/roles")
 public class RoleController {
 
     private final RoleService roleService;

@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  # Pemindaian mingguan tetap berjalan meskipun tidak ada perubahan kode.
+  # Kerentanan baru pada dependensi lama tetap harus ditemukan.
+  schedule:
+    - cron: '0 3 * * 1'
 
 # Jalankan ulang build yang gagal saat ada push baru.
 concurrency:
@@ -43,6 +47,27 @@ jobs:
         # Membuktikan Dockerfile masih bisa membangun image dari nol, bukan
         # hanya tersimpan di repositori tanpa pernah dijalankan.
         run: docker build --tag iam-service:ci .
+
+      - name: Pindai kerentanan image
+        # Hanya temuan HIGH dan CRITICAL yang memblokir build, dan hanya
+        # kalau perbaikannya sudah tersedia. Temuan tanpa perbaikan tetap
+        # dilaporkan tetapi tidak membuat pipeline merah tanpa jalan keluar.
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: iam-service:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Unggah SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: target/bom.json
+          retention-days: 30
 
       - name: Unggah laporan cakupan
         if: always()

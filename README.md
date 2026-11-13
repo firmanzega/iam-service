@@ -156,7 +156,7 @@ Pada profil `dev`, satu akun administrator dibuat otomatis saat pertama kali dij
 ### 4. Cek cepat
 
 ```bash
-curl -X POST http://localhost:8080/auth/login \
+curl -X POST http://localhost:8080/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"identifier":"admin","password":"Admin1234"}'
 ```
@@ -229,14 +229,14 @@ alamat klien yang sebenarnya. Syarat dan konsekuensinya ada di
 
 ## Daftar Endpoint
 
-Semua endpoint berada di bawah `/`, memakai JSON, dan memakai format galat yang sama:
+Semua endpoint berada di bawah `/v1`, memakai JSON, dan memakai format galat yang sama:
 
 ```json
 {
   "status": 409,
   "error": "Conflict",
   "timestamp": "2026-01-01T10:00:00",
-  "path": "/users",
+  "path": "/v1/users",
   "message": "Username already exists",
   "details": {}
 }
@@ -246,38 +246,38 @@ Semua endpoint berada di bawah `/`, memakai JSON, dan memakai format galat yang 
 
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
-| POST | `/auth/login` | Publik | Terima token akses dan token refresh |
-| POST | `/auth/refresh` | Publik | Tukar token refresh (token lama dicabut) |
-| POST | `/auth/logout` | Terautentikasi | Cabut token refresh milik pemanggil |
+| POST | `/v1/auth/login` | Publik | Terima token akses dan token refresh |
+| POST | `/v1/auth/refresh` | Publik | Tukar token refresh (token lama dicabut) |
+| POST | `/v1/auth/logout` | Terautentikasi | Cabut token refresh milik pemanggil |
 
 ### Pengguna
 
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
-| GET | `/users` | ADMIN, AUDITOR | Daftar pengguna, mendukung pencarian dan pengurutan |
-| GET | `/users/{id}` | ADMIN, AUDITOR, atau pemilik akun | Ambil satu pengguna |
-| POST | `/users` | ADMIN | Buat pengguna baru |
-| PUT | `/users/{id}` | ADMIN | Ganti seluruh data pengguna |
-| PATCH | `/users/{id}` | ADMIN | Ubah sebagian data pengguna |
-| POST | `/users/{id}/activate` | ADMIN | Aktifkan kembali pengguna |
-| POST | `/users/{id}/deactivate` | ADMIN | Nonaktifkan pengguna dan cabut sesinya |
-| PUT | `/users/{id}/roles` | ADMIN | Ganti seluruh role pengguna |
-| PUT | `/users/{id}/password` | Pemilik akun atau ADMIN | Ganti kata sandi sendiri |
-| POST | `/users/{id}/reset-password` | ADMIN | Tetapkan kata sandi baru tanpa perlu kata sandi lama |
+| GET | `/v1/users` | ADMIN, AUDITOR | Daftar pengguna, mendukung pencarian dan pengurutan |
+| GET | `/v1/users/{id}` | ADMIN, AUDITOR, atau pemilik akun | Ambil satu pengguna |
+| POST | `/v1/users` | ADMIN | Buat pengguna baru |
+| PUT | `/v1/users/{id}` | ADMIN | Ganti seluruh data pengguna |
+| PATCH | `/v1/users/{id}` | ADMIN | Ubah sebagian data pengguna |
+| POST | `/v1/users/{id}/activate` | ADMIN | Aktifkan kembali pengguna |
+| POST | `/v1/users/{id}/deactivate` | ADMIN | Nonaktifkan pengguna dan cabut sesinya |
+| PUT | `/v1/users/{id}/roles` | ADMIN | Ganti seluruh role pengguna |
+| PUT | `/v1/users/{id}/password` | Pemilik akun atau ADMIN | Ganti kata sandi sendiri |
+| POST | `/v1/users/{id}/reset-password` | ADMIN | Tetapkan kata sandi baru tanpa perlu kata sandi lama |
 
 ### Role
 
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
-| GET | `/roles` | Terautentikasi | Daftar semua role |
-| POST | `/roles` | ADMIN | Buat role baru |
-| DELETE | `/roles/{id}` | ADMIN | Hapus role yang belum dipakai |
+| GET | `/v1/roles` | Terautentikasi | Daftar semua role |
+| POST | `/v1/roles` | ADMIN | Buat role baru |
+| DELETE | `/v1/roles/{id}` | ADMIN | Hapus role yang belum dipakai |
 
 ### Jejak Audit
 
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
-| GET | `/audit-logs` | ADMIN, AUDITOR | Riwayat perubahan penting |
+| GET | `/v1/audit-logs` | ADMIN, AUDITOR | Riwayat perubahan penting |
 
 ### Operasional
 
@@ -343,20 +343,24 @@ Laporan cakupan kode dihasilkan oleh JaCoCo:
 # laporan HTML: target/site/jacoco/index.html
 ```
 
-Cakupan baris harus mencapai **80 persen**. Angka itu dihitung gabungan untuk
-seluruh paket, bukan per kelas, jadi satu kelas masih bisa berada di bawahnya.
-Build gagal kalau ambang gabungan itu tidak tercapai.
+Cakupan baris **setiap kelas** minimal 80 persen. Aturan dipasang pada element
+`CLASS`, bukan gabungan seluruh paket, supaya satu kelas yang sama sekali tidak
+diuji tidak bisa tertutupi kelas lain yang cakupannya tinggi. Satu-satunya
+pengecualian adalah `IamServiceApplication`, karena isinya hanya titik masuk.
+Build gagal kalau ada kelas yang berada di bawah ambang.
 
-Perintah `verify` juga menjalankan dua pemeriksa statis:
+Perintah `verify` juga menjalankan pemeriksa statis dan membuat SBOM:
 
 | Pemeriksa | Aturan | Letak konfigurasi |
 |---|---|---|
-| Checkstyle | Impor tidak terpakai, impor ganda, impor bintang, tab, dan akhir berkas | `config/checkstyle/checkstyle.xml` |
-| SpotBugs | Temuan berprioritas High | Konfigurasi plugin di `pom.xml` |
+| Checkstyle | Impor, tab, akhir berkas, panjang baris 120, kurung kurawal wajib, satu pernyataan per baris, urutan modifier | `config/checkstyle/checkstyle.xml` |
+| SpotBugs | Temuan berprioritas Medium ke atas, dengan pengecualian sempit yang beralasan | `pom.xml`, `config/spotbugs/exclude.xml` |
+| CycloneDX | SBOM CycloneDX 1.6 berisi seluruh komponen yang dipakai | `pom.xml`, keluaran `target/bom.json` |
 
-Keduanya sengaja dimulai dari aturan yang tidak bisa diperdebatkan. Menambah
-aturan gaya yang lebih luas harus disepakati lebih dulu supaya temuan lama tidak
-menutupi masalah baru.
+Di GitHub Actions, setelah image dibangun, Trivy memindai image tersebut.
+Temuan HIGH atau CRITICAL yang sudah punya perbaikan menggagalkan build.
+Jadwal mingguan tetap menjalankan pemindaian meskipun tidak ada perubahan kode,
+supaya kerentanan baru pada dependensi lama tetap ditemukan.
 
 ---
 
@@ -480,6 +484,7 @@ docs/onboarding.md panduan hari pertama developer baru
 http/              koleksi permintaan untuk uji manual
 scripts/           skrip cadangan dan pemulihan PostgreSQL
 config/checkstyle/ aturan Checkstyle yang dijalankan saat verify
+config/spotbugs/   pengecualian SpotBugs yang disetujui beserta alasannya
 Dockerfile         image multi-stage, profil prod, pengguna tanpa hak istimewa
 .github/           alur kerja otomatis, templat issue, dan templat pull request
 ```

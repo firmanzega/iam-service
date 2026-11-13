@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "Jejak Audit", description = "Riwayat perubahan penting pada sistem")
 @RestController
-@RequestMapping("/audit-logs")
+@RequestMapping("/v1/audit-logs")
 public class AuditController {
 
     private final AuditService auditService;

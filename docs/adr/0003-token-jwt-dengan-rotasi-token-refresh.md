@@ -39,7 +39,7 @@ Kebutuhan yang muncul:
 Aturan yang berlaku:
 
 - Access token dikirim pada header `Authorization: Bearer <token>`.
-- Refresh token hanya dipakai pada `/auth/refresh`, dan **langsung dicabut** setelah
+- Refresh token hanya dipakai pada `/v1/auth/refresh`, dan **langsung dicabut** setelah
   dipakai. Pemegang token refresh hanya boleh memakainya sekali. Inilah rotasi token.
 - Token yang sudah dicabut lalu dipakai lagi dianggap bukti pencurian. Seluruh
   sesi pengguna dicabut, dan kejadiannya dicatat. Lihat

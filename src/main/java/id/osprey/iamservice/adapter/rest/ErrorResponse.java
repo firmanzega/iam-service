@@ -25,6 +25,12 @@ public record ErrorResponse(
         String message,
         Map<String, String> details) {
 
+    // Rincian validasi berasal dari map yang dibentuk handler. Disalin dan
+    // dikunci supaya isi balasan tidak berubah setelah dikirim.
+    public ErrorResponse {
+        details = details == null ? Map.of() : Map.copyOf(details);
+    }
+
     public static ErrorResponse of(
             HttpStatus status,
             String message,

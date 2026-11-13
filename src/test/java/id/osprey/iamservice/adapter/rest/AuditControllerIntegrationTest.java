@@ -96,7 +96,7 @@ class AuditControllerIntegrationTest {
         Long firstNewestId = insertLog(PREFIX + "newest-a", newest);
         Long secondNewestId = insertLog(PREFIX + "newest-b", newest);
 
-        mockMvc.perform(get("/audit-logs")
+        mockMvc.perform(get("/v1/audit-logs")
                         .param("size", "3")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
@@ -112,7 +112,7 @@ class AuditControllerIntegrationTest {
         insertLog("0-" + PREFIX + "a", base);
         insertLog("0-" + PREFIX + "b", base);
 
-        mockMvc.perform(get("/audit-logs")
+        mockMvc.perform(get("/v1/audit-logs")
                         .param("size", "2")
                         .param("sort", "action,asc")
                         .header("Authorization", "Bearer " + adminToken))
@@ -123,7 +123,7 @@ class AuditControllerIntegrationTest {
 
     @Test
     void listAuditLogs_withUnknownSortProperty_isRejectedWithBadRequest() throws Exception {
-        mockMvc.perform(get("/audit-logs")
+        mockMvc.perform(get("/v1/audit-logs")
                         .param("sort", "details,desc")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isBadRequest())
@@ -137,7 +137,7 @@ class AuditControllerIntegrationTest {
     }
 
     private String login(String username) throws Exception {
-        MvcResult result = mockMvc.perform(post("/auth/login")
+        MvcResult result = mockMvc.perform(post("/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + username + "\",\"password\":\"" + PASSWORD + "\"}"))
                 .andExpect(status().isOk())

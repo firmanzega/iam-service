@@ -124,13 +124,15 @@ database sedang bermasalah, pemanggil tetap menerima 403, bukan 500.
 |---|---|---|
 | `dependency-review-action` | Setiap pull request ke `main` | Dependensi yang ditambahkan atau diperbarui. Build gagal kalau ada kerentanan High |
 | Dependabot | Mingguan | Pembaruan dependensi Maven dan GitHub Actions |
-| Checkstyle | Setiap `mvn verify` | Impor tidak terpakai, impor ganda, impor bintang, tab, dan akhir berkas |
-| SpotBugs | Setiap `mvn verify` | Temuan berprioritas High dengan effort maksimal |
-| JaCoCo | Setiap `mvn verify` | Cakupan baris gabungan minimal 80 persen |
+| Checkstyle | Setiap `mvn verify` | Impor, tab, akhir berkas, panjang baris 120, kurung kurawal wajib, satu pernyataan per baris, urutan modifier |
+| SpotBugs | Setiap `mvn verify` | Temuan berprioritas Medium ke atas dengan effort maksimal, memakai pengecualian sempit yang terdokumentasi |
+| JaCoCo | Setiap `mvn verify` | Cakupan baris minimal 80 persen untuk setiap kelas |
+| CycloneDX | Setiap `mvn verify` | SBOM seluruh komponen di `target/bom.json` |
+| Trivy | Setiap build CI dan mingguan | Kerentanan HIGH dan CRITICAL pada image, hanya yang sudah punya perbaikan |
 
 Dependency review hanya memeriksa perubahan pada pull request, bukan seluruh
-pohon dependensi yang sudah ada. Untuk dependensi lama, peringatan Dependabot
-dan peninjauan manual tetap diperlukan.
+pohon dependensi yang sudah ada. Untuk dependensi lama, Trivy memeriksa image
+yang benar-benar dikirim, dan peringatan Dependabot tetap ditinjau.
 
 ---
 
@@ -150,7 +152,7 @@ sempurna.
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
 | **401 tidak disimpan ke jejak audit** | Percobaan tanpa kredensial tidak bisa ditelusuri sampai pelaku | Log WARN dan metrik `iam.security.rejected` tetap tersedia. Alasan lengkapnya ada di bagian 1.6 |
 | **Dependency review hanya memeriksa perubahan** | Kerentanan pada dependensi lama tidak menggagalkan pull request | Dependabot alerts dan peninjauan berkala; jalankan pemindai penuh sebelum rilis besar |
-| **Analisis statis baru pada ambang High** | Temuan Medium dan Low belum memblokir build | Naikkan ambang setelah temuan High selesai; aturan Checkstyle juga masih minim |
+| **Analisis statis belum mencakup Low** | Temuan berprioritas Low belum memblokir build | Ambang Medium sudah berlaku; pengecualian ditulis per kelas dan pola, bukan mematikan pola global |
 | **Belum ada multi-tenancy** | Satu database untuk semua organisasi | Gunakan database terpisah per organisasi kalau sudah perlu |
 | **Belum ada SAML atau OIDC** | Layanan ini hanya bisa dipakai dengan token sendiri | Integrasi ke identity provider lain belum ada |
 

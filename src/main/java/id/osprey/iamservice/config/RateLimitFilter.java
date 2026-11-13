@@ -85,7 +85,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
      *        bisa berlaku lintas instance.
      */
     private boolean isProtectedPath(HttpServletRequest request) {
-        return request.getRequestURI().startsWith("/auth/");
+        return request.getRequestURI().startsWith("/v1/auth/");
     }
 
     private boolean isRateLimited(HttpServletRequest request) {

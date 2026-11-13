@@ -18,6 +18,16 @@
     <module name="FileTabCharacter"/>
     <module name="NewlineAtEndOfFile"/>
 
+    <!-- Aturan gaya yang disepakati bersama. Panjang 120 dipilih karena
+         kode yang lebih panjang biasanya sulit dibaca berdampingan saat
+         review, sementara 100 terlalu sempit untuk nama kelas yang sudah
+         panjang. Impor dikecualikan karena barisnya tidak bisa dipotong
+         tanpa merusak sintaksis. -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^import .*"/>
+    </module>
+
     <module name="TreeWalker">
         <module name="AvoidStarImport"/>
         <module name="IllegalImport"/>
@@ -30,5 +40,18 @@
         <module name="EmptyCatchBlock">
             <property name="exceptionVariableName" value="expected|ignored"/>
         </module>
+
+        <!-- Kurung kurawal wajib ada meskipun isinya satu pernyataan. Ini
+             mencegah bug akibat penambahan baris kedua yang tidak sengaja
+             berada di luar blok. -->
+        <module name="NeedBraces"/>
+
+        <!-- Satu pernyataan per baris memudahkan pembaca dan alat diff
+             menunjukkan perubahan secara tepat. -->
+        <module name="OneStatementPerLine"/>
+
+        <!-- Urutan modifier yang seragam membuat deklarasi bisa dipindai
+             dengan cepat, misalnya mencari semua method public static. -->
+        <module name="ModifierOrder"/>
     </module>
 </module>

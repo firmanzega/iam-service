@@ -28,7 +28,7 @@ class GlobalExceptionHandlerTest {
     void setUp() {
         handler = new GlobalExceptionHandler();
         request = mock(HttpServletRequest.class);
-        when(request.getRequestURI()).thenReturn("/users");
+        when(request.getRequestURI()).thenReturn("/v1/users");
     }
 
     @Test
@@ -36,8 +36,8 @@ class GlobalExceptionHandlerTest {
         BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "request");
         bindingResult.addError(new FieldError("request", "username", "must not be blank"));
 
-        MethodArgumentNotValidException ex =
-                new MethodArgumentNotValidException(mock(org.springframework.core.MethodParameter.class), bindingResult);
+        MethodArgumentNotValidException ex = new MethodArgumentNotValidException(
+                mock(org.springframework.core.MethodParameter.class), bindingResult);
 
         ResponseEntity<ErrorResponse> response = handler.handleMethodArgumentNotValid(ex, request);
 
@@ -120,8 +120,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void accessDenied_returnsForbidden() {
-        ResponseEntity<ErrorResponse> response =
-                handler.handleAccessDenied(new org.springframework.security.access.AccessDeniedException("ditolak"), request);
+        ResponseEntity<ErrorResponse> response = handler.handleAccessDenied(
+                new org.springframework.security.access.AccessDeniedException("ditolak"), request);
 
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         assertEquals("Access denied", response.getBody().message());
@@ -129,8 +129,8 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void authenticationFailure_returnsUnauthorized() {
-        ResponseEntity<ErrorResponse> response =
-                handler.handleAuthentication(new org.springframework.security.core.AuthenticationException("tak diautentikasi") {
+        ResponseEntity<ErrorResponse> response = handler.handleAuthentication(
+                new org.springframework.security.core.AuthenticationException("tak diautentikasi") {
                 }, request);
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());

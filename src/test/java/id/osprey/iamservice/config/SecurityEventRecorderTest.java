@@ -35,7 +35,7 @@ class SecurityEventRecorderTest {
 
     @Test
     void unauthorizedOnlyCountsMetricAndDoesNotWriteAudit() {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/users");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v1/users");
 
         recorder.recordUnauthorized(request, "kredensial tidak sah");
 
@@ -46,7 +46,7 @@ class SecurityEventRecorderTest {
     @Test
     void accessDeniedWritesAuditWithActorFromAuthentication() {
         authenticateAs("42");
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/roles");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/v1/roles");
 
         recorder.recordAccessDenied(request, "akses ditolak");
 
@@ -54,7 +54,7 @@ class SecurityEventRecorderTest {
 
         ArgumentCaptor<String> details = ArgumentCaptor.forClass(String.class);
         verify(auditService).recordIndependently(eq(42L), eq("ACCESS_DENIED"), eq(null), details.capture());
-        assertTrue(details.getValue().contains("POST /roles"));
+        assertTrue(details.getValue().contains("POST /v1/roles"));
     }
 
     @Test
@@ -62,7 +62,7 @@ class SecurityEventRecorderTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("anonymousUser", null));
 
-        recorder.recordAccessDenied(new MockHttpServletRequest("GET", "/users"), "akses ditolak");
+        recorder.recordAccessDenied(new MockHttpServletRequest("GET", "/v1/users"), "akses ditolak");
 
         verify(auditService).recordIndependently(isNull(), eq("ACCESS_DENIED"), isNull(), any());
     }
@@ -73,7 +73,7 @@ class SecurityEventRecorderTest {
         doThrow(new IllegalStateException("database sedang sibuk"))
                 .when(auditService).recordIndependently(any(), any(), any(), any());
 
-        recorder.recordAccessDenied(new MockHttpServletRequest("GET", "/users"), "akses ditolak");
+        recorder.recordAccessDenied(new MockHttpServletRequest("GET", "/v1/users"), "akses ditolak");
 
         assertEquals(1, counterValue("access_denied", "GET"));
     }

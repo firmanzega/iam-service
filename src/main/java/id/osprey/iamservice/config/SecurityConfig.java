@@ -61,10 +61,15 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Seluruh kontrak publik berada di bawah /v1. Awalan versi
+                        // ini bagian dari kontrak, bukan hiasan: perubahan yang
+                        // tidak kompatibel nanti diterbitkan sebagai /v2, dan
+                        // pemanggil lama tidak terpaksa ikut berubah.
+                        //
                         // Endpoint autentikasi harus bisa diakses tanpa token,
                         // karena itulah tujuan token tersebut dibuat.
-                        .requestMatchers("/auth/login", "/auth/refresh").permitAll()
-                        .requestMatchers("/auth/logout").authenticated()
+                        .requestMatchers("/v1/auth/login", "/v1/auth/refresh").permitAll()
+                        .requestMatchers("/v1/auth/logout").authenticated()
                         // Aset statis Swagger UI seperti berkas JavaScript dan
                         // CSS-nya dilayani dari path webjars. Kalau path ini
                         // diblokir, halamannya terbuka tapi tetap kosong putih
@@ -89,14 +94,14 @@ public class SecurityConfig {
                         // Pengguna boleh mengganti kata sandinya sendiri.
                         // Aturan siapa yang boleh melakukan apa diperiksa lebih
                         // lanjut di level method memakai @PreAuthorize.
-                        .requestMatchers(HttpMethod.PUT, "/users/*/password").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/v1/users/*/password").authenticated()
                         // Daftar pengguna hanya untuk ADMIN dan AUDITOR.
                         // Data pengguna tidak untuk semua pemanggil.
-                        .requestMatchers(HttpMethod.GET, "/users").hasAnyRole("ADMIN", "AUDITOR")
-                        .requestMatchers(HttpMethod.GET, "/users/**", "/roles/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/audit-logs/**").hasAnyRole("ADMIN", "AUDITOR")
-                        .requestMatchers(HttpMethod.POST, "/roles", "/roles/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/roles/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/v1/users").hasAnyRole("ADMIN", "AUDITOR")
+                        .requestMatchers(HttpMethod.GET, "/v1/users/**", "/v1/roles/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/v1/audit-logs/**").hasAnyRole("ADMIN", "AUDITOR")
+                        .requestMatchers(HttpMethod.POST, "/v1/roles", "/v1/roles/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/v1/roles/**").hasRole("ADMIN")
                         .anyRequest().hasRole("ADMIN"))
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))

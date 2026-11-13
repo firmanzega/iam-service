@@ -33,6 +33,12 @@ public record IamProperties(Jwt jwt, Cors cors, Login login, RateLimit rateLimit
      *                      tanda bintang karena kredensial ikut dikirim.
      */
     public record Cors(List<String> allowedOrigins) {
+
+        // Konfigurasi boleh dibaca berkali-kali oleh lapisan lain. Salinan
+        // yang tidak bisa diubah menjaga nilai konfigurasi tetap sama.
+        public Cors {
+            allowedOrigins = allowedOrigins == null ? List.of() : List.copyOf(allowedOrigins);
+        }
     }
 
     /**

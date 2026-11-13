@@ -25,6 +25,7 @@ Semua versi library dikelola oleh `spring-boot-starter-parent`, kecuali
 | Operasional | `spring-boot-starter-actuator` | 4.1.2 |
 | Observability | `spring-boot-micrometer-tracing-opentelemetry`, `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp` | 4.1.2, 1.7.2, 1.62.0 |
 | Analisis statis | `maven-checkstyle-plugin` + Checkstyle, `spotbugs-maven-plugin` | 3.6.0 + 10.26.1, 4.10.5.0 |
+| SBOM dan CVE | `cyclonedx-maven-plugin`, Trivy di GitHub Actions | 2.9.3, action v0.36.0 |
 | Pengujian | `spring-boot-starter-test`, `spring-boot-starter-webmvc-test`, `spring-boot-starter-data-jpa-test`, `spring-boot-testcontainers`, `testcontainers-postgresql` | 4.1.2, Testcontainers 2.0.5 |
 
 ---
@@ -316,18 +317,47 @@ atau pola yang berbahaya. Kedua pemeriksa ini menjalankan bagian mekanis dari
 review pada setiap `mvn verify`.
 
 **Dipakai di:** Konfigurasi plugin di `pom.xml`, aturan Checkstyle di
-`config/checkstyle/checkstyle.xml`.
+`config/checkstyle/checkstyle.xml`, pengecualian SpotBugs di
+`config/spotbugs/exclude.xml`.
 
 **Yang perlu diperhatikan:**
 
 - **Checkstyle 10.26.1, bukan versi bawaan plugin.** Versi bawaan
   `maven-checkstyle-plugin` 3.6.0 adalah Checkstyle 9.3, yang belum mengenali
   sintaks Java 21 seperti record dan switch expression.
-- **Aturan Checkstyle masih minim.** Yang diperiksa baru impor, tab, dan akhir
-  berkas. Aturan gaya yang lebih luas harus disepakati dulu supaya tidak
-  menghasilkan ratusan temuan lama.
-- **SpotBugs memakai ambang High.** Temuan Medium dan Low belum memblokir
-  build. Ambang dinaikkan bertahap setelah temuan High selesai.
+- **Aturan Checkstyle sudah diperluas.** Selain impor, tab, dan akhir berkas,
+  sekarang diperiksa panjang baris maksimal 120 karakter, kurung kurawal wajib,
+  satu pernyataan per baris, dan urutan modifier.
+- **SpotBugs memakai ambang Medium dengan effort maksimal.** Temuan yang bisa
+  diperbaiki sudah diperbaiki. Sisa temuan `EI_EXPOSE_REP` dan
+  `EI_EXPOSE_REP2` adalah injeksi bean Spring serta grafik objek JPA/domain yang
+  memang dibagi; pengecualiannya menyebut kelas dan pola persis, bukan
+  mematikan pola secara global. Kelas baru tetap diperiksa.
+
+### 2.15 CycloneDX dan Trivy
+
+**Apa itu:** CycloneDX membuat Software Bill of Materials, yaitu daftar seluruh
+komponen yang dipakai beserta versinya. Trivy memindai image terhadap basis data
+kerentanan.
+
+**Kenapa dipakai:** Dependency review hanya melihat perubahan pada pull request.
+SBOM membuat isi image bisa ditelusuri saat muncul kerentanan baru, dan Trivy
+memeriksa hasil akhir yang benar-benar dikirim, termasuk paket sistem operasi
+di dalam image.
+
+**Dipakai di:** `pom.xml` untuk CycloneDX, `.github/workflows/ci.yml` untuk
+Trivy.
+
+**Yang perlu diperhatikan:**
+
+- **SBOM ditulis ke `target/bom.json`** pada fase `verify` dan diunggah sebagai
+  artefak CI. Plugin ini memerlukan mode online karena membaca metadata
+  dependensi.
+- **Trivy hanya memblokir temuan yang sudah punya perbaikan.** Tanpa
+  `ignore-unfixed`, pipeline bisa merah karena celah yang belum bisa ditutup
+  sama sekali.
+- **Jadwal mingguan tetap berjalan** meskipun tidak ada push, supaya basis data
+  kerentanan yang diperbarui tetap dibandingkan dengan image terakhir.
 
 ---
 
@@ -389,7 +419,7 @@ masih membawa Jackson 2 untuk keperluan pengujian.
 | **Bucket4j** | Rate limiter bawaan sudah cukup untuk satu instance, dan kunci akun per akun sudah menjadi lapisan kedua. Kalau nanti butuh rate limit global, tempatnya di gateway, bukan di aplikasi |
 | **Redis** | Belum ada kebutuhan terdistribusi. Menambahkannya berarti menambah infrastruktur untuk masalah yang belum terjadi |
 | **Testcontainers** | Dulu dihindari karena database pengembangan sudah ada lewat Docker Compose. Sejak pengujian integrasi harus terisolasi dari data pengembangan, Testcontainers dipakai dan justru menghilangkan ketergantungan pada `.env` |
-| **OWASP dependency-check-maven** | Pemindaian penuh di setiap build mengunduh basis data besar dan sering gagal karena batas waktu atau jaringan di CI. Repositori memilih `dependency-review-action` untuk perubahan pada pull request dan Dependabot alerts untuk dependensi lama |
+| **OWASP dependency-check-maven** | Pemindaian penuh di setiap build mengunduh basis data besar dan sering gagal karena batas waktu atau jaringan di CI. Repositori memilih `dependency-review-action` dan Dependabot untuk dependensi, serta Trivy untuk image yang benar-benar dikirim |
 | **Resilience4j** | Belum ada panggilan ke layanan luar yang perlu retry atau circuit breaker |
 
 ---

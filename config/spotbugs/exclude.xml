@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Pengecualian SpotBugs yang disetujui untuk ambang Medium.
+
+    Prinsipnya: pengecualian harus menyebut kelas dan pola persis, bukan
+    mematikan pola secara global. Kalau nanti muncul kelas baru yang
+    membocorkan representasi internal, temuan itu tetap dilaporkan dan harus
+    ditinjau, bukan otomatis lolos.
+
+    Ada dua kelompok pengecualian:
+
+    1. Injeksi dependensi lewat konstruktor pada komponen Spring.
+       SpotBugs melihat referensi ke objek yang bisa berubah, tetapi objek
+       yang disuntikkan adalah bean singleton yang dikelola container dan
+       tidak diubah oleh kelas penerima. Menyalinnya justru salah, karena
+       salinan itu memutus hal yang memang harus dipakai bersama.
+
+    2. Grafik objek domain dan JPA yang sengaja dibagi.
+       Entitas JPA wajib memberi akses ke relasinya supaya Hibernate bisa
+       mengelola siklus hidup relasi. RefreshToken.getUser() juga sengaja
+       mengembalikan pengguna yang sama, karena use case autentikasi memang
+       perlu mengubah keadaan pengguna tersebut di dalam transaksi yang sama.
+-->
+<FindBugsFilter>
+
+    <!-- Kelompok 1: injeksi dependensi pada komponen Spring. -->
+    <Match>
+        <Class name="id.osprey.iamservice.adapter.rest.RoleController"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.adapter.rest.UserController"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.application.auth.AuthService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.application.auth.RefreshTokenCleanupService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.application.auth.RefreshTokenReuseService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.application.role.RoleService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.application.user.UserService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.config.DevAdminBootstrap"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.config.RefreshTokenCleanupJob"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.config.SecurityEventRecorder"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.infrastructure.persistence.RefreshTokenPersistenceAdapter"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+
+    <!-- Kelompok 2: grafik objek domain dan JPA yang memang dibagi. -->
+    <Match>
+        <Class name="id.osprey.iamservice.domain.auth.RefreshToken"/>
+        <Method name="getUser"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.domain.auth.RefreshToken"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.infrastructure.persistence.RefreshTokenJpaEntity"/>
+        <Method name="getUser"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.infrastructure.persistence.RefreshTokenJpaEntity"/>
+        <Method name="setUser"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.infrastructure.persistence.UserJpaEntity"/>
+        <Method name="getRoles"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+
+</FindBugsFilter>
