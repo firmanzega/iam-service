@@ -41,7 +41,7 @@ Jelaskan cakupan yang ditambahkan:
 Salinan dari [`CONTRIBUTING.md` bagian 8](../CONTRIBUTING.md#8-alur-review):
 
 - [ ] `.\mvnw.cmd clean verify` hijau di Windows, atau `./mvnw clean verify` di Linux dan macOS
-- [ ] Cakupan baris tetap di atas 80 persen
+- [ ] Cakupan baris gabungan tetap di atas 80 persen
 - [ ] `ArchitectureLayerTest` hijau
 - [ ] Tidak ada kredensial yang masuk ke commit
 - [ ] Pesan commit mengikuti pola conventional commit
@@ -52,6 +52,7 @@ Salinan dari [`CONTRIBUTING.md` bagian 8](../CONTRIBUTING.md#8-alur-review):
 - [ ] `docs/libraries.md` diperbarui kalau ada pustaka baru
 - [ ] ADR baru dibuat di `docs/adr/` kalau ada keputusan arsitektur baru
 - [ ] `docs/security.md` diperbarui kalau ada kontrol keamanan atau batas keamanan yang berubah
+- [ ] `docs/deployment.md` diperbarui kalau ada perubahan cara deploy atau batasannya
 - [ ] Tidak perlu perubahan dokumentasi
 
 ## Catatan untuk Pemeriksa

@@ -149,8 +149,9 @@ Pada profil `dev`, satu akun administrator dibuat otomatis saat pertama kali dij
 | Email | `admin@iam.local` |
 | Kata sandi | `Admin1234` |
 
-> **Ganti kata sandinya setelah login pertama.** Akun ini hanya ada di profil `dev`
-> dan tidak pernah aktif di produksi.
+> **Kalau database pengembangan dipakai bersama, ganti kata sandinya setelah
+> login pertama.** Akun ini hanya ada di profil `dev` dan tidak pernah aktif di
+> produksi.
 
 ### 4. Cek cepat
 
@@ -265,7 +266,7 @@ Semua endpoint berada di bawah `/`, memakai JSON, dan memakai format galat yang 
 
 | Halaman | Alamat | Akses |
 |---|---|---|
-| Swagger UI | <http://localhost:8080/swagger-ui.html> | Publik |
+| Swagger UI | <http://localhost:8080/swagger-ui.html> | Publik di profil dev |
 | Deskripsi OpenAPI | <http://localhost:8080/v3/api-docs> | Publik (dimatikan di profil produksi) |
 
 Di Swagger UI, klik **Authorize** lalu tempel token akses hasil login untuk mencoba
@@ -278,7 +279,7 @@ endpoint yang butuh autentikasi.
 ### Uji manual
 
 Panduan lengkap ada di [`docs/manual-testing.md`](docs/manual-testing.md).
-Berkas [`http/iam-service.http`](http/iam-service.http) berisi 38 permintaan
+Berkas [`http/iam-service.http`](http/iam-service.http) berisi 40 permintaan
 yang bisa langsung dijalankan dari HTTP Client bawaan IntelliJ.
 
 ### Uji otomatis
@@ -313,7 +314,9 @@ Laporan cakupan kode dihasilkan oleh JaCoCo:
 # laporan HTML: target/site/jacoco/index.html
 ```
 
-Cakupan baris harus mencapai **80 persen**. Build gagal kalau ambang itu tidak tercapai.
+Cakupan baris harus mencapai **80 persen**. Angka itu dihitung gabungan untuk
+seluruh paket, bukan per kelas, jadi satu kelas masih bisa berada di bawahnya.
+Build gagal kalau ambang gabungan itu tidak tercapai.
 
 ---
 
@@ -359,6 +362,24 @@ terdokumentasi di [`docs/libraries.md`](docs/libraries.md).
 | Keamanan | Spring Security 7 + Nimbus JOSE JWT |
 | Dokumentasi | springdoc-openapi 3.2 |
 | Operasional | Spring Boot Actuator |
+
+---
+
+## Batasan yang Diketahui
+
+Beberapa hal yang biasanya ada di layanan produksi belum tersedia di sini.
+Daftar ini sengaja ditulis supaya batasannya jelas sejak awal.
+
+| Kekurangan | Keadaan sekarang | Tindak lanjut |
+|---|---|---|
+| Belum ada `Dockerfile` | Artefak build hanya jar; server harus punya JDK 21 | Tambahkan image kalau deployment memakai container |
+| Pipeline tidak memindai kerentanan dependensi | Dependabot membuka pembaruan bulanan, tetapi build tidak gagal karena CVE | Jalankan pemindai dependensi sebelum rilis |
+| Cakupan diukur gabungan | Beberapa kelas di bawah 80 persen, misalnya `Role` dan `UserJpaEntity` | Tambahkan tes saat kelas itu berubah |
+| Penolakan akses tidak masuk jejak audit | 401 dan 403 hanya ditulis ke log DEBUG, sedangkan produksi memakai INFO | Kirim log ke sistem terpusat kalau perlu diawasi |
+| Belum ada cadangan otomatis | Tidak ada skrip cadangan di repositori | Jadwalkan `pg_dump` di server dan uji pemulihannya |
+| Belum ada pelacakan terdistribusi | Hanya log aplikasi dan metrik Actuator | Tambahkan tracing kalau jumlah layanan bertambah |
+| Belum ada versi API | Semua endpoint berada di root, tanpa prefiks `/v1` | Tambahkan prefiks versi sebelum ada klien luar |
+| Belum ada pendaftaran mandiri | Akun hanya dibuat oleh ADMIN, tanpa verifikasi surel atau reset lewat surel | Tambahkan alur undangan atau verifikasi kalau dibutuhkan |
 
 ---
 

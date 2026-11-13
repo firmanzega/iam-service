@@ -198,9 +198,40 @@ pembersihan token selesai.
 - [ ] `POSTGRES_PASSWORD` sudah diganti dan tidak ada di berkas mana pun
 - [ ] Port database tidak terbuka ke internet
 - [ ] HTTPS sudah aktif, sertifikat sudah valid
-- [ ] Kata sandi akun administrator dev sudah diganti atau akunnya dihapus
+- [ ] Database produksi tidak berisi akun bawaan `admin` dari profil dev
 - [ ] `CORS_ALLOWED_ORIGINS` sudah diisi dengan domain yang benar
 - [ ] Layanan hanya bisa dijangkau lewat proxy internal, atau batas permintaan
       dipindahkan sepenuhnya ke gateway
 - [ ] GitHub Actions hijau pada commit terakhir
 - [ ] Cadangan database terjadwal dan sudah pernah diuji memulihkannya
+
+Akun `admin` hanya dibuat oleh `DevAdminBootstrap` pada profil `dev`. Kalau
+database produksi berasal dari database pengembangan yang pernah dijalankan
+dengan profil `dev`, akun itu bisa ikut terbawa. Karena itu yang diperiksa
+adalah isi database-nya, bukan hanya nilai `SPRING_PROFILES_ACTIVE`.
+
+---
+
+## 6. Bentuk Artifact dan Batasan Deployment
+
+Repositori ini **belum punya `Dockerfile`**. Build hanya menghasilkan satu
+berkas jar yang dijalankan dengan JDK 21:
+
+```bash
+java -jar target/iam-service-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+`docker-compose.yml` di repositori hanya menjalankan PostgreSQL, bukan
+layanan ini. Konsekuensinya:
+
+| Hal | Keadaan sekarang | Yang perlu disiapkan |
+|---|---|---|
+| Runtime | Server harus punya JDK 21 | Pasang JDK, atau buat image container sendiri |
+| Image container | Tidak ada | Tambahkan `Dockerfile` kalau deployment memakai container |
+| Registri image | Tidak ada | Belum perlu selama deployment memakai jar |
+| Cadangan database | Tidak ada skrip di repositori | Jadwalkan `pg_dump` di server dan uji pemulihannya |
+| Pemindaian kerentanan | Dependabot mengusulkan pembaruan bulanan, build tidak memindai CVE | Jalankan pemindai dependensi sebelum rilis, atau aktifkan peringatan Dependabot |
+
+GitHub Actions menyimpan jar sebagai artifact selama 30 hari. Itu bukan
+registri rilis: kalau butuh jejak jangka panjang, simpan jar di tempat lain
+atau buat rilis bertanda di repositori.

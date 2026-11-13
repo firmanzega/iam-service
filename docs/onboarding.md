@@ -143,14 +143,21 @@ Pengujian memakai database yang sama dengan `docker compose`. Isi `.env`
 sudah otomatis dibaca, jadi tidak perlu menyiapkan environment variable
 secara manual.
 
+Pengujian integrasi membuat dan menghapus datanya sendiri di database itu.
+Karena database-nya sama dengan database pengembangan, jangan arahkan `.env`
+ke database yang berisi data penting.
+
 Untuk melihat laporan cakupan:
 
 ```bash
 .\mvnw.cmd verify
 ```
 
-Laporan HTML ada di `target/site/jacoco/index.html`. Cakupan baris harus
-mencapai 80 persen, kalau tidak build akan gagal.
+Laporan HTML ada di `target/site/jacoco/index.html`. Cakupan baris gabungan
+harus mencapai 80 persen, kalau tidak build akan gagal.
+
+Belum ada pemeriksa gaya kode otomatis. Ikuti `.editorconfig` dan bagian 3
+[`CONTRIBUTING.md`](../CONTRIBUTING.md#3-menulis-kode).
 
 ---
 

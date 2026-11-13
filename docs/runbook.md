@@ -310,6 +310,21 @@ Kalau layanan berada di belakang reverse proxy, periksa juga
 benar, seluruh trafik terlihat berasal dari satu alamat dan kuota dipakai
 bersama.
 
+### 9.3 Peringatan dependensi
+
+Dependabot membuka pull request pembaruan dependensi setiap bulan. Build di
+GitHub Actions tidak memindai CVE, jadi peringatan keamanan tidak muncul
+sendiri di log build.
+
+1. Buka tab **Security**, lalu **Dependabot alerts**.
+2. Periksa apakah versi yang dipakai memang terpengaruh:
+   ```bash
+   .\mvnw.cmd dependency:tree -Dincludes=groupId:artifactId
+   ```
+3. Kalau perbaikan tersedia, gabungkan pull request Dependabot, lalu jalankan
+   `clean verify`.
+4. Kalau belum ada perbaikan, catat alasannya di issue supaya tidak terlupakan.
+
 ---
 
 ## 10. Deploy dan Rollback
@@ -361,6 +376,16 @@ cadangan. Karena itu **cadangan database terjadwal** wajib ada.
    `REFRESH_TOKEN_REUSE` berarti token refresh yang sudah dicabut dipakai
    lagi. Layanan sudah otomatis mencabut seluruh sesi pengguna itu, tetapi
    pemilik akun tetap perlu dihubungi dan diminta mengganti kata sandi.
+
+   Untuk melihat sebaran kejadiannya tanpa membuka satu per satu:
+
+   ```bash
+   docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
+     "select actor_user_id, count(*) as kejadian, max(created_at) as terakhir
+        from audit_logs where action = 'REFRESH_TOKEN_REUSE'
+       group by actor_user_id order by terakhir desc;"
+   ```
+
 3. **Nonaktifkan akun** yang dicurigai:
    ```bash
    curl -X POST http://localhost:8080/users/{id}/deactivate \

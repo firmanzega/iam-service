@@ -54,7 +54,7 @@ variable, karena berkas `.env` dibaca otomatis.
 
 ## 2. Cara paling mudah: HTTP Client bawaan IntelliJ
 
-Berkas [`http/iam-service.http`](../http/iam-service.http) sudah berisi 38
+Berkas [`http/iam-service.http`](../http/iam-service.http) sudah berisi 40
 permintaan yang tersusun berurutan.
 
 Cara pakai:
@@ -241,7 +241,9 @@ curl -X POST http://localhost:8080/auth/refresh \
 ```
 
 Token refresh hanya bisa dipakai sekali. Yang berikutnya harus pakai token
-hasil tukaran.
+hasil tukaran. Memakai ulang token lama bukan hanya ditolak: itu dianggap bukti
+pencurian, sehingga seluruh sesi pengguna dicabut. Skenario lengkapnya ada di
+[bagian 4.13](#413-pemakaian-ulang-token-refresh-terdeteksi).
 
 ### 4.9 Logout
 

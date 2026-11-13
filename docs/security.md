@@ -116,6 +116,8 @@ sempurna.
 | **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk menghapus sesi di satu perangkat, cabut tokennya manual |
 | **Belum ada audit log yang tidak bisa diubah** | Seseorang yang punya akses database bisa mengubah catatan audit | Simpan catatan audit di tempat terpisah kalau sudah dibutuhkan |
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
+| **Penolakan akses tidak masuk jejak audit** | 401 dan 403 hanya ditulis ke log DEBUG, sedangkan profil produksi memakai INFO | Naikkan level log sementara atau kirim log ke sistem terpusat saat mencurigai percobaan eskalasi peran |
+| **Belum ada pemindaian kerentanan yang memblokir build** | Pembaruan dependensi diusulkan Dependabot setiap bulan, tetapi `mvn verify` tidak memeriksa CVE | Tinjau pull request Dependabot, dan jalankan pemindai dependensi sebelum rilis |
 | **Belum ada multi-tenancy** | Satu database untuk semua organisasi | Gunakan database terpisah per organisasi kalau sudah perlu |
 | **Belum ada SAML atau OIDC** | Layanan ini hanya bisa dipakai dengan token sendiri | Integrasi ke identity provider lain belum ada |
 
@@ -145,7 +147,7 @@ sempurna.
 - [ ] HTTPS aktif, sertifikat valid
 - [ ] `CORS_ALLOWED_ORIGINS` diisi dengan domain yang benar
 - [ ] Dokumentasi OpenAPI **mati** di produksi, sudah dikonfigurasi secara bawaan
-- [ ] Akun administrator dev sudah dihapus atau kata sandinya diganti
+- [ ] Database produksi tidak berisi akun bawaan `admin` dari profil dev
 
 Rinciannya ada di [`deployment.md`](deployment.md).
 

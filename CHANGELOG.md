@@ -69,6 +69,11 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   dua tugas latar memakai thread terpisah
 - Tabel konfigurasi README yang belum memuat pengaturan pembersihan token dan
   entri rate limiter
+- Klaim dokumentasi yang tidak sesuai kenyataan: jumlah permintaan pada koleksi
+  HTTP, akses Swagger UI, dan checklist akun administrator dev
+- Batasan operasional yang belum tercatat: belum ada `Dockerfile`, pipeline
+  tanpa pemindaian CVE, cakupan diukur gabungan, dan penolakan akses hanya
+  masuk log DEBUG
 
 ---
 
