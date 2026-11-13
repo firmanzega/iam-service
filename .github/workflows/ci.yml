@@ -16,21 +16,6 @@ jobs:
     name: Build dan uji
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: iam_db
-          POSTGRES_USER: iam_user
-          POSTGRES_PASSWORD: iam_password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U iam_user -d iam_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - name: Ambil kode
         uses: actions/checkout@v4
@@ -42,26 +27,22 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Siapkan berkas .env untuk pengujian
-        run: |
-          cat > .env <<'EOF'
-          POSTGRES_DB=iam_db
-          POSTGRES_USER=iam_user
-          POSTGRES_PASSWORD=iam_password
-          POSTGRES_HOST=localhost
-          POSTGRES_PORT=5432
-          JWT_SECRET=kunci-rahasia-untuk-pengujian-di-ci-1234567890
-          CORS_ALLOWED_ORIGINS=http://localhost:3000
-          EOF
-
       - name: Berikan hak jalankan pada Maven Wrapper
         run: chmod +x mvnw
 
       - name: Jalankan pengujian dan pemeriksaan cakupan
-        # Perintah verify menjalankan pengujian, membuat laporan JaCoCo, lalu
-        # memeriksa apakah cakupan baris mencapai ambang 80 persen. Build
-        # gagal kalau ambang itu tidak tercapai.
+        # Perintah verify menjalankan pengujian, membuat laporan JaCoCo,
+        # memeriksa cakupan baris minimal 80 persen, serta menjalankan
+        # Checkstyle dan SpotBugs. Build gagal kalau salah satu gagal.
+        #
+        # Database pengujian disediakan Testcontainers, jadi tidak perlu
+        # layanan PostgreSQL terpisah di workflow ini.
         run: ./mvnw --batch-mode --no-transfer-progress verify
+
+      - name: Bangun image Docker
+        # Membuktikan Dockerfile masih bisa membangun image dari nol, bukan
+        # hanya tersimpan di repositori tanpa pernah dijalankan.
+        run: docker build --tag iam-service:ci .
 
       - name: Unggah laporan cakupan
         if: always()

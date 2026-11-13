@@ -1,7 +1,6 @@
 package id.osprey.iamservice.application.auth;
 
 import id.osprey.iamservice.domain.auth.LoginPolicy;
-import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;

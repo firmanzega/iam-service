@@ -1,8 +1,10 @@
 package id.osprey.iamservice.config;
 
+import id.osprey.iamservice.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.MethodParameter;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *        muncul konfigurasi yang menimpa resolver lagi, test ini langsung gagal.
  */
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 class PaginationConfigTest {
 
     private static final int EXPECTED_MAX_PAGE_SIZE = 50;

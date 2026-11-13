@@ -27,9 +27,12 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
     private static final Logger log = LoggerFactory.getLogger(RestAuthenticationEntryPoint.class);
 
     private final SecurityErrorWriter errorWriter;
+    private final SecurityEventRecorder securityEventRecorder;
 
-    public RestAuthenticationEntryPoint(ObjectMapper objectMapper) {
+    public RestAuthenticationEntryPoint(ObjectMapper objectMapper,
+                                        SecurityEventRecorder securityEventRecorder) {
         this.errorWriter = new SecurityErrorWriter(objectMapper);
+        this.securityEventRecorder = securityEventRecorder;
     }
 
     @Override
@@ -38,6 +41,8 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
                          AuthenticationException authException) throws IOException {
 
         log.debug("Unauthorized access on {}: {}", request.getRequestURI(), authException.getMessage());
+
+        securityEventRecorder.recordUnauthorized(request, "kredensial tidak sah");
 
         errorWriter.write(request, response, HttpStatus.UNAUTHORIZED, "Authentication required");
     }

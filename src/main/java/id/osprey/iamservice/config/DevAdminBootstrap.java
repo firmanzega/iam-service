@@ -1,7 +1,5 @@
 package id.osprey.iamservice.config;
 
-import id.osprey.iamservice.domain.auth.LoginPolicy;
-import id.osprey.iamservice.domain.auth.TokenSettings;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;

@@ -6,6 +6,13 @@ server:
   # Pastikan layanan tidak bisa dijangkau langsung dari jaringan publik.
   forward-headers-strategy: native
 
+logging:
+  pattern:
+    # traceId dan spanId kosong saat sampling dimatikan, sehingga bentuk log
+    # biasa tidak berubah. Saat tracing dinyalakan, kedua nilai itu yang
+    # menghubungkan satu baris log dengan rentangannya di collector.
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+
 spring:
   application:
     name: iam-service
@@ -60,6 +67,18 @@ management:
   health:
     db:
       enabled: true
+  tracing:
+    sampling:
+      # Sampling dimatikan secara bawaan. Tanpa collector yang menerima
+      # kiriman, menyalakan sampling hanya menghasilkan percobaan ekspor yang
+      # gagal berulang. Nyalakan lewat environment variable saat collector
+      # benar-benar tersedia.
+      probability: ${OTEL_TRACES_SAMPLING_PROBABILITY:0.0}
+  otlp:
+    tracing:
+      # Collector OTLP/HTTP. Nilai bawaan Spring Boot sudah alamat lokal, tetapi
+      # ditulis eksplisit supaya operator tahu harus mengarahkan ke mana.
+      endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 
 iam:
   jwt:

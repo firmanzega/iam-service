@@ -1,7 +1,6 @@
 package id.osprey.iamservice.infrastructure.persistence;
 
 import id.osprey.iamservice.domain.auth.RefreshToken;
-import id.osprey.iamservice.domain.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;

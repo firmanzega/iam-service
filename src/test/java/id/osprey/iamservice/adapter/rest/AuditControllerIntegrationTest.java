@@ -1,5 +1,6 @@
 package id.osprey.iamservice.adapter.rest;
 
+import id.osprey.iamservice.TestcontainersConfiguration;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -36,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(properties = "iam.rate-limit.max-requests=10000")
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
 class AuditControllerIntegrationTest {
 
     private static final String PASSWORD = "Rahasia123";

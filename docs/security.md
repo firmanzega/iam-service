@@ -33,6 +33,7 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Aturan per method | `@PreAuthorize`. Hanya pemilik akun yang boleh mengganti kata sandinya sendiri |
 | Peran dari token | Claim `roles` dipetakan jadi `ROLE_*` oleh `JwtAuthenticationConverter` |
 | Ditolak dengan jelas | 401 untuk belum terautentikasi, 403 untuk tidak berwenang |
+| Penolakan tercatat | 403 menulis jejak audit `ACCESS_DENIED` beserta pelakunya. 401 dan 403 menaikkan log ke WARN dan menambah metrik `iam.security.rejected` |
 
 ### 1.3 Kata Sandi
 
@@ -100,6 +101,37 @@ mati" bisa dibaca berdampingan.
 Catatan untuk aksi gagal ditulis di transaksi terpisah, supaya tidak hilang
 saat transaksinya dibatalkan.
 
+Penolakan akses ditangani dengan aturan yang berbeda, dan perbedaannya
+disengaja:
+
+| Kejadian | Log | Metrik | Jejak audit |
+|---|---|---|---|
+| 401, tidak ada token atau token tidak sah | WARN | `iam.security.rejected`, tag `reason=unauthorized` | **Tidak ditulis** |
+| 403, identitas sah tetapi tidak berwenang | WARN | `iam.security.rejected`, tag `reason=access_denied` | `ACCESS_DENIED` beserta `actor_user_id` dan URI |
+
+Alasan 401 tidak masuk jejak audit: permintaan tanpa kredensial bisa dikirim
+siapa saja tanpa identitas. Kalau setiap permintaan seperti itu menulis satu
+baris, tabel audit bisa dibanjiri trafik luar dan catatan yang penting justru
+tenggelam. Untuk 403, identitas pelakunya sudah terbukti sah, sehingga
+kejadiannya justru perlu bisa ditelusuri sampai ke pengguna.
+
+Penyimpanan jejak audit penolakan tidak boleh menggagalkan respons. Kalau
+database sedang bermasalah, pemanggil tetap menerima 403, bukan 500.
+
+### 1.7 Pemindaian Dependensi dan Analisis Statis
+
+| Pemeriksaan | Kapan berjalan | Cakupan |
+|---|---|---|
+| `dependency-review-action` | Setiap pull request ke `main` | Dependensi yang ditambahkan atau diperbarui. Build gagal kalau ada kerentanan High |
+| Dependabot | Mingguan | Pembaruan dependensi Maven dan GitHub Actions |
+| Checkstyle | Setiap `mvn verify` | Impor tidak terpakai, impor ganda, impor bintang, tab, dan akhir berkas |
+| SpotBugs | Setiap `mvn verify` | Temuan berprioritas High dengan effort maksimal |
+| JaCoCo | Setiap `mvn verify` | Cakupan baris gabungan minimal 80 persen |
+
+Dependency review hanya memeriksa perubahan pada pull request, bukan seluruh
+pohon dependensi yang sudah ada. Untuk dependensi lama, peringatan Dependabot
+dan peninjauan manual tetap diperlukan.
+
 ---
 
 ## 2. Apa yang BELUM Dilindungi
@@ -116,8 +148,9 @@ sempurna.
 | **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk menghapus sesi di satu perangkat, cabut tokennya manual |
 | **Belum ada audit log yang tidak bisa diubah** | Seseorang yang punya akses database bisa mengubah catatan audit | Simpan catatan audit di tempat terpisah kalau sudah dibutuhkan |
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
-| **Penolakan akses tidak masuk jejak audit** | 401 dan 403 hanya ditulis ke log DEBUG, sedangkan profil produksi memakai INFO | Naikkan level log sementara atau kirim log ke sistem terpusat saat mencurigai percobaan eskalasi peran |
-| **Belum ada pemindaian kerentanan yang memblokir build** | Pembaruan dependensi diusulkan Dependabot setiap bulan, tetapi `mvn verify` tidak memeriksa CVE | Tinjau pull request Dependabot, dan jalankan pemindai dependensi sebelum rilis |
+| **401 tidak disimpan ke jejak audit** | Percobaan tanpa kredensial tidak bisa ditelusuri sampai pelaku | Log WARN dan metrik `iam.security.rejected` tetap tersedia. Alasan lengkapnya ada di bagian 1.6 |
+| **Dependency review hanya memeriksa perubahan** | Kerentanan pada dependensi lama tidak menggagalkan pull request | Dependabot alerts dan peninjauan berkala; jalankan pemindai penuh sebelum rilis besar |
+| **Analisis statis baru pada ambang High** | Temuan Medium dan Low belum memblokir build | Naikkan ambang setelah temuan High selesai; aturan Checkstyle juga masih minim |
 | **Belum ada multi-tenancy** | Satu database untuk semua organisasi | Gunakan database terpisah per organisasi kalau sudah perlu |
 | **Belum ada SAML atau OIDC** | Layanan ini hanya bisa dipakai dengan token sendiri | Integrasi ke identity provider lain belum ada |
 
@@ -148,6 +181,9 @@ sempurna.
 - [ ] `CORS_ALLOWED_ORIGINS` diisi dengan domain yang benar
 - [ ] Dokumentasi OpenAPI **mati** di produksi, sudah dikonfigurasi secara bawaan
 - [ ] Database produksi tidak berisi akun bawaan `admin` dari profil dev
+- [ ] Image berjalan sebagai pengguna tanpa hak istimewa dan memakai profil `prod`
+- [ ] Dependency review dan Dependabot alerts sudah ditinjau
+- [ ] Endpoint collector tracing diisi kalau sampling dinyalakan
 
 Rinciannya ada di [`deployment.md`](deployment.md).
 

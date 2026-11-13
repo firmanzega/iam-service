@@ -88,7 +88,7 @@ Permintaan
 | Java | 21 (LTS) | Dipasang terpisah, lalu arahkan `JAVA_HOME` ke JDK 21 |
 | Maven | 3.10+ | Dipakai lewat Maven Wrapper (tidak perlu diinstal) |
 | PostgreSQL | 16 | Jalankan lewat Docker Compose |
-| Docker | - | Hanya untuk menjalankan PostgreSQL |
+| Docker | - | Menjalankan PostgreSQL, pengujian integrasi (Testcontainers), dan membangun image layanan |
 
 ---
 
@@ -161,6 +161,30 @@ curl -X POST http://localhost:8080/auth/login \
   -d '{"identifier":"admin","password":"Admin1234"}'
 ```
 
+### 5. Menjalankan lewat container
+
+Repositori ini punya `Dockerfile` multi-stage. Tahap build memakai JDK 21,
+sedangkan tahap jalan hanya memakai JRE 21 dan berjalan sebagai pengguna tanpa
+hak istimewa (`10001:10001`). Image memakai profil `prod` secara bawaan,
+sehingga akun administrator dev tidak pernah ikut aktif.
+
+```bash
+docker build -t iam-service:latest .
+
+docker run --rm -p 9090:9090 \
+  -e JWT_SECRET="$(openssl rand -base64 48)" \
+  -e POSTGRES_HOST=host.docker.internal \
+  -e POSTGRES_PORT=5433 \
+  -e POSTGRES_DB=db_osprey \
+  -e POSTGRES_USER=user_osprey \
+  -e POSTGRES_PASSWORD=ganti-dengan-password-anda \
+  iam-service:latest
+```
+
+Di Linux, `host.docker.internal` perlu diganti dengan alamat gateway container
+atau nama layanan database di jaringan Docker yang sama. Rincian deployment
+dan batasannya ada di [`docs/deployment.md`](docs/deployment.md).
+
 ---
 
 ## Konfigurasi
@@ -178,6 +202,8 @@ export manual** untuk menjalankan aplikasi maupun pengujian.
 | `POSTGRES_PORT` | tidak | Bawaan `5433` |
 | `JWT_SECRET` | ya | Kunci penanda tangan token, minimal 32 byte |
 | `CORS_ALLOWED_ORIGINS` | tidak | Origin frontend yang diizinkan, pisahkan dengan koma |
+| `OTEL_TRACES_SAMPLING_PROBABILITY` | tidak | Peluang sampling tracing, bawaan `0.0` (mati) |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | tidak | Alamat collector OTLP/HTTP, bawaan `http://localhost:4318/v1/traces` |
 
 Parameter lain ada di `src/main/resources/application.yaml` pada blok `iam`:
 
@@ -292,15 +318,18 @@ yang bisa langsung dijalankan dari HTTP Client bawaan IntelliJ.
 ./mvnw test
 ```
 
-Berkas `.env` dibaca otomatis, jadi tidak perlu menyiapkan environment variable
-secara manual.
+Pengujian integrasi memakai **Testcontainers**: satu container PostgreSQL 16
+dibuat sekali per proses pengujian, lalu dimatikan otomatis. Database
+pengembangan di port `5433` tidak disentuh, dan berkas `.env` tidak diperlukan
+untuk pengujian. Yang dibutuhkan hanya Docker yang sedang berjalan.
 
 | Jenis | Cakupan |
 |---|---|
-| Unit test | Logika use case, rate limiter, paginasi, aturan kata sandi |
-| Integration test | Matriks otorisasi HTTP lewat MockMvc |
+| Unit test | Logika use case, rate limiter, paginasi, aturan kata sandi, audit penolakan |
+| Integration test | Matriks otorisasi HTTP lewat MockMvc, dengan database sungguhan di container |
 | Concurrency test | Dua PATCH bersamaan atas satu data hanya boleh satu yang berhasil |
 | Architecture test | Pemeriksaan arah dependensi antar lapisan |
+| Tracing test | Memastikan jembatan OpenTelemetry benar-benar membuat rentang saat sampling dinyalakan |
 
 Laporan cakupan kode dihasilkan oleh JaCoCo:
 
@@ -317,6 +346,17 @@ Laporan cakupan kode dihasilkan oleh JaCoCo:
 Cakupan baris harus mencapai **80 persen**. Angka itu dihitung gabungan untuk
 seluruh paket, bukan per kelas, jadi satu kelas masih bisa berada di bawahnya.
 Build gagal kalau ambang gabungan itu tidak tercapai.
+
+Perintah `verify` juga menjalankan dua pemeriksa statis:
+
+| Pemeriksa | Aturan | Letak konfigurasi |
+|---|---|---|
+| Checkstyle | Impor tidak terpakai, impor ganda, impor bintang, tab, dan akhir berkas | `config/checkstyle/checkstyle.xml` |
+| SpotBugs | Temuan berprioritas High | Konfigurasi plugin di `pom.xml` |
+
+Keduanya sengaja dimulai dari aturan yang tidak bisa diperdebatkan. Menambah
+aturan gaya yang lebih luas harus disepakati lebih dulu supaya temuan lama tidak
+menutupi masalah baru.
 
 ---
 
@@ -362,6 +402,8 @@ terdokumentasi di [`docs/libraries.md`](docs/libraries.md).
 | Keamanan | Spring Security 7 + Nimbus JOSE JWT |
 | Dokumentasi | springdoc-openapi 3.2 |
 | Operasional | Spring Boot Actuator |
+| Observability | Micrometer Tracing + OpenTelemetry (OTLP/HTTP) |
+| Pengujian | Testcontainers PostgreSQL 16 |
 
 ---
 
@@ -372,14 +414,11 @@ Daftar ini sengaja ditulis supaya batasannya jelas sejak awal.
 
 | Kekurangan | Keadaan sekarang | Tindak lanjut |
 |---|---|---|
-| Belum ada `Dockerfile` | Artefak build hanya jar; server harus punya JDK 21 | Tambahkan image kalau deployment memakai container |
-| Pipeline tidak memindai kerentanan dependensi | Dependabot membuka pembaruan bulanan, tetapi build tidak gagal karena CVE | Jalankan pemindai dependensi sebelum rilis |
 | Cakupan diukur gabungan | Beberapa kelas di bawah 80 persen, misalnya `Role` dan `UserJpaEntity` | Tambahkan tes saat kelas itu berubah |
-| Penolakan akses tidak masuk jejak audit | 401 dan 403 hanya ditulis ke log DEBUG, sedangkan produksi memakai INFO | Kirim log ke sistem terpusat kalau perlu diawasi |
-| Belum ada cadangan otomatis | Tidak ada skrip cadangan di repositori | Jadwalkan `pg_dump` di server dan uji pemulihannya |
-| Belum ada pelacakan terdistribusi | Hanya log aplikasi dan metrik Actuator | Tambahkan tracing kalau jumlah layanan bertambah |
 | Belum ada versi API | Semua endpoint berada di root, tanpa prefiks `/v1` | Tambahkan prefiks versi sebelum ada klien luar |
 | Belum ada pendaftaran mandiri | Akun hanya dibuat oleh ADMIN, tanpa verifikasi surel atau reset lewat surel | Tambahkan alur undangan atau verifikasi kalau dibutuhkan |
+| Jejak audit bisa diubah | Pemegang akses database dapat mengubah isi `audit_logs` | Kirim salinan ke penyimpanan append-only kalau sudah dibutuhkan |
+| Pemindaian CVE tidak memeriksa seluruh pohon dependensi | `dependency-review-action` hanya memeriksa perubahan pada pull request, sedangkan Dependabot alerts mencakup dependensi yang sudah ada | Tinjau peringatan Dependabot secara berkala; jalankan pemindai penuh sebelum rilis besar |
 
 ---
 
@@ -439,6 +478,9 @@ docs/deployment.md panduan deployment dan manajemen secret
 docs/manual-testing.md panduan uji manual lengkap
 docs/onboarding.md panduan hari pertama developer baru
 http/              koleksi permintaan untuk uji manual
+scripts/           skrip cadangan dan pemulihan PostgreSQL
+config/checkstyle/ aturan Checkstyle yang dijalankan saat verify
+Dockerfile         image multi-stage, profil prod, pengguna tanpa hak istimewa
 .github/           alur kerja otomatis, templat issue, dan templat pull request
 ```
 
@@ -462,5 +504,7 @@ Ringkasnya:
 | [0009](docs/adr/0009-perbaikan-komentar-migrasi-terapan.md) | Perbaikan komentar migrasi terapan lewat repair checksum |
 | [0010](docs/adr/0010-pemeliharaan-berkala-di-dalam-proses.md) | Pemeliharaan berkala di dalam proses aplikasi |
 | [0011](docs/adr/0011-deteksi-pemakaian-ulang-token-refresh.md) | Deteksi pemakaian ulang token refresh |
+| [0012](docs/adr/0012-database-pengujian-terisolasi-dengan-testcontainers.md) | Database pengujian terisolasi dengan Testcontainers |
+| [0013](docs/adr/0013-observability-penolakan-dan-tracing.md) | Observability penolakan akses dan tracing |
 
 Panduan deployment ada di [`docs/deployment.md`](docs/deployment.md).

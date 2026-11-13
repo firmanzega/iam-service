@@ -33,6 +33,7 @@ docker exec iam-service-db psql -U user_osprey -d db_osprey \
 | Semua orang logout | Kunci token dirotasi | [Bagian 7](#7-semua-pengguna-terlogout) |
 | Lambat atau timeout | Koneksi database habis | [Bagian 8](#8-lambat-atau-timeout) |
 | Tabel `refresh_tokens` membesar terus | Pembersihan berkala mati | [Bagian 9](#9-pemeliharaan-berkala-tidak-berjalan) |
+| Banyak permintaan 401 atau 403 | Percobaan akses tanpa kredensial atau eskalasi peran | [Bagian 12](#12-penolakan-akses-meningkat) |
 
 ---
 
@@ -312,11 +313,17 @@ bersama.
 
 ### 9.3 Peringatan dependensi
 
-Dependabot membuka pull request pembaruan dependensi setiap bulan. Build di
-GitHub Actions tidak memindai CVE, jadi peringatan keamanan tidak muncul
-sendiri di log build.
+Ada dua jalur pemantauan yang saling melengkapi:
 
-1. Buka tab **Security**, lalu **Dependabot alerts**.
+| Jalur | Kapan | Yang diperiksa |
+|---|---|---|
+| `dependency-review-action` | Setiap pull request ke `main` | Dependensi yang ditambahkan atau diperbarui. Build gagal kalau ada kerentanan High |
+| Dependabot alerts | Berkelanjutan, dengan pembaruan mingguan | Seluruh dependensi yang sudah ada |
+
+Langkah saat ada peringatan:
+
+1. Buka pull request yang ditandai **dependency review**, atau tab
+   **Security → Dependabot alerts**.
 2. Periksa apakah versi yang dipakai memang terpengaruh:
    ```bash
    .\mvnw.cmd dependency:tree -Dincludes=groupId:artifactId
@@ -324,6 +331,10 @@ sendiri di log build.
 3. Kalau perbaikan tersedia, gabungkan pull request Dependabot, lalu jalankan
    `clean verify`.
 4. Kalau belum ada perbaikan, catat alasannya di issue supaya tidak terlupakan.
+
+Perlu diingat: dependency review hanya memeriksa perubahan pada pull request.
+Kerentanan pada dependensi lama tidak menggagalkan build, jadi Dependabot
+alerts tetap harus ditinjau berkala.
 
 ---
 
@@ -339,12 +350,24 @@ sendiri di log build.
 ./mvnw clean verify
 ```
 
+Jalankan sebagai jar:
+
 ```bash
 java -jar target/iam-service-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
+Atau sebagai image container:
+
+```bash
+docker build -t iam-service:2026-11-13 .
+docker run -d --name iam-service -p 9090:9090 \
+  --env-file /etc/iam-service/env \
+  iam-service:2026-11-13
+```
+
 Pastikan environment variable sudah terpasang lebih dulu, terutama
-`SPRING_PROFILES_ACTIVE`, `JWT_SECRET`, dan kredensial database.
+`SPRING_PROFILES_ACTIVE`, `JWT_SECRET`, dan kredensial database. Image sudah
+memilih profil `prod` secara bawaan.
 
 ### Rollback
 
@@ -358,7 +381,17 @@ sebelumnya:
 4. Jalankan ulang.
 
 Kalau migrasi merusak data dan tidak ada cara memperbaiki, pulihkan dari
-cadangan. Karena itu **cadangan database terjadwal** wajib ada.
+cadangan:
+
+```bash
+BACKUP_DOCKER_CONTAINER=iam-service-db \
+POSTGRES_DB=iam_db POSTGRES_USER=iam_user POSTGRES_PASSWORD=rahasia \
+  scripts/restore-postgres.sh cadangan/iam-20261113.dump --yes
+```
+
+Pemulihan menimpa objek dengan nama sama. Pastikan nama database tujuan sudah
+benar sebelum menambahkan `--yes`. Karena itu **cadangan database terjadwal**
+wajib ada.
 
 ---
 
@@ -397,7 +430,54 @@ cadangan. Karena itu **cadangan database terjadwal** wajib ada.
 
 ---
 
-## 12. Kontak
+## 12. Penolakan akses meningkat
+
+Langkah pertama adalah membedakan dua jenis penolakan, karena artinya berbeda:
+
+| Metrik | Arti | Tindakan awal |
+|---|---|---|
+| `reason=unauthorized` (401) | Permintaan tanpa token sah. Bisa token kedaluwarsa, token salah, atau pemindaian | Lihat pola alamat dan waktu. Lonjakan seragam biasanya bukan pengguna sah |
+| `reason=access_denied` (403) | Identitas sah, tetapi role-nya tidak cukup | Telusuri pelakunya di jejak audit. Ini sinyal eskalasi peran |
+
+Langkah pemeriksaan:
+
+1. **Lihat metrik** lewat endpoint Actuator dengan token ADMIN:
+   ```bash
+   curl -H "Authorization: Bearer TOKEN_ADMIN" \
+     "http://localhost:8080/actuator/metrics/iam.security.rejected"
+   ```
+2. **Cari log WARN** dengan kata `Akses ditolak` atau
+   `tanpa kredensial sah`. Sejak perubahan terakhir, kedua kejadian dicatat
+   pada level WARN, bukan DEBUG.
+3. **Telusuri 403 di jejak audit**:
+   ```bash
+   docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
+     "select actor_user_id, details, count(*) as kejadian, max(created_at) as terakhir
+        from audit_logs where action = 'ACCESS_DENIED'
+       group by actor_user_id, details order by terakhir desc;"
+   ```
+4. **Kalau satu aktor berulang**, nonaktifkan akunnya, periksa role yang
+   diberikan, lalu hubungi pemilik akun. Jangan langsung menghapus jejak
+   auditnya.
+5. **Kalau 401 melonjak tanpa pola akun**, curigai pemindaian otomatis.
+   Periksa apakah layanan hanya bisa dijangkau lewat proxy, dan apakah batas
+   permintaan di gateway masih aktif.
+6. **Kalau perlu menelusuri satu permintaan utuh**, nyalakan sampling tracing
+   sementara, lalu cari `traceId` dari baris log yang mencurigakan:
+   ```bash
+   export OTEL_TRACES_SAMPLING_PROBABILITY=0.1
+   export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://collector:4318/v1/traces
+   ```
+   Nilai itu dibaca saat aplikasi start, jadi mulai ulang layanan setelah
+   mengubahnya. Matikan kembali setelah selesai. Sampling `1.0` hanya untuk
+   diagnosis jangka pendek.
+
+Penolakan 401 memang **tidak** disimpan ke jejak audit. Kalau butuh riwayat
+dalam jangka panjang, kirim log WARN ke sistem log terpusat.
+
+---
+
+## 13. Kontak
 
 | Keperluan | Ke mana |
 |---|---|

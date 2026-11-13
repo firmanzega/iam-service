@@ -56,6 +56,7 @@ artinya dalam konteks layanan ini.
 | Target | Target | Objek yang diubah, misalnya id pengguna yang diperbarui |
 | Kode aksi | Action code | Nama baku jenis kejadian, misalnya `USER_CREATED` atau `LOGIN_FAILED` |
 | Transaksi terpisah | Separate transaction | Pencatatan jejak audit yang jalan di transaksi sendiri, supaya tetap tersimpan walau transaksi utama dibatalkan |
+| Penolakan akses | Access denied | Jejak audit `ACCESS_DENIED` yang ditulis ketika identitas sah mencoba aksi di luar wewenangnya (403) |
 
 ## 5. Data dan Transaksi
 
@@ -105,5 +106,10 @@ artinya dalam konteks layanan ini.
 | Fail fast | Fail fast | Aplikasi menolak start daripada jalan dengan konfigurasi tidak lengkap |
 | Health check | Health check | Endpoint yang memberi tahu apakah layanan masih hidup |
 | Metrik | Metrics | Angka runtime yang dikumpulkan aplikasi, dibaca lewat Spring Boot Actuator |
+| Tracing | Tracing | Pencatatan perjalanan satu permintaan lintas komponen, terdiri atas beberapa rentang |
+| Rentang | Span | Satu unit kerja di dalam tracing, punya `spanId` dan terhubung ke satu `traceId` |
+| Sampling | Sampling | Peluang sebuah permintaan dibuatkan rentang. Bawaan layanan ini `0.0`, artinya mati |
+| Testcontainers | - | Pustaka yang menjalankan container Docker dari dalam pengujian, dipakai untuk database PostgreSQL terisolasi |
+| Image container | Container image | Bungkusan aplikasi beserta runtime-nya, dibangun dari `Dockerfile` |
 | Gate | Gate | Syarat yang harus lolos sebelum hasil dianggap sah, misalnya ambang cakupan 80 persen |
 | Artefak | Artifact | Berkas hasil build yang diunggah, misalnya laporan cakupan dan berkas jar |

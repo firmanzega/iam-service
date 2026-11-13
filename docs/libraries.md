@@ -23,7 +23,9 @@ Semua versi library dikelola oleh `spring-boot-starter-parent`, kecuali
 | Validasi | `spring-boot-starter-validation` | 4.1.2 |
 | Dokumentasi | `springdoc-openapi-starter-webmvc-ui` | 3.2.0 |
 | Operasional | `spring-boot-starter-actuator` | 4.1.2 |
-| Pengujian | `spring-boot-starter-test`, `spring-boot-starter-webmvc-test`, `spring-boot-starter-data-jpa-test` | 4.1.2 |
+| Observability | `spring-boot-micrometer-tracing-opentelemetry`, `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp` | 4.1.2, 1.7.2, 1.62.0 |
+| Analisis statis | `maven-checkstyle-plugin` + Checkstyle, `spotbugs-maven-plugin` | 3.6.0 + 10.26.1, 4.10.5.0 |
+| Pengujian | `spring-boot-starter-test`, `spring-boot-starter-webmvc-test`, `spring-boot-starter-data-jpa-test`, `spring-boot-testcontainers`, `testcontainers-postgresql` | 4.1.2, Testcontainers 2.0.5 |
 
 ---
 
@@ -234,6 +236,8 @@ juga berguna untuk melihat perilaku nyata di produksi.
 | `spring-boot-starter-test` | JUnit 5, Mockito, AssertJ, Hamcrest, JSONassert |
 | `spring-boot-starter-webmvc-test` | MockMvc, `@WebMvcTest`, JSON Path |
 | `spring-boot-starter-data-jpa-test` | `@DataJpaTest` dan pengujian database |
+| `spring-boot-testcontainers` | Integrasi `@ServiceConnection` dengan Testcontainers |
+| `testcontainers-postgresql` | Container PostgreSQL untuk pengujian integrasi |
 
 **Kenapa dipisah:** Spring Boot 4 memecah paket pengujian menjadi beberapa
 starter per modul. Yang dipakai hanya yang sesuai.
@@ -246,6 +250,84 @@ starter per modul. Yang dipakai hanya yang sesuai.
   masalah kalau suatu saat Java melarang pemuatan agent dinamis.
 - **JSONassert** dipakai oleh pengujian integrasi untuk membandingkan JSON
   tanpa bergantung pada urutan field.
+- **Testcontainers 2.x mengganti nama artefak.** Modul PostgreSQL bernama
+  `testcontainers-postgresql`, bukan `postgresql` seperti pada versi 1.x.
+
+### 2.12 Micrometer Tracing dan OpenTelemetry
+
+**Apa itu:** Micrometer Tracing menyediakan API `Tracer` yang netral terhadap
+vendor. Jembatan `micrometer-tracing-bridge-otel` meneruskannya ke
+OpenTelemetry, lalu `opentelemetry-exporter-otlp` mengirim rentang ke collector
+lewat OTLP/HTTP.
+
+**Kenapa dipakai:** Tanpa tracing, satu permintaan yang melewati beberapa
+layanan hanya terlihat sebagai baris log terpisah. Dengan tracing, rentangnya
+tersambung dan `traceId` pada log bisa dipakai untuk menelusuri satu permintaan
+utuh.
+
+**Dipakai di:** `src/main/resources/application.yaml` pada blok
+`management.tracing` dan `management.otlp`, serta pola log di
+`logging.pattern.level`.
+
+**Yang perlu diperhatikan:**
+
+- **Bukan `spring-boot-starter-opentelemetry`.** Starter itu juga membawa
+  `micrometer-registry-otlp`, sehingga metrik ikut dikirim ke collector.
+  Yang dipakai di sini hanya komponen tracing.
+- **Sampling bawaan `0.0`.** Tidak ada rentang yang dibuat dan tidak ada
+  percobaan koneksi ke collector. Nilai dinaikkan lewat environment variable
+  saat collector benar-benar tersedia.
+- **Eksportir bersifat `runtime`.** Kode aplikasi hanya bergantung pada
+  `io.micrometer.tracing.Tracer`, bukan pada kelas exporter.
+- **Tidak ada collector di repositori ini.** Penyediaan collector adalah
+  tanggung jawab lingkungan deployment.
+
+### 2.13 Testcontainers
+
+**Apa itu:** Pustaka yang menjalankan container Docker dari dalam pengujian,
+lengkap dengan siklus hidup dan pembersihannya.
+
+**Kenapa dipakai:** Pengujian integrasi sebelumnya memakai database
+pengembangan yang sama. Itu membuat hasil tes bergantung pada keadaan database
+dan berisiko menghapus data contoh. Container baru menjamin skema dibangun
+ulang dari migrasi Flyway dan tidak menyentuh database pengembangan.
+
+**Dipakai di:** `src/test/java/id/osprey/iamservice/TestcontainersConfiguration.java`
+
+**Yang perlu diperhatikan:**
+
+- **Docker wajib berjalan.** Pengujian gagal dengan pesan yang jelas kalau
+  Docker tidak tersedia.
+- **Satu container per JVM.** Container dibuat statis dan dipakai ulang oleh
+  semua konteks Spring. Membuat container per kelas akan memperlambat seluruh
+  rangkaian tes secara berlebihan.
+- **PostgreSQL 16**, sama dengan versi produksi, bukan database pengganti
+  seperti H2. Perbedaan dialek dan perilaku constraint jadi ikut teruji.
+- **Berkas `.env` tidak diperlukan** untuk pengujian. Kunci JWT pengujian ada
+  di `src/test/resources/application.properties`.
+
+### 2.14 Checkstyle dan SpotBugs
+
+**Apa itu:** Checkstyle memeriksa gaya dan kebersihan berkas sumber. SpotBugs
+menganalisis bytecode untuk mencari pola kode yang berpotensi salah.
+
+**Kenapa dipakai:** Review manusia mudah melewatkan impor yang tidak terpakai
+atau pola yang berbahaya. Kedua pemeriksa ini menjalankan bagian mekanis dari
+review pada setiap `mvn verify`.
+
+**Dipakai di:** Konfigurasi plugin di `pom.xml`, aturan Checkstyle di
+`config/checkstyle/checkstyle.xml`.
+
+**Yang perlu diperhatikan:**
+
+- **Checkstyle 10.26.1, bukan versi bawaan plugin.** Versi bawaan
+  `maven-checkstyle-plugin` 3.6.0 adalah Checkstyle 9.3, yang belum mengenali
+  sintaks Java 21 seperti record dan switch expression.
+- **Aturan Checkstyle masih minim.** Yang diperiksa baru impor, tab, dan akhir
+  berkas. Aturan gaya yang lebih luas harus disepakati dulu supaya tidak
+  menghasilkan ratusan temuan lama.
+- **SpotBugs memakai ambang High.** Temuan Medium dan Low belum memblokir
+  build. Ambang dinaikkan bertahap setelah temuan High selesai.
 
 ---
 
@@ -269,6 +351,9 @@ langsung di `pom.xml`.
 | `ch.qos.logback:logback-classic` | 1.5.38 | Implementasi logging |
 | `org.slf4j:slf4j-api` | 2.0.20 | Facade logging yang dipakai kode aplikasi |
 | `io.micrometer:micrometer-core` | 1.17.2 | Pengumpulan metrik |
+| `io.micrometer:micrometer-tracing` | 1.7.2 | API tracing yang dipakai kode aplikasi |
+| `io.opentelemetry:opentelemetry-sdk` | 1.62.0 | Implementasi tracing OpenTelemetry dan eksportir OTLP |
+| `org.testcontainers:testcontainers` | 2.0.5 | Inti Testcontainers, hanya pada lingkup pengujian |
 | `net.bytebuddy:byte-buddy` | 1.18.15 | Pembuat kelas tiruan untuk Mockito |
 | `org.jspecify:jspecify` | 1.0.1 | Anotasi nullability |
 | `org.antlr:antlr4-runtime` | 4.13.2 | Parser HQL milik Hibernate |
@@ -303,7 +388,8 @@ masih membawa Jackson 2 untuk keperluan pengujian.
 | **QueryDSL** | Query yang dipakai masih bisa ditulis jelas dengan Spring Data dan satu query JPQL. QueryDSL menambah generator kelas dan langkah build baru |
 | **Bucket4j** | Rate limiter bawaan sudah cukup untuk satu instance, dan kunci akun per akun sudah menjadi lapisan kedua. Kalau nanti butuh rate limit global, tempatnya di gateway, bukan di aplikasi |
 | **Redis** | Belum ada kebutuhan terdistribusi. Menambahkannya berarti menambah infrastruktur untuk masalah yang belum terjadi |
-| **Testcontainers** | Database pengembangan lokal sudah ada lewat Docker Compose. Testcontainers lebih berguna kalau butuh pengujian dengan banyak versi database sekaligus |
+| **Testcontainers** | Dulu dihindari karena database pengembangan sudah ada lewat Docker Compose. Sejak pengujian integrasi harus terisolasi dari data pengembangan, Testcontainers dipakai dan justru menghilangkan ketergantungan pada `.env` |
+| **OWASP dependency-check-maven** | Pemindaian penuh di setiap build mengunduh basis data besar dan sering gagal karena batas waktu atau jaringan di CI. Repositori memilih `dependency-review-action` untuk perubahan pada pull request dan Dependabot alerts untuk dependensi lama |
 | **Resilience4j** | Belum ada panggilan ke layanan luar yang perlu retry atau circuit breaker |
 
 ---

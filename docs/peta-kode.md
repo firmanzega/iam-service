@@ -171,8 +171,9 @@ Adapter yang mengimplementasikan port dari domain.
 | `config/DomainConfig.java` | Mengubah konfigurasi menjadi objek domain, misalnya `LoginPolicy` dan `TokenSettings` |
 | `config/RateLimitFilter.java` | Pembatas laju permintaan pada endpoint autentikasi, sekaligus membuang entri klien yang sudah tidak aktif |
 | `config/RefreshTokenCleanupJob.java` | Penjadwal pembersihan token refresh kedaluwarsa. Bisa dimatikan lewat `iam.refresh-token-cleanup.enabled` |
-| `config/RestAuthenticationEntryPoint.java` | Menjawab permintaan tanpa kredensial dengan 401 |
-| `config/RestAccessDeniedHandler.java` | Menjawab permintaan yang tidak berwenang dengan 403 |
+| `config/RestAuthenticationEntryPoint.java` | Menjawab permintaan tanpa kredensial dengan 401, serta mencatat log WARN dan metrik |
+| `config/RestAccessDeniedHandler.java` | Menjawab permintaan yang tidak berwenang dengan 403, serta mencatat jejak audit, log WARN, dan metrik |
+| `config/SecurityEventRecorder.java` | Aturan pencatatan penolakan keamanan: 403 masuk jejak audit, 401 hanya log dan metrik, dengan metrik `iam.security.rejected` |
 | `config/SecurityErrorWriter.java` | Menulis galat keamanan dalam bentuk JSON |
 | `config/OpenApiConfig.java` | Deskripsi OpenAPI dan skema keamanan bearer |
 | `config/DevAdminBootstrap.java` | Membuat akun administrator pada profil dev. **Tidak aktif di produksi** |
@@ -201,6 +202,9 @@ Adapter yang mengimplementasikan port dari domain.
 | `config/PaginationConfigTest.java` | Mengunci batas ukuran halaman agar tidak berubah tanpa disadari |
 | `config/RateLimitFilterTest.java` | Unit test pembatas laju permintaan, termasuk pemangkasan antrean dan pembuangan entri basi |
 | `config/RefreshTokenCleanupJobTest.java` | Syarat pembuatan penjadwal dan pemanggilan use case pembersihan |
+| `config/SecurityEventRecorderTest.java` | Aturan pencatatan penolakan: 401 tanpa jejak audit, 403 dengan aktor, kegagalan audit tidak menggagalkan respons |
+| `config/TracingConfigurationTest.java` | Memastikan jembatan OpenTelemetry membuat rentang saat sampling dinyalakan |
+| `TestcontainersConfiguration.java` | Container PostgreSQL statis untuk seluruh pengujian integrasi, dipakai lewat `@ServiceConnection` |
 
 ---
 
@@ -208,14 +212,20 @@ Adapter yang mengimplementasikan port dari domain.
 
 | Lokasi | Isi |
 |---|---|
-| `src/main/resources/application.yaml` | Konfigurasi bersama, batas ukuran halaman, konfigurasi OpenAPI dan Actuator |
+| `src/main/resources/application.yaml` | Konfigurasi bersama, batas ukuran halaman, OpenAPI, Actuator, tracing, dan pola log |
 | `src/main/resources/application-dev.yaml` | Profil pengembangan: SQL dicatat ke log, data contoh, bootstrap administrator |
 | `src/main/resources/application-prod.yaml` | Profil produksi: pool koneksi, validasi skema, **springdoc dimatikan** |
-| `src/test/resources/application.properties` | Pengaturan khusus pengujian, misalnya mematikan penjadwal pembersihan token |
+| `src/test/resources/application.properties` | Pengaturan khusus pengujian: penjadwal dimatikan dan kunci JWT pengujian |
 | `src/main/resources/db/migration/` | Migrasi skema yang berlaku di semua profil |
 | `src/main/resources/db/migration-dev/` | Data contoh, hanya profil dev |
+| `config/checkstyle/checkstyle.xml` | Aturan Checkstyle yang dijalankan pada `verify` |
+| `scripts/backup-postgres.sh` | Membuat cadangan PostgreSQL format custom, mendukung mode container |
+| `scripts/restore-postgres.sh` | Memulihkan cadangan dengan konfirmasi `--yes`, mendukung mode container |
+| `Dockerfile` | Image multi-stage, JRE 21, pengguna `10001`, profil `prod` |
+| `.dockerignore` | Berkas yang tidak perlu dikirim ke konteks build |
 | `http/iam-service.http` | Koleksi permintaan untuk uji manual |
-| `.github/workflows/ci.yml` | Alur kerja otomatis: build, uji, gate cakupan, unggah artefak |
+| `.github/workflows/ci.yml` | Alur kerja otomatis: build, uji, gate cakupan, analisis statis, build image |
+| `.github/workflows/dependency-review.yml` | Pemindaian dependensi pada pull request |
 | `.github/ISSUE_TEMPLATE/` | Templat issue: laporan bug, permintaan fitur, dan pertanyaan |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Templat pull request beserta checklist review |
 

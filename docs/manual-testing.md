@@ -307,6 +307,18 @@ curl -i -H "Authorization: Bearer TOKEN_ANDA" \
 
 Jejak audit hanya untuk peran `ADMIN` dan `AUDITOR`.
 
+Penolakan 403 ikut tercatat di tabel yang sama dengan aksi `ACCESS_DENIED`.
+Coba akses daftar pengguna memakai token pengguna biasa, lalu periksa:
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ANDA" \
+  "http://localhost:8080/audit-logs?sort=createdAt,desc&size=5"
+```
+
+Baris terbaru berisi `ACCESS_DENIED` dengan `actorUserId` pelaku dan detail
+berupa method serta URI yang ditolak. Penolakan 401 **tidak** menulis baris di
+sini; kejadiannya hanya muncul di log WARN dan metrik.
+
 ### 4.12 Endpoint operasional
 
 ```bash
@@ -316,6 +328,17 @@ curl http://localhost:8080/actuator/health
 ```json
 {"groups":["liveness","readiness"],"status":"UP"}
 ```
+
+Metrik penolakan keamanan dibaca dengan token `ADMIN`:
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ANDA" \
+  "http://localhost:8080/actuator/metrics/iam.security.rejected"
+```
+
+Nilai `reason` berisi `unauthorized` untuk 401 dan `access_denied` untuk 403,
+ditambah tag `method`. Naikkan angka itu dengan memicu penolakan, lalu panggil
+ulang untuk melihat pertambahannya.
 
 Dokumentasi OpenAPI:
 

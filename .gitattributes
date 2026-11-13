@@ -1,2 +1,8 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+# Skrip shell harus tetap memakai LF agar shebang dan baris perintah tidak
+# rusak saat checkout di Windows lalu dijalankan di Linux atau container.
+*.sh text eol=lf
+# Dockerfile memakai line continuation dengan backslash di akhir baris.
+# CRLF membuat backslash tidak lagi menjadi karakter terakhir baris.
+Dockerfile text eol=lf

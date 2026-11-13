@@ -1,0 +1,29 @@
+name: Pemindaian dependensi
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dependency-review:
+    name: Periksa perubahan dependensi
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ambil kode
+        uses: actions/checkout@v4
+
+      # Memeriksa dependensi yang ditambahkan atau diperbarui pada pull request.
+      # Kerentanan yang sudah ada di branch utama tidak diperiksa di sini;
+      # untuk itu Dependabot alerts tetap menjadi jalur utamanya.
+      - name: Jalankan dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          # Ringkasan ditempel di pull request supaya peninjau melihat
+          # perubahan dependensi tanpa harus membuka tab lain.
+          comment-summary-in-pr: always

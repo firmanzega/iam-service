@@ -1,24 +1,29 @@
 package id.osprey.iamservice.adapter.rest;
 
+import id.osprey.iamservice.TestcontainersConfiguration;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -39,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest(properties = "iam.rate-limit.max-requests=10000")
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
 class AuthSecurityIntegrationTest {
 
     private static final String PASSWORD = "Rahasia123";
@@ -59,6 +65,9 @@ class AuthSecurityIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     private Long adminId;
     private Long memberId;
@@ -146,6 +155,54 @@ class AuthSecurityIntegrationTest {
         mockMvc.perform(get("/users").header("Authorization", "Bearer " + memberToken))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Access denied"));
+    }
+
+    @Test
+    void accessDenied_isRecordedInAuditTrailAndMetric() throws Exception {
+        double metricBefore = rejectedCount("access_denied", "GET");
+        int auditBefore = countAccessDenied();
+
+        mockMvc.perform(get("/users").header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isForbidden());
+
+        assertEquals(metricBefore + 1, rejectedCount("access_denied", "GET"), 0.0001);
+        assertEquals(auditBefore + 1, countAccessDenied());
+
+        Map<String, Object> row = jdbcTemplate.queryForMap(
+                "select actor_user_id, action, details from audit_logs where action = 'ACCESS_DENIED'"
+                        + " order by id desc limit 1");
+
+        assertEquals(memberId, ((Number) row.get("actor_user_id")).longValue());
+        assertTrue(row.get("details").toString().contains("GET /users"),
+                "detail audit harus memuat method dan path yang ditolak");
+    }
+
+    @Test
+    void unauthorized_incrementsMetricWithoutWritingAuditRow() throws Exception {
+        double metricBefore = rejectedCount("unauthorized", "GET");
+        int auditBefore = countAccessDenied();
+
+        mockMvc.perform(get("/users"))
+                .andExpect(status().isUnauthorized());
+
+        assertEquals(metricBefore + 1, rejectedCount("unauthorized", "GET"), 0.0001);
+        assertEquals(auditBefore, countAccessDenied(),
+                "penolakan tanpa kredensial tidak boleh menulis jejak audit");
+    }
+
+    private double rejectedCount(String reason, String method) {
+        var counter = meterRegistry.find("iam.security.rejected")
+                .tags("reason", reason, "method", method)
+                .counter();
+
+        return counter == null ? 0 : counter.count();
+    }
+
+    private int countAccessDenied() {
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from audit_logs where action = 'ACCESS_DENIED'", Integer.class);
+
+        return count == null ? 0 : count;
     }
 
     @Test

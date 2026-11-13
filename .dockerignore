@@ -1,0 +1,24 @@
+# Berkas yang tidak perlu dikirim ke konteks build.
+# Menjaga konteks tetap kecil mempercepat build dan mencegah berkas rahasia
+# lokal ikut masuk ke image.
+
+.git
+.github
+.idea
+.githooks
+
+target
+
+.env
+
+*.log
+
+docs
+http
+
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+LICENSE
+docker-compose.yml

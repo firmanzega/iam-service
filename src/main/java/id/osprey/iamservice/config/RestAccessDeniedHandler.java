@@ -28,9 +28,11 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
     private static final Logger log = LoggerFactory.getLogger(RestAccessDeniedHandler.class);
 
     private final SecurityErrorWriter errorWriter;
+    private final SecurityEventRecorder securityEventRecorder;
 
-    public RestAccessDeniedHandler(ObjectMapper objectMapper) {
+    public RestAccessDeniedHandler(ObjectMapper objectMapper, SecurityEventRecorder securityEventRecorder) {
         this.errorWriter = new SecurityErrorWriter(objectMapper);
+        this.securityEventRecorder = securityEventRecorder;
     }
 
     @Override
@@ -39,6 +41,8 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
                        AccessDeniedException accessDeniedException) throws IOException {
 
         log.debug("Access denied on {}: {}", request.getRequestURI(), accessDeniedException.getMessage());
+
+        securityEventRecorder.recordAccessDenied(request, "akses ditolak");
 
         errorWriter.write(request, response, HttpStatus.FORBIDDEN, "Access denied");
     }

@@ -1,5 +1,6 @@
 package id.osprey.iamservice.application.auth;
 
+import id.osprey.iamservice.TestcontainersConfiguration;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.sql.Timestamp;
@@ -25,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * hilang, dan pengguna akan ter-logout tanpa alasan.
  */
 @SpringBootTest
+@Import(TestcontainersConfiguration.class)
 class RefreshTokenCleanupIntegrationTest {
 
     private static final String USERNAME = "cleanup-test";

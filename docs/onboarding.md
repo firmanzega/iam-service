@@ -15,7 +15,7 @@ Targetnya: dari nol sampai aplikasi jalan dan pengujian hijau, sekitar
 |---|---|---|
 | JDK | 21 | [Adoptium](https://adoptium.net/), pilih versi 21 LTS |
 | Maven | Tidak perlu dipasang | Sudah ada di Maven Wrapper, jadi pakai `mvnw` |
-| Docker | Versi berapa pun yang aktif | Dipakai untuk menjalankan PostgreSQL |
+| Docker | Versi berapa pun yang aktif | Menjalankan PostgreSQL lokal, Testcontainers untuk pengujian, dan build image |
 | Git | Versi berapa pun | Untuk mengambil dan mengirim kode |
 
 Cek semuanya sudah siap:
@@ -87,6 +87,10 @@ Kalau mau database yang benar-benar bersih dari awal, `docker compose down -v`
 lalu `docker compose up -d`. Perintah itu menghapus seluruh data, jadi jangan
 dijalankan di server sungguhan.
 
+Database ini hanya dipakai saat aplikasi dijalankan. Pengujian integrasi
+memakai container sendiri lewat Testcontainers, jadi data pengembangan tidak
+pernah tersentuh oleh tes.
+
 ---
 
 ## 5. Jalankan Aplikasi
@@ -139,25 +143,42 @@ umum.
 ./mvnw test
 ```
 
-Pengujian memakai database yang sama dengan `docker compose`. Isi `.env`
-sudah otomatis dibaca, jadi tidak perlu menyiapkan environment variable
-secara manual.
+Pengujian integrasi memakai **Testcontainers**. Satu container PostgreSQL 16
+dibuat sekali per proses pengujian dan dimatikan otomatis setelah selesai.
+Database pengembangan di port `5433` tidak dipakai, dan berkas `.env` tidak
+diperlukan untuk pengujian. Syaratnya hanya Docker yang sedang berjalan.
 
-Pengujian integrasi membuat dan menghapus datanya sendiri di database itu.
-Karena database-nya sama dengan database pengembangan, jangan arahkan `.env`
-ke database yang berisi data penting.
+Unduhan image pertama kali bisa memakan waktu satu sampai dua menit. Setelah
+image tersimpan lokal, pengujian berikutnya jauh lebih cepat.
 
-Untuk melihat laporan cakupan:
+Untuk menjalankan seluruh pemeriksaan yang dipakai CI:
 
 ```bash
-.\mvnw.cmd verify
+# Windows (PowerShell atau cmd)
+.\mvnw.cmd clean verify
+
+# Linux dan macOS
+./mvnw clean verify
 ```
 
-Laporan HTML ada di `target/site/jacoco/index.html`. Cakupan baris gabungan
-harus mencapai 80 persen, kalau tidak build akan gagal.
+Perintah itu menjalankan pengujian, membuat laporan JaCoCo, memeriksa cakupan
+baris gabungan minimal 80 persen, serta menjalankan **Checkstyle** dan
+**SpotBugs**. Temuan Checkstyle dan SpotBugs menggagalkan build, sama seperti
+pengujian yang gagal.
 
-Belum ada pemeriksa gaya kode otomatis. Ikuti `.editorconfig` dan bagian 3
-[`CONTRIBUTING.md`](../CONTRIBUTING.md#3-menulis-kode).
+| Pemeriksa | Letak konfigurasi |
+|---|---|
+| Checkstyle | `config/checkstyle/checkstyle.xml` |
+| SpotBugs | Konfigurasi plugin di `pom.xml` |
+| Cakupan | Konfigurasi JaCoCo di `pom.xml` |
+
+Laporan HTML cakupan ada di `target/site/jacoco/index.html`.
+
+Untuk memastikan image container masih bisa dibangun:
+
+```bash
+docker build -t iam-service:local .
+```
 
 ---
 

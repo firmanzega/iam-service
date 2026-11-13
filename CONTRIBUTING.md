@@ -114,7 +114,11 @@ Project punya berkas `.editorconfig` yang berlaku untuk semua editor.
 | Pengujian | `.\mvnw.cmd test` (Windows) atau `./mvnw test` (Linux dan macOS) |
 | Cakupan | `.\mvnw.cmd verify` atau `./mvnw verify` |
 | Aturan arsitektur | Bagian dari `.\mvnw.cmd verify` lewat `ArchitectureLayerTest` |
-| Analisis statis | Belum ada pemeriksa otomatis, jadi andalkan review kode |
+| Checkstyle | Bagian dari `verify`. Aturannya ada di `config/checkstyle/checkstyle.xml` |
+| SpotBugs | Bagian dari `verify`. Memakai ambang High dengan effort maksimal |
+
+Pengujian integrasi memakai Testcontainers, jadi Docker harus berjalan. Berkas
+`.env` tidak diperlukan untuk pengujian.
 
 ---
 
@@ -202,7 +206,9 @@ Sebelum membuka pull request:
 - [ ] `.\mvnw.cmd clean verify` hijau (Windows) atau `./mvnw clean verify`
 - [ ] Cakupan baris gabungan tetap di atas 80 persen
 - [ ] `ArchitectureLayerTest` hijau
+- [ ] Checkstyle dan SpotBugs tidak menghasilkan temuan
 - [ ] Pengujian baru ada untuk perubahan baru
+- [ ] `docker build -t iam-service:local .` berhasil kalau Dockerfile atau dependensi berubah
 - [ ] Dokumentasi diperbarui: README, `docs/libraries.md` kalau ada library
       baru, dan ADR baru kalau ada keputusan arsitektur baru
 - [ ] Batasan baru dicatat di `docs/security.md` atau `docs/deployment.md`

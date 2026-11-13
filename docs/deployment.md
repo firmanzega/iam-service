@@ -27,6 +27,14 @@ environment variable.
 | Host dan port database | `POSTGRES_HOST`, `POSTGRES_PORT` | Environment variable biasa |
 | Origin frontend | `CORS_ALLOWED_ORIGINS` | Environment variable biasa |
 
+Variabel observability tidak bersifat rahasia, tetapi tetap dibaca dari
+environment agar nilainya bisa berbeda per lingkungan:
+
+| Variabel | Bawaan | Keterangan |
+|---|---|---|
+| `OTEL_TRACES_SAMPLING_PROBABILITY` | `0.0` | Peluang sampling tracing. `0.0` berarti tidak ada rentang yang dibuat |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `http://localhost:4318/v1/traces` | Alamat collector OTLP/HTTP penerima rentang |
+
 ### Kenapa aplikasi gagal dengan cepat kalau secret hilang
 
 Kalau `JWT_SECRET` tidak diisi, placeholder `${JWT_SECRET}` tidak bisa
@@ -203,7 +211,9 @@ pembersihan token selesai.
 - [ ] Layanan hanya bisa dijangkau lewat proxy internal, atau batas permintaan
       dipindahkan sepenuhnya ke gateway
 - [ ] GitHub Actions hijau pada commit terakhir
+- [ ] Image container berhasil dibangun dan dijalankan sebagai pengguna tanpa hak istimewa
 - [ ] Cadangan database terjadwal dan sudah pernah diuji memulihkannya
+- [ ] Endpoint collector tracing diisi kalau tracing dinyalakan, atau sampling dibiarkan `0.0`
 
 Akun `admin` hanya dibuat oleh `DevAdminBootstrap` pada profil `dev`. Kalau
 database produksi berasal dari database pengembangan yang pernah dijalankan
@@ -212,26 +222,145 @@ adalah isi database-nya, bukan hanya nilai `SPRING_PROFILES_ACTIVE`.
 
 ---
 
-## 6. Bentuk Artifact dan Batasan Deployment
+## 6. Bentuk Artefak
 
-Repositori ini **belum punya `Dockerfile`**. Build hanya menghasilkan satu
-berkas jar yang dijalankan dengan JDK 21:
+Ada dua bentuk artefak yang bisa dipakai. Keduanya menjalankan kode yang sama;
+yang berbeda hanya cara membungkusnya.
+
+### 6.1 Berkas jar
+
+Build menghasilkan satu berkas jar yang dijalankan dengan JDK 21:
 
 ```bash
 java -jar target/iam-service-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
 
-`docker-compose.yml` di repositori hanya menjalankan PostgreSQL, bukan
-layanan ini. Konsekuensinya:
+Cocok kalau server sudah dikelola sendiri dan sudah punya JDK.
+
+### 6.2 Image container
+
+`Dockerfile` memakai dua tahap:
+
+| Tahap | Isi | Kenapa |
+|---|---|---|
+| `build` | JDK 21, Maven Wrapper, seluruh sumber | Kompilasi dan pengemasan tidak membutuhkan JDK di mesin tujuan |
+| jalan | JRE 21 dan satu berkas jar | Image lebih kecil dan tidak membawa compiler |
+
+Ciri image yang dihasilkan:
+
+- Berjalan sebagai pengguna `10001:10001`, bukan root.
+- Profil `prod` sudah dipilih lewat `SPRING_PROFILES_ACTIVE=prod`, sehingga
+  bootstrap administrator dev tidak pernah aktif.
+- Port yang dibuka `9090`, mengikuti `application-prod.yaml`.
+- `JAVA_TOOL_OPTIONS` bisa dipakai untuk mengatur memori atau properti JVM
+  tanpa mengubah `ENTRYPOINT`.
+
+```bash
+docker build -t iam-service:latest .
+
+docker run --rm -p 9090:9090 \
+  -e JWT_SECRET="$JWT_SECRET" \
+  -e POSTGRES_HOST=host.docker.internal \
+  -e POSTGRES_PORT=5433 \
+  -e POSTGRES_DB=iam_db \
+  -e POSTGRES_USER=iam_user \
+  -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+  iam-service:latest
+```
+
+`docker-compose.yml` di repositori **hanya menjalankan PostgreSQL**, bukan
+layanan ini. Kalau ingin menjalankan keduanya sekaligus, tambahkan layanan
+`iam-service` pada berkas compose dengan `image` hasil build di atas.
+
+GitHub Actions membangun image pada setiap push dan pull request, tetapi tidak
+mendorongnya ke registri mana pun. Repositori ini belum memiliki registri
+rilis.
 
 | Hal | Keadaan sekarang | Yang perlu disiapkan |
 |---|---|---|
-| Runtime | Server harus punya JDK 21 | Pasang JDK, atau buat image container sendiri |
-| Image container | Tidak ada | Tambahkan `Dockerfile` kalau deployment memakai container |
-| Registri image | Tidak ada | Belum perlu selama deployment memakai jar |
-| Cadangan database | Tidak ada skrip di repositori | Jadwalkan `pg_dump` di server dan uji pemulihannya |
-| Pemindaian kerentanan | Dependabot mengusulkan pembaruan bulanan, build tidak memindai CVE | Jalankan pemindai dependensi sebelum rilis, atau aktifkan peringatan Dependabot |
+| Runtime | Jar butuh JDK 21; image sudah membawa JRE | Pilih salah satu bentuk artefak |
+| Image container | Tersedia lewat `Dockerfile` | Bangun dan tandai versi sebelum dipakai |
+| Registri image | Belum ada | Tambahkan registri kalau deployment memakai image |
+| Cadangan database | Skrip tersedia di `scripts/` | Jadwalkan dan uji pemulihannya |
+| Pemindaian kerentanan | Dependency review memeriksa perubahan dependensi di PR; Dependabot alerts memantau dependensi yang sudah ada | Tinjau peringatan secara berkala |
 
 GitHub Actions menyimpan jar sebagai artifact selama 30 hari. Itu bukan
-registri rilis: kalau butuh jejak jangka panjang, simpan jar di tempat lain
-atau buat rilis bertanda di repositori.
+registri rilis: kalau butuh jejak jangka panjang, simpan jar atau image di
+tempat lain, atau buat rilis bertanda di repositori.
+
+---
+
+## 7. Cadangan dan Pemulihan
+
+Dua skrip tersedia di `scripts/`:
+
+| Skrip | Fungsi |
+|---|---|
+| `backup-postgres.sh` | Membuat cadangan format custom dengan `pg_dump` |
+| `restore-postgres.sh` | Memulihkan cadangan dan menimpa objek dengan nama sama |
+
+Keduanya bisa memakai `pg_dump`/`pg_restore` yang terpasang di mesin, atau
+menjalankannya di dalam container database. Mode container lebih praktis kalau
+server hanya punya Docker:
+
+```bash
+export BACKUP_DOCKER_CONTAINER=iam-service-db
+export POSTGRES_DB=iam_db
+export POSTGRES_USER=iam_user
+export POSTGRES_PASSWORD=rahasia
+
+scripts/backup-postgres.sh cadangan/iam-$(date +%Y%m%d).dump
+scripts/restore-postgres.sh cadangan/iam-20261113.dump --yes
+```
+
+Hal yang perlu diperhatikan:
+
+- `restore-postgres.sh` menolak berjalan tanpa `--yes`, karena pemulihan
+  menimpa objek yang namanya sama.
+- Berkas cadangan berisi seluruh data, termasuk hash kata sandi. Simpan di
+  tempat yang aksesnya terbatas dan enkripsi sebelum dipindahkan keluar server.
+- Skrip mencetak SHA-256 berkas hasil cadangan. Simpan nilainya kalau perlu
+  memeriksa keutuhan berkas sebelum pemulihan.
+- Uji pemulihan ke database terpisah secara berkala. Cadangan yang belum pernah
+  dipulihkan belum terbukti bisa dipakai.
+- Contoh jadwal harian dengan cron:
+
+  ```cron
+  0 2 * * * cd /srv/iam-service && BACKUP_DOCKER_CONTAINER=iam-service-db \
+    POSTGRES_DB=iam_db POSTGRES_USER=iam_user POSTGRES_PASSWORD=... \
+    scripts/backup-postgres.sh /srv/cadangan/iam-$(date +\%Y\%m\%d).dump
+  ```
+
+---
+
+## 8. Tracing Terdistribusi
+
+Tracing memakai Micrometer Tracing dengan jembatan OpenTelemetry dan eksportir
+OTLP/HTTP. Sampling **mati secara bawaan** (`0.0`) supaya aplikasi tidak
+mencoba mengirim rentang ke collector yang belum tentu ada.
+
+Untuk menyalakan:
+
+```bash
+export OTEL_TRACES_SAMPLING_PROBABILITY=0.1
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://collector:4318/v1/traces
+```
+
+| Nilai sampling | Arti |
+|---|---|
+| `0.0` | Tidak ada rentang yang dibuat. Ini nilai bawaan |
+| `0.1` | Sekitar 10 persen permintaan dibuatkan rentang |
+| `1.0` | Semua permintaan dibuatkan rentang. Hanya untuk diagnosis jangka pendek |
+
+Saat tracing aktif, setiap baris log memuat `traceId` dan `spanId`, sehingga
+satu baris log bisa dihubungkan dengan rentangannya di collector. Nilai itu
+kosong saat sampling mati, jadi bentuk log biasa tidak berubah.
+
+Layanan ini **hanya mengekspor tracing**. Metrik tetap dibaca lewat
+`/actuator/metrics`; dependensi `micrometer-registry-otlp` sengaja tidak
+dipakai agar metrik tidak ikut terkirim tanpa disadari.
+
+Penolakan akses terhitung pada metrik `iam.security.rejected` dengan tag
+`reason` (`unauthorized` atau `access_denied`) dan `method`. Di sistem yang
+memakai Prometheus, nama metriknya muncul sebagai
+`iam_security_rejected_total`.

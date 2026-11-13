@@ -38,6 +38,23 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   kejadiannya dicatat sebagai `REFRESH_TOKEN_REUSE`
 - Catatan keputusan arsitektur kesebelas tentang deteksi pemakaian ulang token
   refresh
+- Database pengujian terisolasi memakai Testcontainers PostgreSQL 16, dibuat
+  sekali per proses dan tidak menyentuh database pengembangan
+- Jejak audit `ACCESS_DENIED` untuk penolakan 403 beserta pelakunya, log WARN
+  untuk 401 dan 403, serta metrik `iam.security.rejected` dengan tag `reason`
+  dan `method`
+- Tracing OpenTelemetry lewat OTLP/HTTP dengan sampling bawaan mati, dan
+  `traceId`/`spanId` pada pola log saat tracing dinyalakan
+- `Dockerfile` multi-stage dengan JRE 21 dan pengguna tanpa hak istimewa,
+  beserta `.dockerignore`
+- Build image pada GitHub Actions dan pemindaian dependensi pada pull request
+  lewat `dependency-review-action`
+- Checkstyle dan SpotBugs pada fase `verify`, dengan konfigurasi
+  `config/checkstyle/checkstyle.xml`
+- Skrip `scripts/backup-postgres.sh` dan `scripts/restore-postgres.sh` dengan
+  mode container dan konfirmasi sebelum memulihkan
+- Catatan keputusan arsitektur kedua belas tentang database pengujian
+  terisolasi dan ketiga belas tentang observability penolakan serta tracing
 
 ### Diperbaiki
 - Alasan galat saat role yang masih dipakai hendak dihapus kini `ROLE_IN_USE`,
@@ -74,6 +91,12 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
 - Batasan operasional yang belum tercatat: belum ada `Dockerfile`, pipeline
   tanpa pemindaian CVE, cakupan diukur gabungan, dan penolakan akses hanya
   masuk log DEBUG
+- Impor yang tidak terpakai pada lima berkas utama dan satu berkas pengujian
+- Workflow CI tidak lagi membutuhkan layanan PostgreSQL dan berkas `.env`
+  buatan tangan; pengujian menyediakan databasenya sendiri dan memakai kunci
+  JWT pengujian
+- Dokumentasi yang masih menyatakan Testcontainers tidak dipakai, tes memakai
+  database pengembangan, dan repositori belum punya `Dockerfile`
 
 ---
 
