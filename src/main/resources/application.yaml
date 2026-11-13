@@ -85,6 +85,10 @@ iam:
     # Kunci penanda tangan token. Wajib diganti di produksi.
     # Panjang minimal 32 byte.
     secret: ${JWT_SECRET}
+    # Kunci sebelumnya yang masih diterima selama rotasi. Biarkan kosong pada
+    # operasi normal. Isi dengan kunci lama saat mengganti kunci aktif, lalu
+    # kosongkan lagi setelah masa berlaku token lama habis.
+    previous-secret: ${JWT_SECRET_PREVIOUS:}
     issuer: iam-service
     # Masa berlaku token akses sengaja pendek, karena token akses dipakai pada
     # setiap permintaan dan token yang berumur panjang memperbesar jendela

@@ -1,5 +1,6 @@
 package id.osprey.iamservice.infrastructure.security;
 
+import id.osprey.iamservice.config.JwtKeyRing;
 import id.osprey.iamservice.domain.auth.TokenIssuer;
 import id.osprey.iamservice.domain.auth.TokenSettings;
 import id.osprey.iamservice.domain.user.Role;
@@ -38,10 +39,12 @@ public class JwtTokenService implements TokenIssuer {
     private static final String TOKEN_TYPE_CLAIM = "token_type";
 
     private final JwtEncoder jwtEncoder;
+    private final JwtKeyRing keyRing;
     private final TokenSettings tokenSettings;
 
-    public JwtTokenService(JwtEncoder jwtEncoder, TokenSettings tokenSettings) {
+    public JwtTokenService(JwtEncoder jwtEncoder, JwtKeyRing keyRing, TokenSettings tokenSettings) {
         this.jwtEncoder = jwtEncoder;
+        this.keyRing = keyRing;
         this.tokenSettings = tokenSettings;
     }
 
@@ -67,7 +70,9 @@ public class JwtTokenService implements TokenIssuer {
                 .id(UUID.randomUUID().toString())
                 .build();
 
-        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256)
+                .keyId(keyRing.currentKeyId())
+                .build();
 
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }
@@ -98,7 +103,9 @@ public class JwtTokenService implements TokenIssuer {
                 .claim(TOKEN_TYPE_CLAIM, "refresh")
                 .build();
 
-        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256)
+                .keyId(keyRing.currentKeyId())
+                .build();
 
         return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
     }

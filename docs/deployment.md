@@ -22,6 +22,7 @@ environment variable.
 | Secret | Environment variable | Sumber yang disarankan |
 |---|---|---|
 | Kunci penanda tangan token | `JWT_SECRET` | Secret manager atau CI/CD |
+| Kunci sebelumnya selama rotasi | `JWT_SECRET_PREVIOUS` | Secret manager atau CI/CD, hanya diisi saat masa transisi |
 | Kata sandi database | `POSTGRES_PASSWORD` | Secret manager atau CI/CD |
 | Nama dan pengguna database | `POSTGRES_DB`, `POSTGRES_USER` | Environment variable biasa |
 | Host dan port database | `POSTGRES_HOST`, `POSTGRES_PORT` | Environment variable biasa |
@@ -83,16 +84,55 @@ sudah memakai Vault untuk hal lain.
 
 ### Rotasi kunci token
 
-Mengganti `JWT_SECRET` membuat seluruh token yang sudah terbit tidak berlaku
-lagi. Semua pengguna dipaksa login ulang.
+Layanan menerima dua kunci sekaligus: kunci aktif untuk menerbitkan token, dan
+kunci sebelumnya untuk memverifikasi token yang terbit sebelum rotasi. Setiap
+token membawa penanda kunci (`kid`) pada header, sehingga server tahu kunci mana
+yang harus dipakai untuk memeriksa tanda tangannya.
 
-Kalau itu tidak diinginkan, diperlukan dukungan dua kunci sekaligus: token
-baru ditandatangani dengan kunci baru, sedangkan token lama masih diterima
-untuk verifikasi selama masa transisi. JWT menyediakan kolom header `kid`
-(key id) untuk menandai kunci mana yang dipakai.
+Tanpa kunci sebelumnya, mengganti `JWT_SECRET` membuat seluruh token langsung
+tidak berlaku dan semua pengguna terpaksa login ulang.
 
-Fitur ini belum ada di layanan sekarang. Prioritasnya bergantung pada seberapa
-sering kunci perlu dirotasi.
+#### Prosedur rotasi normal
+
+1. **Buat kunci baru.** Jangan pakai ulang kunci lama.
+   ```bash
+   openssl rand -base64 48
+   ```
+2. **Ubah dua variabel sekaligus** pada konfigurasi yang sama:
+   `JWT_SECRET` berisi kunci baru, `JWT_SECRET_PREVIOUS` berisi kunci lama.
+   Jangan mengosongkan `JWT_SECRET_PREVIOUS` pada langkah ini, karena token yang
+   masih beredar ditandatangani kunci lama.
+3. **Restart seluruh instance.** Instance yang belum menerima konfigurasi baru
+   tidak mengenali kunci baru. Pada deployment bergulir, pengguna bisa sesekali
+   mendapat 401 sampai semua instance memakai konfigurasi yang sama. Untuk
+   layanan dengan satu instance, satu restart sudah cukup.
+4. **Tunggu masa transisi.** Token akses berumur 15 menit, sedangkan token
+   refresh berumur 7 hari. Kalau ingin benar-benar tidak ada pengguna yang
+   terpaksa login ulang, biarkan kunci lama selama **7 hari**. Kalau hanya token
+   akses yang perlu dihormati, 15 menit sudah cukup, tetapi token refresh lama
+   akan ditolak saat ditukar.
+5. **Kosongkan `JWT_SECRET_PREVIOUS`** setelah masa transisi. Setelah itu token
+   yang ditandatangani kunci lama tidak diterima lagi.
+
+Kunci lama tidak perlu dicatat di tempat lain. Nilainya cukup dipindahkan dari
+`JWT_SECRET` ke `JWT_SECRET_PREVIOUS` pada langkah 2.
+
+#### Rotasi darurat
+
+Kalau kunci diduga bocor, jangan pakai prosedur normal. Kunci lama justru harus
+berhenti diterima secepat mungkin:
+
+1. Ganti `JWT_SECRET` dengan kunci baru dan **kosongkan**
+   `JWT_SECRET_PREVIOUS`.
+2. Restart seluruh instance. Seluruh token akses lama langsung ditolak.
+3. Cabut seluruh token refresh di database, atau nonaktifkan akun yang terdampak.
+   Token refresh lama tidak bisa dipakai lagi karena tanda tangannya memakai
+   kunci yang sudah tidak dikenal.
+4. Ikuti langkah penanganan insiden pada
+   [`runbook.md`](runbook.md) bagian 11.
+
+Perbedaan kedua prosedur ini disengaja: kenyamanan pengguna pada rotasi normal,
+dan pemutusan akses seketika pada dugaan kebocoran.
 
 ---
 
@@ -224,6 +264,7 @@ pembersihan token selesai.
 - [ ] `SPRING_PROFILES_ACTIVE=prod` sudah disetel
 - [ ] `JWT_SECRET` sudah diganti dengan nilai acak, minimal 32 byte
 - [ ] `JWT_SECRET` tidak ada di berkas mana pun di server
+- [ ] `JWT_SECRET_PREVIOUS` kosong, kecuali sedang dalam masa transisi rotasi
 - [ ] `POSTGRES_PASSWORD` sudah diganti dan tidak ada di berkas mana pun
 - [ ] Port database tidak terbuka ke internet
 - [ ] HTTPS sudah aktif, sertifikat sudah valid

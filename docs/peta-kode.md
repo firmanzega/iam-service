@@ -127,7 +127,7 @@ Adapter yang mengimplementasikan port dari domain.
 
 | Berkas | Peran |
 |---|---|
-| `JwtTokenService.java` | Menerbitkan token JWT dan menghitung hash SHA-256 token refresh |
+| `JwtTokenService.java` | Menerbitkan token JWT dengan penanda kunci aktif dan menghitung hash SHA-256 token refresh |
 | `BCryptPasswordEncoderAdapter.java` | Mengimplementasikan port `PasswordEncoder` memakai BCrypt |
 
 ---
@@ -171,6 +171,7 @@ Adapter yang mengimplementasikan port dari domain.
 | Berkas | Peran |
 |---|---|
 | `config/SecurityConfig.java` | Aturan keamanan: filter, aturan akses per URL, header keamanan, CORS, serta bean `JwtEncoder` dan `JwtDecoder` |
+| `config/JwtKeyRing.java` | Kunci aktif dan kunci sebelumnya, pemilihan kunci berdasarkan `kid`, serta pembuatan encoder dan decoder |
 | `config/IamProperties.java` | Konfigurasi khusus layanan, dibungkus sebagai `@ConfigurationProperties` |
 | `config/DomainConfig.java` | Mengubah konfigurasi menjadi objek domain, misalnya `LoginPolicy` dan `TokenSettings` |
 | `config/RateLimitFilter.java` | Pembatas laju permintaan pada endpoint autentikasi, sekaligus membuang entri klien yang sudah tidak aktif |
@@ -206,6 +207,8 @@ Adapter yang mengimplementasikan port dari domain.
 | `application/role/RoleServiceTest.java` | Unit test use case role |
 | `application/security/PasswordPolicyTest.java` | Unit test aturan kekuatan kata sandi |
 | `config/PaginationConfigTest.java` | Mengunci batas ukuran halaman agar tidak berubah tanpa disadari |
+| `config/JwtKeyRingTest.java` | Pemilihan kunci berdasarkan `kid`, token tanpa `kid`, kunci sebelumnya, `kid` asing, penerbit asing, token kedaluwarsa, dan kunci pendek |
+| `config/JwtKeyRotationIntegrationTest.java` | Rotasi kunci lewat HTTP: token kunci lama diterima, `kid` asing dan token kedaluwarsa ditolak, login menulis `kid` kunci aktif |
 | `config/RateLimitFilterTest.java` | Unit test pembatas laju permintaan, termasuk pemangkasan antrean dan pembuangan entri basi |
 | `config/RefreshTokenCleanupJobTest.java` | Syarat pembuatan penjadwal dan pemanggilan use case pembersihan |
 | `config/SecurityEventRecorderTest.java` | Aturan pencatatan penolakan: 401 tanpa jejak audit, 403 dengan aktor, kegagalan audit tidak menggagalkan respons |

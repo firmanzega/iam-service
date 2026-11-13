@@ -120,6 +120,13 @@ Aplikasi menolak start kalau `JWT_SECRET` tidak diisi atau kurang dari 32 byte.
 Jadi secret yang hilang tidak akan pernah membuat layanan berjalan dengan kunci
 lemah atau tidak sengaja.
 
+Saat mengganti kunci pada layanan yang sedang berjalan, isi
+`JWT_SECRET_PREVIOUS` dengan nilai lama pada perubahan konfigurasi yang sama
+dengan `JWT_SECRET` baru. Token yang sudah terbit tetap diterima sampai masa
+berlakunya habis, sehingga pengguna tidak perlu login ulang. Setelah masa
+transisi selesai, kosongkan lagi `JWT_SECRET_PREVIOUS`. Prosedur lengkapnya ada
+di [`docs/deployment.md`](docs/deployment.md).
+
 ### 2. Jalankan database
 
 ```bash
@@ -201,6 +208,7 @@ export manual** untuk menjalankan aplikasi maupun pengujian.
 | `POSTGRES_HOST` | tidak | Bawaan `localhost` |
 | `POSTGRES_PORT` | tidak | Bawaan `5433` |
 | `JWT_SECRET` | ya | Kunci penanda tangan token, minimal 32 byte |
+| `JWT_SECRET_PREVIOUS` | tidak | Kunci sebelumnya yang masih diterima selama rotasi. Kosongkan pada operasi normal |
 | `CORS_ALLOWED_ORIGINS` | tidak | Origin frontend yang diizinkan, pisahkan dengan koma |
 | `OTEL_TRACES_SAMPLING_PROBABILITY` | tidak | Peluang sampling tracing, bawaan `0.0` (mati) |
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | tidak | Alamat collector OTLP/HTTP, bawaan `http://localhost:4318/v1/traces` |
@@ -429,6 +437,7 @@ Daftar ini sengaja ditulis supaya batasannya jelas sejak awal.
 | Rantai audit bukan penyimpanan yang tidak bisa diubah | Pemegang akses database masih bisa menulis ulang seluruh rantai dari awal, meskipun perubahan itu harus disengaja | Kirim salinan berkala ke penyimpanan append-only atau penyimpanan objek dengan retensi hukum |
 | Verifikasi rantai membaca seluruh tabel | Endpoint `verify` memuat semua baris audit ke memori | Pindahkan pemeriksaan ke proses terjadwal begitu jumlah barisnya besar |
 | Pemindaian CVE tidak memeriksa seluruh pohon dependensi | `dependency-review-action` hanya memeriksa perubahan pada pull request, sedangkan Trivy memeriksa image yang dibangun | Tinjau peringatan Dependabot secara berkala; Trivy sudah memindai paket yang benar-benar dikirim |
+| Rotasi kunci memerlukan restart serentak | Instance yang belum menerima kunci baru menolak token yang ditandatangani kunci baru | Pastikan konfigurasi semua instance sama, lalu restart bersamaan |
 
 ---
 

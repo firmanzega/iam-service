@@ -1,6 +1,5 @@
 package id.osprey.iamservice.config;
 
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -8,12 +7,8 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidators;
-import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -21,9 +16,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -164,22 +156,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtEncoder jwtEncoder() {
-        return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey()));
+    JwtEncoder jwtEncoder(JwtKeyRing keyRing) {
+        return keyRing.encoder();
     }
 
     @Bean
-    JwtDecoder jwtDecoder() {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey())
-                .macAlgorithm(MacAlgorithm.HS256)
-                .build();
-
-        // Validasi penerbit mencegah token yang diterbitkan sistem lain
-        // diterima di sini, meskipun tanda tangannya sah.
-        decoder.setJwtValidator(
-                JwtValidators.createDefaultWithIssuer(properties.jwt().issuer()));
-
-        return decoder;
+    JwtDecoder jwtDecoder(JwtKeyRing keyRing) {
+        return keyRing.decoder();
     }
 
     @Bean
@@ -194,19 +177,5 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    /**
-     * Kunci HMAC harus panjangnya minimal 256 bit. String yang lebih pendek akan
-     * ditolak oleh pustaka kriptografi, dan itu memang lebih baik daripada
-     * diam-diam memakai kunci lemah.
-     */
-    private SecretKey secretKey() {
-        byte[] secret = properties.jwt().secret().getBytes(StandardCharsets.UTF_8);
-        if (secret.length < 32) {
-            throw new IllegalStateException(
-                    "iam.jwt.secret minimal 32 byte, sekarang hanya " + secret.length + " byte");
-        }
-        return new SecretKeySpec(secret, "HmacSHA256");
     }
 }

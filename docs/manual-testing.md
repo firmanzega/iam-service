@@ -446,6 +446,64 @@ curl -H "Authorization: Bearer TOKEN_ADMIN" \
 Cari baris dengan aksi `REFRESH_TOKEN_REUSE`. Baris token yang dicabut tetap
 tersimpan sampai kedaluwarsa, lalu dibersihkan oleh tugas berkala.
 
+### 4.15 Rotasi kunci token
+
+Uji ini memerlukan dua kali restart aplikasi. Kunci harus panjangnya minimal 32
+byte, sama seperti `JWT_SECRET` biasa.
+
+```bash
+# 1. Jalankan aplikasi dengan JWT_SECRET=kunci-A, lalu login dan simpan token
+curl -s -X POST http://localhost:8080/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"admin","password":"Admin1234"}'
+```
+
+2. Hentikan aplikasi, lalu jalankan dengan kunci baru dan kunci lama:
+
+```bash
+# Linux dan macOS
+JWT_SECRET="kunci-B-yang-panjangnya-minimal-32-byte" \
+JWT_SECRET_PREVIOUS="kunci-A-yang-panjangnya-minimal-32-byte" \
+./mvnw spring-boot:run
+
+# Windows (PowerShell)
+$env:JWT_SECRET = "kunci-B-yang-panjangnya-minimal-32-byte"
+$env:JWT_SECRET_PREVIOUS = "kunci-A-yang-panjangnya-minimal-32-byte"
+.\mvnw.cmd spring-boot:run
+```
+
+3. Panggil endpoint dengan token dari langkah 1. Hasilnya tetap `200`:
+
+```bash
+curl -i -H "Authorization: Bearer TOKEN_DARI_KUNCI_A" \
+  http://localhost:8080/v1/users
+```
+
+4. Hentikan aplikasi, hapus kunci sebelumnya, lalu jalankan lagi:
+
+```powershell
+# Windows (PowerShell)
+Remove-Item Env:JWT_SECRET_PREVIOUS
+.\mvnw.cmd spring-boot:run
+```
+
+5. Token yang sama sekarang ditolak dengan `401`.
+
+| Langkah | Hasil |
+|---|---|
+| Token kunci A dipakai saat kunci A masih menjadi kunci sebelumnya | `200`, token lama masih diterima |
+| `JWT_SECRET_PREVIOUS` dikosongkan | `401`, token kunci A tidak lagi diterima |
+| Login setelah rotasi | Token baru membawa `kid` kunci B |
+
+Untuk memeriksa `kid` pada token, lihat bagian header:
+
+```bash
+printf '%s' "$TOKEN" | cut -d. -f1 | base64 -d 2>/dev/null
+```
+
+Nilai `kid` diturunkan dari isi kunci. Kunci yang sama selalu menghasilkan nilai
+yang sama, dan kunci berbeda menghasilkan nilai berbeda.
+
 ---
 
 ## 5. Ringkasan Status Kode

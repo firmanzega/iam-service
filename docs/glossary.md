@@ -46,6 +46,10 @@ artinya dalam konteks layanan ini.
 | BCrypt | - | Algoritma hash kata sandi yang lambat dengan sengaja, supaya tebakan brute force mahal |
 | Kunci akun | Account lockout | Akun dinonaktifkan sementara setelah beberapa kali gagal login, supaya penyerang tidak bisa mencoba terus |
 | Anti enumerasi | Anti-enumeration | Menyembunyikan apakah sebuah username terdaftar, dengan memakai pesan galat yang sama untuk semua jenis kegagalan |
+| Kunci aktif | Current key | Kunci yang dipakai untuk menerbitkan dan memverifikasi token baru |
+| Kunci sebelumnya | Previous key | Kunci lama yang masih diterima untuk verifikasi selama masa transisi rotasi. Tidak pernah dipakai menerbitkan token |
+| Cincin kunci | Key ring | Kumpulan kunci yang dikenal layanan: satu kunci aktif dan paling banyak satu kunci sebelumnya |
+| Penanda kunci | Key ID, `kid` | Nilai pada header token yang menunjukkan kunci mana yang dipakai. Diturunkan dari hash kunci, bukan diisi manual |
 
 ## 4. Jejak Audit
 

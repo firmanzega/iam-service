@@ -62,6 +62,10 @@ openssl rand -base64 48
 Aplikasi menolak start kalau `JWT_SECRET` kosong atau kurang dari 32 byte.
 Itu perilaku yang diinginkan, bukan error yang perlu dilewati.
 
+`JWT_SECRET_PREVIOUS` boleh dikosongkan pada pengembangan sehari-hari. Variabel
+itu hanya diisi saat menguji rotasi kunci, seperti dijelaskan di
+[`manual-testing.md`](manual-testing.md) bagian 4.15.
+
 > Jangan pernah commit berkas `.env`. Hook commit sudah disiapkan untuk
 > menolaknya. Lihat [CONTRIBUTING bagian 6](../CONTRIBUTING.md#6-hook-commit).
 

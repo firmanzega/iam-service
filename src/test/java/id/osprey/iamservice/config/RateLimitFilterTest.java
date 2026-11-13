@@ -33,7 +33,7 @@ class RateLimitFilterTest {
     private IamProperties properties() {
         return new IamProperties(
                 new IamProperties.Jwt("kunci-rahasia-yang-panjang-sekali-1234567890",
-                        "iam-service", Duration.ofMinutes(15), Duration.ofDays(7)),
+                        "iam-service", Duration.ofMinutes(15), Duration.ofDays(7), null),
                 new IamProperties.Cors(List.of("http://localhost:3000")),
                 new IamProperties.Login(5, Duration.ofMinutes(15)),
                 new IamProperties.RateLimit(3, Duration.ofMinutes(1), Duration.ofMinutes(10)),

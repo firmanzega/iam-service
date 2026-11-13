@@ -193,13 +193,28 @@ curl -X POST http://localhost:8080/v1/users/97/reset-password \
 
 ## 7. Semua Pengguna Terlogout
 
-Penyebab paling mungkin: `JWT_SECRET` dirotasi.
+Penyebab paling sering adalah perubahan kunci token. Bedanya bisa dilihat dari
+kapan logout terjadi:
 
-Semua token yang sudah terbit tidak berlaku lagi karena tanda tangannya
-menggunakan kunci lama. Itu perilaku yang diharapkan, bukan bug.
+| Penyebab | Ciri | Tindakan |
+|---|---|---|
+| Kunci diganti tanpa mengisi kunci sebelumnya | Seluruh token lama langsung ditolak setelah deploy | Untuk rotasi normal, isi `JWT_SECRET_PREVIOUS` dengan kunci lama |
+| Kunci sebelumnya dikosongkan terlalu cepat | Pengguna terlogout setelah masa transisi berakhir | Tunggu minimal 15 menit untuk token akses, atau 7 hari untuk token refresh |
+| Kunci berbeda antar instance | Sebagian permintaan 401, sebagian berhasil | Pastikan semua instance membaca konfigurasi yang sama, lalu restart serentak |
+| Rotasi darurat | Perilaku yang disengaja setelah dugaan kebocoran | Lanjutkan penanganan insiden pada bagian 11 |
 
-**Agar rotasi berikutnya tidak mengganggu pengguna**, perlu dukungan dua
-kunci sekaligus dengan header `kid`. Fitur itu belum ada.
+Token yang ditandatangani kunci lama tidak bisa diverifikasi tanpa kunci itu.
+Karena itu rotasi normal memerlukan dua kunci sekaligus, dan prosedurnya ada di
+[`deployment.md`](deployment.md) bagian 1.
+
+Untuk memastikan token baru memang memakai kunci aktif, periksa header token:
+
+```bash
+printf '%s' "$TOKEN" | cut -d. -f1 | base64 -d 2>/dev/null
+```
+
+Header memuat `"kid"` yang berbeda untuk setiap kunci. Nilainya diturunkan dari
+isi kunci, jadi kunci yang sama selalu menghasilkan `kid` yang sama.
 
 ---
 
@@ -397,9 +412,20 @@ wajib ada.
 
 ## 11. Dicurigai kebocoran
 
-1. **Cabut seluruh sesi** dengan merotasi `JWT_SECRET`. Semua pengguna
-   dipaksa login ulang.
-2. **Cek jejak audit** untuk melihat aktivitas yang mencurigakan:
+1. **Putuskan akses seketika.** Ganti `JWT_SECRET` dengan kunci baru dan
+   **kosongkan** `JWT_SECRET_PREVIOUS`, lalu restart seluruh instance. Semua
+   token akses lama langsung ditolak. Jangan pakai prosedur rotasi normal pada
+   bagian ini, karena prosedur itu justru mempertahankan kunci lama.
+2. **Cabut seluruh token refresh** di database, supaya sesi tidak bisa
+   diperpanjang lagi:
+   ```bash
+   docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
+     "update refresh_tokens set revoked_at = now() where revoked_at is null;"
+   ```
+   Setelah kunci dirotasi tanpa kunci sebelumnya, token refresh lama sebenarnya
+   sudah tidak bisa dipakai karena tanda tangannya tidak lagi dikenali. Langkah
+   ini tetap dilakukan supaya keadaan database sesuai dengan keadaan token.
+3. **Cek jejak audit** untuk melihat aktivitas yang mencurigakan:
    ```bash
    curl -H "Authorization: Bearer TOKEN_ADMIN" \
      "http://localhost:8080/v1/audit-logs?size=100"
@@ -427,13 +453,13 @@ wajib ada.
      "http://localhost:8080/v1/audit-logs/verify"
    ```
 
-3. **Nonaktifkan akun** yang dicurigai:
+4. **Nonaktifkan akun** yang dicurigai:
    ```bash
    curl -X POST http://localhost:8080/v1/users/{id}/deactivate \
      -H "Authorization: Bearer TOKEN_ADMIN"
    ```
-4. **Rotasi kredensial database** kalau yang bocor adalah akses database.
-5. **Catat kejadiannya** di `CHANGELOG.md` sesuai
+5. **Rotasi kredensial database** kalau yang bocor adalah akses database.
+6. **Catat kejadiannya** di `CHANGELOG.md` sesuai
    [kebijakan pelaporan](https://github.com/firmanzega/iam-service/blob/main/SECURITY.md).
 
 ---

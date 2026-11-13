@@ -137,17 +137,20 @@ setiap endpoint bisa dipanggil siapa saja.
 dan ditandatangani dengan kunci yang sama. Resource server memakai
 pustaka Nimbus untuk itu.
 
-**Dipakai di:** `config/SecurityConfig.java` (bean `JwtEncoder` dan
-`JwtDecoder`), `infrastructure/security/JwtTokenService.java`
+**Dipakai di:** `config/JwtKeyRing.java` (kunci aktif dan sebelumnya, bean
+`JwtEncoder` dan `JwtDecoder`), `infrastructure/security/JwtTokenService.java`
 
 **Yang perlu diperhatikan:**
 
 - Pustaka yang benar-benar bekerja adalah **Nimbus JOSE JWT**
   (`com.nimbusds.jose` dan `com.nimbusds.jwt`). Spring Security hanya
   mengonfigurasi decoder dan encoder di atasnya.
-- Layanan ini belum memasang header `kid` pada token. Header itu baru
-  dibutuhkan kalau nanti ada rotasi kunci tanpa memutus sesi lama, karena ia
-  menandai kunci mana yang dipakai.
+- Encoder memilih kunci berdasarkan header `kid`. Karena itu kunci aktif
+  dipublikasikan sebagai JWK yang membawa `kid`; `ImmutableSecret` tidak cukup
+  untuk keperluan ini.
+- Decoder membaca `kid` lebih dulu, lalu memilih kunci aktif atau kunci
+  sebelumnya. Token tanpa `kid` tetap diterima selama kunci sebelumnya masih
+  dikonfigurasi.
 - **Validasi issuer** (`iss`) harus diaktifkan. Tanpa itu, token yang
   ditandatangani dengan kunci yang sama tapi penerbit berbeda akan diterima.
 

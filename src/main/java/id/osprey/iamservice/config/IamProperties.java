@@ -24,8 +24,18 @@ public record IamProperties(Jwt jwt, Cors cors, Login login, RateLimit rateLimit
      * @param issuer identitas penerbit yang ditulis ke claim "iss".
      * @param accessTokenTtl masa berlaku token akses.
      * @param refreshTokenTtl masa berlaku token refresh.
+     * @param previousSecret kunci sebelumnya yang masih diterima selama masa
+     *                       transisi rotasi, boleh null bila tidak ada rotasi.
      */
-    public record Jwt(String secret, String issuer, Duration accessTokenTtl, Duration refreshTokenTtl) {
+    public record Jwt(String secret, String issuer, Duration accessTokenTtl, Duration refreshTokenTtl,
+                      String previousSecret) {
+
+        // Nilai kosong dari environment variable diperlakukan sama seperti
+        // tidak diisi. Tanpa ini, string kosong akan dianggap kunci dan
+        // aplikasi gagal start dengan pesan yang membingungkan.
+        public Jwt {
+            previousSecret = previousSecret == null || previousSecret.isBlank() ? null : previousSecret;
+        }
     }
 
     /**

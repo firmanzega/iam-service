@@ -24,6 +24,8 @@ akses ke seluruh akun yang ada. Karena itu kontrolnya berlapis.
 | Validasi penerbit | Token dari penerbit lain ditolak | Mencegah token dari sistem lain dipakai di sini |
 | Validasi masa berlaku | Ditolak kalau sudah kedaluwarsa | Token lama tidak berlaku |
 | Penolakan pengguna tidak dikenal | Pesan identik dengan kata sandi salah | Mencegah enumerasi username yang terdaftar |
+| Rotasi kunci dengan dua kunci | Token membawa penanda kunci (`kid`). Kunci aktif dipakai untuk menerbitkan, kunci sebelumnya masih diterima untuk verifikasi | Rotasi normal tidak memaksa seluruh pengguna login ulang |
+| Kunci sebelumnya hanya untuk verifikasi | Encoder selalu memakai kunci aktif, berapa pun kunci yang tersedia | Token baru tidak pernah terbit dengan kunci yang sudah digantikan |
 
 ### 1.2 Kontrol Akses
 
@@ -186,7 +188,7 @@ sempurna.
 | **Rate limiter per instance** | Kalau dijalankan lebih dari satu instance, batas efektifnya beberapa kali lebih longgar | Kunci akun per akun tetap bekerja. Entri klien yang tidak aktif dibuang berkala supaya memori tidak tumbuh, tetapi batas global harus ditaruh di gateway |
 | **Rate limiter bergantung pada alamat klien** | Kalau layanan bisa dijangkau langsung, header `X-Forwarded-For` bisa dipalsukan untuk lolos dari batas | `server.forward-headers-strategy=native` hanya memakai header itu bila koneksi datang dari proxy internal. Pastikan layanan tidak terbuka langsung |
 | **Pemakaian ulang memaksa login ulang** | Percobaan ulang setelah respons jaringan hilang bisa dianggap pencurian, sehingga seluruh sesi pengguna dicabut | Ini konsekuensi yang dipilih. Tanpa tenggang waktu, deteksi tetap tegas; pengguna cukup login ulang |
-| **Rotasi kunci token memutus seluruh sesi** | Mengganti `JWT_SECRET` membuat semua pengguna logout paksa | Belum ada dukungan dua kunci bersamaan dengan header `kid` |
+| **Rotasi kunci mengharuskan restart serentak** | Instance yang belum menerima kunci baru menolak token yang ditandatangani kunci baru | Pastikan semua instance memakai konfigurasi yang sama. Pada deployment bergulir, sebagian permintaan bisa gagal sementara |
 | **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk menghapus sesi di satu perangkat, cabut tokennya manual |
 | **Rantai hash bukan jaminan mutlak** | Rantai mendeteksi perubahan dan penghapusan baris, tetapi pemegang akses tulis database masih bisa menghitung ulang seluruh rantai | Kirim salinan berkala ke penyimpanan append-only di luar database |
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
@@ -216,7 +218,8 @@ sempurna.
 ## 4. Apa yang Harus Dijaga Saat Deploy
 
 - [ ] `JWT_SECRET` acak, minimal 32 byte, **tidak** ada di berkas mana pun di server
-- [ ] `JWT_SECRET` dirotasi kalau pernah bocor
+- [ ] `JWT_SECRET` dirotasi kalau pernah bocor, mengikuti prosedur rotasi di `deployment.md`
+- [ ] `JWT_SECRET_PREVIOUS` kosong pada operasi normal, dan hanya diisi selama masa transisi rotasi
 - [ ] `SPRING_PROFILES_ACTIVE=prod` supaya profil dev dan bootstrap administrator tidak aktif
 - [ ] Port database tidak terbuka ke internet
 - [ ] HTTPS aktif, sertifikat valid
