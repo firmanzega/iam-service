@@ -229,7 +229,8 @@ alamat klien yang sebenarnya. Syarat dan konsekuensinya ada di
 
 ## Daftar Endpoint
 
-Semua endpoint berada di bawah `/v1`, memakai JSON, dan memakai format galat yang sama:
+Endpoint bisnis berada di bawah `/v1`, memakai JSON, dan memakai format galat
+yang sama. Endpoint operasional Actuator tetap berada di `/actuator`:
 
 ```json
 {
@@ -278,6 +279,12 @@ Semua endpoint berada di bawah `/v1`, memakai JSON, dan memakai format galat yan
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
 | GET | `/v1/audit-logs` | ADMIN, AUDITOR | Riwayat perubahan penting |
+| GET | `/v1/audit-logs/verify` | ADMIN | Periksa keutuhan rantai hash jejak audit |
+
+Setiap baris audit mengikat dirinya ke baris sebelumnya lewat hash. Endpoint
+`verify` menghitung ulang seluruh hash dan melaporkan entri rusak pertama
+beserta alasannya. Hasilnya hanya untuk ADMIN, karena id entri yang rusak adalah
+petunjuk langsung bagi siapa pun yang ingin menyembunyikan jejaknya.
 
 ### Operasional
 
@@ -418,11 +425,10 @@ Daftar ini sengaja ditulis supaya batasannya jelas sejak awal.
 
 | Kekurangan | Keadaan sekarang | Tindak lanjut |
 |---|---|---|
-| Cakupan diukur gabungan | Beberapa kelas di bawah 80 persen, misalnya `Role` dan `UserJpaEntity` | Tambahkan tes saat kelas itu berubah |
-| Belum ada versi API | Semua endpoint berada di root, tanpa prefiks `/v1` | Tambahkan prefiks versi sebelum ada klien luar |
 | Belum ada pendaftaran mandiri | Akun hanya dibuat oleh ADMIN, tanpa verifikasi surel atau reset lewat surel | Tambahkan alur undangan atau verifikasi kalau dibutuhkan |
-| Jejak audit bisa diubah | Pemegang akses database dapat mengubah isi `audit_logs` | Kirim salinan ke penyimpanan append-only kalau sudah dibutuhkan |
-| Pemindaian CVE tidak memeriksa seluruh pohon dependensi | `dependency-review-action` hanya memeriksa perubahan pada pull request, sedangkan Dependabot alerts mencakup dependensi yang sudah ada | Tinjau peringatan Dependabot secara berkala; jalankan pemindai penuh sebelum rilis besar |
+| Rantai audit bukan penyimpanan yang tidak bisa diubah | Pemegang akses database masih bisa menulis ulang seluruh rantai dari awal, meskipun perubahan itu harus disengaja | Kirim salinan berkala ke penyimpanan append-only atau penyimpanan objek dengan retensi hukum |
+| Verifikasi rantai membaca seluruh tabel | Endpoint `verify` memuat semua baris audit ke memori | Pindahkan pemeriksaan ke proses terjadwal begitu jumlah barisnya besar |
+| Pemindaian CVE tidak memeriksa seluruh pohon dependensi | `dependency-review-action` hanya memeriksa perubahan pada pull request, sedangkan Trivy memeriksa image yang dibangun | Tinjau peringatan Dependabot secara berkala; Trivy sudah memindai paket yang benar-benar dikirim |
 
 ---
 

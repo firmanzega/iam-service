@@ -1,5 +1,6 @@
 package id.osprey.iamservice.infrastructure.persistence;
 
+import id.osprey.iamservice.domain.audit.AuditChainEntry;
 import id.osprey.iamservice.domain.audit.AuditLog;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,6 +38,15 @@ public class AuditLogJpaEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    // Kedua kolom ini diisi trigger database. insertable dan updatable
+    // dimatikan supaya Hibernate tidak ikut menulis null dan menimpa hasil
+    // perhitungan trigger.
+    @Column(name = "prev_hash", insertable = false, updatable = false)
+    private String prevHash;
+
+    @Column(name = "entry_hash", nullable = false, insertable = false, updatable = false)
+    private String entryHash;
+
     protected AuditLogJpaEntity() {
     }
 
@@ -57,6 +67,13 @@ public class AuditLogJpaEntity {
      */
     public AuditLog toDomain() {
         return new AuditLog(id, actorUserId, action, targetUserId, details, createdAt);
+    }
+
+    /**
+     * Mengubah entitas menjadi mata rantai untuk pemeriksaan keutuhan.
+     */
+    public AuditChainEntry toChainEntry() {
+        return new AuditChainEntry(id, actorUserId, action, targetUserId, details, createdAt, prevHash, entryHash);
     }
 
     public Long getId() {

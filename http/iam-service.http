@@ -323,6 +323,10 @@ Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 GET {{host}}/v1/audit-logs?size=10
 Authorization: Bearer {{loginAdmin.response.body.accessToken}}
 
+### Periksa keutuhan rantai hash (hanya ADMIN)
+GET {{host}}/v1/audit-logs/verify
+Authorization: Bearer {{loginAdmin.response.body.accessToken}}
+
 ### ============================================================
 ### 8. LOGOUT
 ### ============================================================

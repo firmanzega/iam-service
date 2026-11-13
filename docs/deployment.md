@@ -133,6 +133,27 @@ Profil `prod` memakai port `9090`, sedangkan profil `dev` memakai `8080`.
 Nilainya ada di `application-prod.yaml`; kalau butuh port lain, timpa lewat
 environment variable `SERVER_PORT`.
 
+### 2.1 Migrasi dengan backfill
+
+`V7__add_audit_hash_chain.sql` menambahkan kolom hash pada `audit_logs`, lalu
+menghitung hash untuk seluruh baris lama sebelum memasang trigger. Pada tabel
+audit yang besar, langkah itu bisa berjalan lama dan menahan penulisan ke
+tabel tersebut.
+
+Yang perlu diperhatikan saat deploy:
+
+- **Jalankan migrasi saat tidak ada instance lain yang menulis.** Flyway
+  menjalankan migrasi di dalam transaksi, dan backfill memperbarui setiap
+  baris. Instance lama yang mencoba menulis audit di tengah migrasi akan
+  menunggu, bukan gagal diam-diam.
+- **Kode lama tetap aman setelah migrasi.** Trigger mengisi hash untuk setiap
+  insert, jadi instance versi lama yang masih hidup tidak perlu diubah lebih
+  dulu. Yang harus dipastikan adalah migrasi selesai sebelum instance baru
+  melayani permintaan, dan itu memang urutan bawaan Flyway saat start.
+- **Perkirakan waktu pada data besar.** Jalankan migrasi di jendela
+  pemeliharaan, dan ukur dulu jumlah baris `audit_logs` di lingkungan yang
+  mirip produksi.
+
 ---
 
 ## 3. Bagian yang Dibuka ke Publik

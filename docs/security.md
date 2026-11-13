@@ -118,6 +118,46 @@ kejadiannya justru perlu bisa ditelusuri sampai ke pengguna.
 Penyimpanan jejak audit penolakan tidak boleh menggagalkan respons. Kalau
 database sedang bermasalah, pemanggil tetap menerima 403, bukan 500.
 
+#### Rantai hash
+
+Setiap baris `audit_logs` menyimpan `prev_hash` dan `entry_hash`. Hash dihitung
+dari `prev_hash` ditambah seluruh isi baris, sehingga perubahan satu baris
+membuat hash-nya tidak cocok lagi, dan penghapusan satu baris membuat
+penerusnya kehilangan pendahulu.
+
+Perhitungan dilakukan di database, bukan di aplikasi:
+
+- Trigger `BEFORE INSERT` mengisi kedua kolom. Jalur tulis apa pun, termasuk
+  skrip pemeliharaan, tetap menghasilkan rantai yang sama.
+- Trigger mengambil kunci penasihat tingkat transaksi sebelum membaca ujung
+  rantai. Dua penulisan bersamaan menjadi berurutan, sehingga tidak ada dua
+  baris yang mengaku sebagai ujung yang sama.
+- Rumusnya dipusatkan di fungsi `audit_log_hash` dan dipakai juga oleh backfill,
+  sehingga tidak ada dua rumus yang bisa menyimpang.
+
+Empat kelas hasil verifikasi:
+
+| Kode | Arti |
+|---|---|
+| `HASH_MISMATCH` | Isi baris berubah setelah hash dihitung |
+| `MISSING_PREDECESSOR` | Baris yang ditunjuk `prev_hash` sudah tidak ada |
+| `MULTIPLE_HEADS` | Lebih dari satu baris mengaku sebagai awal rantai |
+| `UNREACHABLE_ENTRY` | Baris tidak bisa dicapai dari awal rantai, biasanya karena siklus atau pemutusan |
+
+Verifikasi memakai keterkaitan hash, bukan urutan `id`. Alasannya, `id` sudah
+dibuat sebelum kunci transaksi diperoleh, sehingga pada penulisan yang
+benar-benar bersamaan urutan rantai bisa berbeda dari urutan `id`.
+
+Endpoint `GET /v1/audit-logs/verify` hanya untuk ADMIN. Hasil pemeriksaan
+memuat id entri rusak, dan itu adalah petunjuk langsung bagi siapa pun yang
+ingin menyembunyikan jejaknya. AUDITOR tetap bisa membaca daftar audit biasa,
+tetapi tidak melihat detail kerusakan.
+
+Yang **tidak** dicakup rantai ini: pemegang akses tulis ke database masih bisa
+menghitung ulang seluruh rantai dari awal. Rantai membuat perubahan itu harus
+disengaja dan sulit disembunyikan, bukan mustahil. Untuk jaminan yang lebih
+kuat, salinan berkala perlu dikirim ke penyimpanan append-only di luar database.
+
 ### 1.7 Pemindaian Dependensi dan Analisis Statis
 
 | Pemeriksaan | Kapan berjalan | Cakupan |
@@ -148,7 +188,7 @@ sempurna.
 | **Pemakaian ulang memaksa login ulang** | Percobaan ulang setelah respons jaringan hilang bisa dianggap pencurian, sehingga seluruh sesi pengguna dicabut | Ini konsekuensi yang dipilih. Tanpa tenggang waktu, deteksi tetap tegas; pengguna cukup login ulang |
 | **Rotasi kunci token memutus seluruh sesi** | Mengganti `JWT_SECRET` membuat semua pengguna logout paksa | Belum ada dukungan dua kunci bersamaan dengan header `kid` |
 | **Tidak ada refresh token per perangkat** | Satu token refresh berlaku di semua perangkat pengguna | Untuk menghapus sesi di satu perangkat, cabut tokennya manual |
-| **Belum ada audit log yang tidak bisa diubah** | Seseorang yang punya akses database bisa mengubah catatan audit | Simpan catatan audit di tempat terpisah kalau sudah dibutuhkan |
+| **Rantai hash bukan jaminan mutlak** | Rantai mendeteksi perubahan dan penghapusan baris, tetapi pemegang akses tulis database masih bisa menghitung ulang seluruh rantai | Kirim salinan berkala ke penyimpanan append-only di luar database |
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
 | **401 tidak disimpan ke jejak audit** | Percobaan tanpa kredensial tidak bisa ditelusuri sampai pelaku | Log WARN dan metrik `iam.security.rejected` tetap tersedia. Alasan lengkapnya ada di bagian 1.6 |
 | **Dependency review hanya memeriksa perubahan** | Kerentanan pada dependensi lama tidak menggagalkan pull request | Dependabot alerts dan peninjauan berkala; jalankan pemindai penuh sebelum rilis besar |

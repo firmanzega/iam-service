@@ -1,10 +1,13 @@
 package id.osprey.iamservice.infrastructure.persistence;
 
+import id.osprey.iamservice.domain.audit.AuditChainEntry;
 import id.osprey.iamservice.domain.audit.AuditLog;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 /**
  * Adapter yang memenuhi port AuditLogRepository memakai Spring Data JPA.
@@ -30,5 +33,12 @@ public class AuditLogPersistenceAdapter implements AuditLogRepository {
     public PageResult<AuditLog> findAll(PaginationRequest request) {
         return PaginationTranslator.toPageResult(
                 repository.findAll(PaginationTranslator.toPageable(request)), AuditLogJpaEntity::toDomain);
+    }
+
+    @Override
+    public List<AuditChainEntry> findAllForChainVerification() {
+        return repository.findAllByOrderByIdAsc().stream()
+                .map(AuditLogJpaEntity::toChainEntry)
+                .toList();
     }
 }

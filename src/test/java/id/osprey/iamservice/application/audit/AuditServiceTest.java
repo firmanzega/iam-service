@@ -1,5 +1,8 @@
 package id.osprey.iamservice.application.audit;
 
+import id.osprey.iamservice.domain.audit.AuditChainEntry;
+import id.osprey.iamservice.domain.audit.AuditChainVerification;
+import id.osprey.iamservice.domain.audit.AuditChainVerifier;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
@@ -12,10 +15,14 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -63,6 +70,33 @@ class AuditServiceTest {
 
         assertEquals(DomainException.Reason.INVALID_SORT_PROPERTY, ex.getReason());
         verifyNoInteractions(auditLogRepository);
+    }
+
+    @Test
+    void verifyChain_withEmptyTable_returnsValidWithoutBrokenEntry() {
+        when(auditLogRepository.findAllForChainVerification()).thenReturn(List.of());
+
+        AuditChainVerification result = auditService.verifyChain();
+
+        assertTrue(result.valid());
+        assertEquals(0, result.checkedEntries());
+        assertNull(result.firstBrokenEntryId());
+        assertNull(result.reason());
+    }
+
+    @Test
+    void verifyChain_withChangedEntry_returnsFirstBrokenEntryAndReason() {
+        AuditChainEntry tampered = new AuditChainEntry(
+                7L, 3L, "USER_UPDATED", null, "diubah setelah hash",
+                Instant.parse("2026-01-01T10:00:00Z"), null, "hash-yang-tidak-cocok");
+        when(auditLogRepository.findAllForChainVerification()).thenReturn(List.of(tampered));
+
+        AuditChainVerification result = auditService.verifyChain();
+
+        assertFalse(result.valid());
+        assertEquals(1, result.checkedEntries());
+        assertEquals(7L, result.firstBrokenEntryId());
+        assertEquals(AuditChainVerifier.HASH_MISMATCH, result.reason());
     }
 
     private PaginationRequest captureRequest() {

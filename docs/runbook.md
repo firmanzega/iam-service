@@ -419,6 +419,14 @@ wajib ada.
        group by actor_user_id order by terakhir desc;"
    ```
 
+   Periksa juga keutuhan rantai audit. Kalau hasilnya tidak valid, ada baris
+   yang diubah atau dihapus di luar alur normal:
+
+   ```bash
+   curl -H "Authorization: Bearer TOKEN_ADMIN" \
+     "http://localhost:8080/v1/audit-logs/verify"
+   ```
+
 3. **Nonaktifkan akun** yang dicurigai:
    ```bash
    curl -X POST http://localhost:8080/v1/users/{id}/deactivate \
@@ -430,7 +438,54 @@ wajib ada.
 
 ---
 
-## 12. Penolakan akses meningkat
+## 12. Rantai jejak audit rusak
+
+Gejalanya: `GET /v1/audit-logs/verify` mengembalikan `valid` bernilai `false`.
+Artinya ada baris yang diubah atau dihapus di luar alur normal aplikasi.
+Aplikasi sendiri tidak pernah memperbarui atau menghapus baris audit.
+
+1. **Catat kode dan id yang dilaporkan.** Balasan memuat `firstBrokenEntryId`
+   dan `reason`. Empat kode yang mungkin muncul:
+
+   | Kode | Arti | Kecurigaan |
+   |---|---|---|
+   | `HASH_MISMATCH` | Isi baris berubah setelah hash dihitung | Seseorang mengubah isi audit langsung di database |
+   | `MISSING_PREDECESSOR` | Baris yang ditunjuk `prev_hash` sudah tidak ada | Ada baris audit yang dihapus |
+   | `MULTIPLE_HEADS` | Lebih dari satu awal rantai | Baris ditambahkan tanpa melewati trigger, atau rantai ditulis ulang sebagian |
+   | `UNREACHABLE_ENTRY` | Baris tidak bisa dicapai dari awal rantai | Rantai diputus atau dibentuk siklus |
+
+2. **Periksa baris di sekitar id tersebut**, termasuk waktu dan pelakunya:
+
+   ```bash
+   docker exec iam-service-db psql -U user_osprey -d db_osprey -c \
+     "select id, actor_user_id, action, created_at, prev_hash, entry_hash
+        from audit_logs where id between 1 and 20 order by id;"
+   ```
+
+3. **Bandingkan dengan cadangan terakhir.** Kalau baris yang dicurigai tidak ada
+   di cadangan, kemungkinan besar baris itu dihapus. Kalau isinya berbeda,
+   kemungkinan besar isinya diubah.
+
+4. **Jangan memperbaiki dengan mengubah isi baris.** Mengembalikan isi lama
+   tidak mengembalikan hash, dan hash yang dihitung ulang akan memutus rantai
+   sesudahnya. Pilihan yang benar adalah memulihkan tabel dari cadangan, atau
+   menerima bahwa rantai terputus dan mencatatnya sebagai insiden.
+
+5. **Anggap kredensial database sudah bocor.** Rotasi kata sandi database dan
+   periksa apakah ada akses langsung di luar aplikasi. Tindak lanjuti seperti
+   insiden kebocoran pada bagian 11.
+
+6. **Catat kejadiannya** di `CHANGELOG.md` sesuai
+   [kebijakan pelaporan](https://github.com/firmanzega/iam-service/blob/main/SECURITY.md).
+
+Rantai ini mendeteksi perubahan, bukan mencegahnya. Pemegang akses tulis
+database masih bisa menghitung ulang seluruh rantai dari awal. Karena itu
+salinan berkala ke penyimpanan append-only di luar database tetap diperlukan
+untuk jaminan yang lebih kuat.
+
+---
+
+## 13. Penolakan akses meningkat
 
 Langkah pertama adalah membedakan dua jenis penolakan, karena artinya berbeda:
 
@@ -477,7 +532,7 @@ dalam jangka panjang, kirim log WARN ke sistem log terpusat.
 
 ---
 
-## 13. Kontak
+## 14. Kontak
 
 | Keperluan | Ke mana |
 |---|---|

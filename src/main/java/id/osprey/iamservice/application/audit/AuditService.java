@@ -1,6 +1,8 @@
 package id.osprey.iamservice.application.audit;
 
 import id.osprey.iamservice.domain.audit.AuditLog;
+import id.osprey.iamservice.domain.audit.AuditChainVerification;
+import id.osprey.iamservice.domain.audit.AuditChainVerifier;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
 import id.osprey.iamservice.domain.audit.AuditLogSortableProperties;
 import id.osprey.iamservice.domain.shared.DomainException;
@@ -93,6 +95,19 @@ public class AuditService {
     @Transactional
     public void record(Long actorUserId, String action, Long targetUserId, String details) {
         auditLogRepository.save(new AuditLog(actorUserId, action, targetUserId, details));
+    }
+
+    /**
+     * Memeriksa keutuhan seluruh rantai jejak audit.
+     *
+     * Pemeriksaan dijalankan di memori setelah seluruh baris dibaca, karena
+     * yang dibutuhkan adalah laporan entri rusak pertama, bukan satu query
+     * yang rumit. Untuk jumlah baris yang sangat besar, pemeriksaan ini lebih
+     * tepat dipindahkan ke proses terjadwal.
+     */
+    @Transactional(readOnly = true)
+    public AuditChainVerification verifyChain() {
+        return AuditChainVerifier.verify(auditLogRepository.findAllForChainVerification());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

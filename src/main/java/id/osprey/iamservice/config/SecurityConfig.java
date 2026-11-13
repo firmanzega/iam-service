@@ -99,6 +99,7 @@ public class SecurityConfig {
                         // Data pengguna tidak untuk semua pemanggil.
                         .requestMatchers(HttpMethod.GET, "/v1/users").hasAnyRole("ADMIN", "AUDITOR")
                         .requestMatchers(HttpMethod.GET, "/v1/users/**", "/v1/roles/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/v1/audit-logs/verify").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/v1/audit-logs/**").hasAnyRole("ADMIN", "AUDITOR")
                         .requestMatchers(HttpMethod.POST, "/v1/roles", "/v1/roles/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/v1/roles/**").hasRole("ADMIN")

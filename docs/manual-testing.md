@@ -319,7 +319,44 @@ Baris terbaru berisi `ACCESS_DENIED` dengan `actorUserId` pelaku dan detail
 berupa method serta URI yang ditolak. Penolakan 401 **tidak** menulis baris di
 sini; kejadiannya hanya muncul di log WARN dan metrik.
 
-### 4.12 Endpoint operasional
+### 4.12 Memeriksa keutuhan rantai audit
+
+Endpoint ini hanya untuk peran `ADMIN`. AUDITOR mendapat 403.
+
+```bash
+curl -H "Authorization: Bearer TOKEN_ADMIN" \
+  "http://localhost:8080/v1/audit-logs/verify"
+```
+
+Balasan untuk rantai yang utuh:
+
+```json
+{"valid":true,"checkedEntries":42,"firstBrokenEntryId":null,"reason":null}
+```
+
+Untuk membuktikan bahwa pemeriksaan benar-benar bekerja, ubah satu baris
+langsung di database, lalu panggil endpoint yang sama:
+
+```sql
+update audit_logs set details = 'diubah setelah hash' where id = 1;
+```
+
+```json
+{"valid":false,"checkedEntries":42,"firstBrokenEntryId":1,"reason":"HASH_MISMATCH"}
+```
+
+Menghapus satu baris di tengah rantai menghasilkan kode berbeda, karena baris
+sesudahnya kehilangan pendahulu:
+
+```json
+{"valid":false,"checkedEntries":41,"firstBrokenEntryId":2,"reason":"MISSING_PREDECESSOR"}
+```
+
+Kembalikan keadaan database setelah uji ini. Baris yang sudah diubah tidak bisa
+diperbaiki hanya dengan mengembalikan isinya, karena hash ikut berubah; hapus
+baris uji tersebut atau pulihkan dari cadangan.
+
+### 4.13 Endpoint operasional
 
 ```bash
 curl http://localhost:8080/actuator/health
@@ -368,7 +405,7 @@ Swagger UI membutuhkan skrip dan gaya dari origin yang sama, jadi
 `default-src 'none'` akan selalu membuat halamannya kosong. Yang tetap
 diblokir adalah sumber dari luar.
 
-### 4.13 Pemakaian ulang token refresh terdeteksi
+### 4.14 Pemakaian ulang token refresh terdeteksi
 
 ```bash
 # 1. Login, simpan refresh token pertama

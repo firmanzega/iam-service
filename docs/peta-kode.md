@@ -60,8 +60,11 @@ Aturan bisnis murni. **Tidak ada satu pun import framework di sini.**
 | Berkas | Peran |
 |---|---|
 | `AuditLog.java` | Catatan jejak audit |
-| `AuditLogRepository.java` | **Port** untuk penyimpanan jejak audit |
+| `AuditLogRepository.java` | **Port** untuk penyimpanan jejak audit, termasuk pembacaan seluruh entri untuk verifikasi rantai |
 | `AuditLogSortableProperties.java` | Daftar properti yang boleh jadi kunci pengurutan jejak audit |
+| `AuditChainEntry.java` | Satu mata rantai audit beserta hash yang tersimpan |
+| `AuditChainVerification.java` | Hasil pemeriksaan rantai: valid atau tidak, jumlah entri, dan kerusakan pertama |
+| `AuditChainVerifier.java` | Algoritma pemeriksaan rantai yang murni, tanpa database dan tanpa framework |
 
 ### 3.4 `domain/shared/`
 
@@ -109,7 +112,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `UserJpaEntity.java` | Entitas JPA tabel `users`, termasuk relasi role dan kolom `version` |
 | `RoleJpaEntity.java` | Entitas JPA tabel `roles` |
 | `RefreshTokenJpaEntity.java` | Entitas JPA tabel `refresh_tokens` |
-| `AuditLogJpaEntity.java` | Entitas JPA tabel `audit_logs` |
+| `AuditLogJpaEntity.java` | Entitas JPA tabel `audit_logs`, termasuk kolom hash yang hanya ditulis trigger database |
 | `SpringDataUserRepository.java` | Repository Spring Data untuk pengguna |
 | `SpringDataRoleRepository.java` | Repository Spring Data untuk role |
 | `SpringDataRefreshTokenRepository.java` | Repository Spring Data untuk token refresh, termasuk hapus massal token kedaluwarsa dan pencabutan massal lewat satu `UPDATE` |
@@ -117,7 +120,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `UserPersistenceAdapter.java` | Mengimplementasikan port `UserRepository` |
 | `RolePersistenceAdapter.java` | Mengimplementasikan port `RoleRepository` |
 | `RefreshTokenPersistenceAdapter.java` | Mengimplementasikan port `RefreshTokenRepository` |
-| `AuditLogPersistenceAdapter.java` | Mengimplementasikan port `AuditLogRepository` |
+| `AuditLogPersistenceAdapter.java` | Mengimplementasikan port `AuditLogRepository`, termasuk pembacaan seluruh entri untuk verifikasi rantai |
 | `PaginationTranslator.java` | Menerjemahkan tipe paginasi domain ke dan dari Spring Data |
 
 ### 5.2 `infrastructure/security/`
@@ -136,7 +139,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `adapter/rest/UserController.java` | Endpoint pengguna |
 | `adapter/rest/AuthController.java` | Endpoint login, refresh, dan logout |
 | `adapter/rest/RoleController.java` | Endpoint role |
-| `adapter/rest/AuditController.java` | Endpoint jejak audit |
+| `adapter/rest/AuditController.java` | Endpoint jejak audit dan pemeriksaan keutuhan rantai hash |
 | `adapter/rest/WebMapper.java` | Penerjemah bersama dari tipe web ke tipe domain: identitas aktor dan permintaan pagination |
 | `adapter/rest/GlobalExceptionHandler.java` | Menerjemahkan galat menjadi JSON. Termasuk pemetaan kategori `DomainException` ke status HTTP |
 | `adapter/rest/ErrorResponse.java` | Bentuk galat yang seragam |
@@ -158,6 +161,7 @@ Adapter yang mengimplementasikan port dari domain.
 | `RoleResponse.java` | Bentuk data role yang dikembalikan |
 | `TokenResponse.java` | Bentuk pasangan token yang dikembalikan |
 | `AuditLogResponse.java` | Bentuk catatan audit yang dikembalikan |
+| `AuditChainVerificationResponse.java` | Bentuk hasil pemeriksaan rantai audit yang dikembalikan |
 | `PageResponse.java` | Bentuk halaman data yang dikembalikan |
 
 ---
@@ -188,13 +192,15 @@ Adapter yang mengimplementasikan port dari domain.
 | `IamServiceApplicationTests.java` | Memastikan konteks aplikasi bisa start |
 | `adapter/rest/AuthSecurityIntegrationTest.java` | Matriks otorisasi lewat HTTP, plus alur ganti kata sandi, kunci akun, dan logout |
 | `adapter/rest/AuditControllerIntegrationTest.java` | Urutan bawaan jejak audit, arah sort eksplisit, dan penolakan properti asing lewat HTTP |
+| `adapter/rest/AuditChainVerificationIntegrationTest.java` | Rantai utuh, baris diubah, baris dihapus, dan penolakan AUDITOR, memakai container database sendiri |
 | `adapter/rest/GlobalExceptionHandlerTest.java` | Pemetaan galat ke status HTTP |
 | `application/auth/AuthServiceTest.java` | Unit test alur autentikasi |
 | `application/auth/RefreshTokenCleanupServiceTest.java` | Unit test aturan penghapusan token kedaluwarsa |
 | `application/auth/RefreshTokenReuseServiceTest.java` | Unit test pencabutan seluruh sesi dan pencatatan audit saat token dipakai ulang |
 | `application/auth/RefreshTokenCleanupIntegrationTest.java` | Membuktikan hanya token kedaluwarsa yang terhapus di database |
 | `adapter/rest/RefreshTokenReuseIntegrationTest.java` | Membuktikan token hasil rotasi ikut mati setelah token lama dipakai ulang, lewat database sungguhan |
-| `application/audit/AuditServiceTest.java` | Mengunci urutan bawaan dan penolakan properti sort asing |
+| `application/audit/AuditServiceTest.java` | Mengunci urutan bawaan, penolakan properti sort asing, dan hasil `verifyChain` |
+| `domain/audit/AuditChainVerifierTest.java` | Pemeriksaan rantai tanpa database: rantai utuh, hash tidak cocok, pendahulu hilang, dan dua awal rantai |
 | `application/user/UserServiceTest.java` | Unit test use case pengguna |
 | `application/user/UserConcurrencyTest.java` | Dua PATCH bersamaan atas satu data |
 | `application/role/RoleServiceTest.java` | Unit test use case role |

@@ -57,6 +57,10 @@ artinya dalam konteks layanan ini.
 | Kode aksi | Action code | Nama baku jenis kejadian, misalnya `USER_CREATED` atau `LOGIN_FAILED` |
 | Transaksi terpisah | Separate transaction | Pencatatan jejak audit yang jalan di transaksi sendiri, supaya tetap tersimpan walau transaksi utama dibatalkan |
 | Penolakan akses | Access denied | Jejak audit `ACCESS_DENIED` yang ditulis ketika identitas sah mencoba aksi di luar wewenangnya (403) |
+| Rantai hash | Hash chain | Cara mengikat setiap baris audit ke baris sebelumnya lewat hash, sehingga perubahan atau penghapusan baris bisa dideteksi |
+| Hash pendahulu | Previous hash | Nilai `prev_hash`, yaitu hash baris sebelumnya. Kosong hanya untuk baris pertama |
+| Hash entri | Entry hash | Nilai `entry_hash`, yaitu hash baris itu sendiri, dihitung dari `prev_hash` dan seluruh isi baris |
+| Verifikasi rantai | Chain verification | Pemeriksaan ulang seluruh hash dan keterkaitannya, dilaporkan sebagai valid atau rusak beserta alasannya |
 
 ## 5. Data dan Transaksi
 

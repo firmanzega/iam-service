@@ -162,15 +162,16 @@ Untuk menjalankan seluruh pemeriksaan yang dipakai CI:
 ```
 
 Perintah itu menjalankan pengujian, membuat laporan JaCoCo, memeriksa cakupan
-baris gabungan minimal 80 persen, serta menjalankan **Checkstyle** dan
-**SpotBugs**. Temuan Checkstyle dan SpotBugs menggagalkan build, sama seperti
-pengujian yang gagal.
+baris **setiap kelas** minimal 80 persen, menjalankan **Checkstyle** dan
+**SpotBugs**, serta membuat SBOM CycloneDX. Temuan Checkstyle, SpotBugs, dan
+cakupan yang kurang menggagalkan build, sama seperti pengujian yang gagal.
 
 | Pemeriksa | Letak konfigurasi |
 |---|---|
 | Checkstyle | `config/checkstyle/checkstyle.xml` |
-| SpotBugs | Konfigurasi plugin di `pom.xml` |
+| SpotBugs | `pom.xml` dan `config/spotbugs/exclude.xml` |
 | Cakupan | Konfigurasi JaCoCo di `pom.xml` |
+| SBOM | Konfigurasi CycloneDX di `pom.xml`, keluaran `target/bom.json` |
 
 Laporan HTML cakupan ada di `target/site/jacoco/index.html`.
 

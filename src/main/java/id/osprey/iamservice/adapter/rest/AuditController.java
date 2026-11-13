@@ -1,6 +1,7 @@
 package id.osprey.iamservice.adapter.rest;
 
 import id.osprey.iamservice.adapter.rest.dto.AuditLogResponse;
+import id.osprey.iamservice.adapter.rest.dto.AuditChainVerificationResponse;
 import id.osprey.iamservice.adapter.rest.dto.PageResponse;
 import id.osprey.iamservice.application.audit.AuditService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,5 +39,27 @@ public class AuditController {
     @GetMapping
     public PageResponse<AuditLogResponse> list(@PageableDefault(size = 20) Pageable pageable) {
         return PageResponse.from(auditService.findAll(WebMapper.toRequest(pageable)), AuditLogResponse::from);
+    }
+
+    /**
+     * Memeriksa keutuhan rantai hash. Khusus ADMIN.
+     *
+     * Kenapa tidak dibuka untuk AUDITOR: hasil pemeriksaan memuat id entri
+     * yang rusak, dan itu adalah petunjuk langsung bagi siapa pun yang ingin
+     * menyembunyikan jejaknya. Cukup administrator yang melihat detail itu;
+     * pemantauan otomatis bisa memakai akun ADMIN khusus.
+     */
+    @Operation(summary = "Periksa keutuhan rantai jejak audit",
+            description = "Menghitung ulang hash setiap entri dan memeriksa keterkaitannya. "
+                    + "Hanya untuk peran ADMIN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Pemeriksaan selesai, hasil ada pada body"),
+            @ApiResponse(responseCode = "401", description = "Belum terautentikasi"),
+            @ApiResponse(responseCode = "403", description = "Peran tidak cukup")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/verify")
+    public AuditChainVerificationResponse verifyChain() {
+        return AuditChainVerificationResponse.from(auditService.verifyChain());
     }
 }
