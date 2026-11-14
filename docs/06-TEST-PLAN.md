@@ -116,7 +116,7 @@
 ## 6. Open Bugs
 
 - **QA-GATE-001: FIXED 2026-11-14** — `mvn clean verify` is now BUILD SUCCESS (299/299, JaCoCo per-class met, Checkstyle 0, SpotBugs 0). Backend removed the dead `RejectionStatRow` (existence-only `SELECT 1` → `Integer`).
-- **SEC-STATS-001 (severity Medium): FIXED by backend 2026-11-14 (Option A, Boss-approved):** `V11__tenant_scoped_rejection_stats_unique.sql` drops V8's global unique and adds composite `uq_security_rejection_stats_tenant UNIQUE (tenant_id, window_start, http_method, reason)`; `increment()` is a single-statement `INSERT ... ON CONFLICT DO UPDATE`. QA re-verification pending (cross-tenant same-minute 401 in `AuthSecurityIntegrationTest`) before this is closed.
+- **SEC-STATS-001 (severity Medium): FIXED + QA-verified 2026-11-14 (Option A, Boss-approved):** `V11__tenant_scoped_rejection_stats_unique.sql` drops V8's global unique and adds composite `uq_security_rejection_stats_tenant UNIQUE (tenant_id, window_start, http_method, reason)`; `increment()` is a single-statement `INSERT ... ON CONFLICT DO UPDATE`. QA re-verified cross-tenant same-minute 401 counting: `TenantIsolationIntegrationTest.unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason` passes (12/12 in class), and the test was proven falsifiable by temporarily reverting the upsert (expected <2> but was <1>) and restoring afterwards. Item closed.
 - **BUG-TENANT-001 and BUG-TENANT-004:** fixed and verified in Stage 4 + Phase 6 retest (see §10.2).
 
 ---
@@ -191,6 +191,10 @@ Additional Stage 4 coverage added by QA this phase (44 tests, 257 → 301 total)
 - `LoggingServiceImplTest`, `LogMessageTest`, `LogEntryTest`, `LoggingAdapterTest` — the
   ADR-0017 structured-logging slice was previously at 0–19% per class; now covered,
   including MDC leak checks (no cross-request tenant/trace leak).
+- `TenantIsolationIntegrationTest.unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason`
+  (2026-11-14) — proves SEC-STATS-001 fixed: two tenants increment the same minute/method/reason
+  aggregate independently; fixture now also deletes `security_rejection_stats` rows for the QA
+  tenant before tenant teardown (FK `fk_security_rejection_stats_tenant_id` is enforced).
 - `TenantTest`, `TenantPersistenceAdapterTest`, `PersistenceEntityTest.tenantJpaEntity_*`,
   `SecurityRejectionStatPersistenceAdapterTest`, `SecurityRejectionStatsServiceTest`
   (default-tenant fallback paths), `AuditLogTest`, `WebMapperTest.tenantId_*` —
@@ -231,11 +235,12 @@ header (`org-default` is the bootstrap tenant). The two
 `*_withoutOrganizationHeader_returns400` tests were renamed to `*_returns401` when
 Boss unified missing-header rejection to 401 on 2026-11-14.
 
-**Latest run:** `Tests run: 298, Failures: 0, Errors: 0, Skipped: 0` — `mvn clean verify`
+**Latest run:** `Tests run: 299, Failures: 0, Errors: 0, Skipped: 0` — `mvn clean verify`
 **BUILD SUCCESS** (JaCoCo per-class gate met, Checkstyle 0 violations, SpotBugs 0).
-Flyway applies V11 on the Testcontainers PostgreSQL 16 on every IT run, so the
-migration is proven to apply cleanly; SEC-STATS-001 row-level behavior is pending
-QA re-verification (see §10.3 conditions).
+Flyway applies V11 on the Testcontainers PostgreSQL 16 in every IT run, and
+`unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason` proves both tenants
+increment the aggregate in the same minute for the same method and reason
+(`expected <2> but was <1>` when the upsert is reverted). SEC-STATS-001 is closed.
 
 ### 10.4 Updated release readiness
 
@@ -243,7 +248,7 @@ QA re-verification (see §10.3 conditions).
 
 Conditions:
 1. ~~QA-GATE-001~~ resolved 2026-11-14 (`mvn clean verify` BUILD SUCCESS). Remaining condition: BUG-TENANT-001 and BUG-TENANT-004 are fixed and verified; Package A must not onboard a second organization until they stay green in CI.
-2. SEC-STATS-001 — backend fix merged (V11 + upsert). Remaining: QA re-verifies cross-tenant same-minute 401 counting (two tenants, same minute, same method+reason) in `AuthSecurityIntegrationTest` and closes the item here. Severity Medium; observability defect, not an authorization defect.
+2. ~~SEC-STATS-001~~ closed 2026-11-14: backend fix merged (V11 + upsert) and QA re-verified cross-tenant same-minute 401 counting in `TenantIsolationIntegrationTest` (test proven falsifiable against the pre-fix behavior). Severity Medium; observability defect, not an authorization defect.
 3. Release version for the breaking contract (`1.1.0` vs `2.0.0`) — Boss decision pending.
 
 BUG-TENANT-002/003 and both multi-tenancy defects are fixed and verified. The remaining

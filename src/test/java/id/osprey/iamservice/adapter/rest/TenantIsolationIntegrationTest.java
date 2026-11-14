@@ -127,6 +127,33 @@ class TenantIsolationIntegrationTest {
     }
 
     @Test
+    void unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason() throws Exception {
+        // SEC-STATS-001: sebelum V11, unique global (window_start, http_method,
+        // reason) membuat INSERT tenant kedua pada menit & alasan yang sama
+        // melanggar constraint; exception ditelan recorder dan agregat tenant
+        // non-default hilang diam-diam.
+        long beforeDefault = rejectionStatCount(DEFAULT_TENANT_ID);
+        long beforeQa = rejectionStatCount(qaTenantId);
+
+        mockMvc.perform(get("/v1/users")
+                        .header("X-Organization-ID", DEFAULT_ORG_ID))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/v1/users")
+                        .header("X-Organization-ID", QA_ORG_ID))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/v1/users")
+                        .header("X-Organization-ID", QA_ORG_ID))
+                .andExpect(status().isUnauthorized());
+
+        assertEquals(beforeDefault + 1, rejectionStatCount(DEFAULT_TENANT_ID),
+                "agregat 401 org-default harus naik satu");
+        assertEquals(beforeQa + 2, rejectionStatCount(qaTenantId),
+                "agregat 401 tenant QA harus naik dua, bukan tertelan constraint global");
+    }
+
+    @Test
     void revokeSession_fromOtherTenant_isNotFound_andOriginalStaysAlive() throws Exception {
         Tokens tokensA = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
         Tokens tokensB = login(PREFIX + "b", "telepon", QA_ORG_ID);
@@ -274,7 +301,20 @@ class TenantIsolationIntegrationTest {
         userRepository.save(new User(tenantId, username, username + "@mail.com", passwordEncoder.encode(PASSWORD)));
     }
 
+    private long rejectionStatCount(Long tenantId) {
+        Long count = jdbcTemplate.queryForObject(
+                "select coalesce(sum(rejection_count), 0) from security_rejection_stats"
+                        + " where tenant_id = ? and http_method = 'GET' and reason = 'missing_credentials'",
+                Long.class, tenantId);
+
+        return count == null ? 0 : count;
+    }
+
     private void removeTestData() {
+        jdbcTemplate.update(
+                "delete from security_rejection_stats where tenant_id"
+                        + " = (select id from tenants where organization_id = ?)",
+                QA_ORG_ID);
         jdbcTemplate.update(
                 "delete from audit_logs where actor_user_id in (select id from users where username like ?)"
                         + " or target_user_id in (select id from users where username like ?)",
