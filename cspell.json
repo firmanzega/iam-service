@@ -23,7 +23,12 @@
     "temurin",
     "remoteip",
     "clickjacking",
-    "nosniff"
+    "nosniff",
+    "Logback",
+    "SLF4J",
+    "MDC",
+    "tenantId",
+    "X-Organization-ID"
   ],
   "ignorePaths": [
     "node_modules/**",

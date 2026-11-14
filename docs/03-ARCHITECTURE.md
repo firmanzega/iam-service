@@ -26,37 +26,50 @@ Dependency direction is enforced by `ArchitectureLayerTest`. No framework import
 
 ### 3.1 Domain
 
-- `domain/auth/Session` — one device login, stable UUID, device label, revoked state
-- `domain/auth/RefreshToken` — hashed refresh token, session owner, revoked state
-- `domain/auth/SessionRepository` — port for session storage
-- `domain/auth/RefreshTokenRepository` — port for refresh token storage
+- `domain/auth/Session` — one device login, stable UUID, device label, revoked state, `tenant_id`
+- `domain/auth/RefreshToken` — hashed refresh token, session owner, revoked state, `tenant_id`
+- `domain/auth/SessionRepository` — port for session storage, tenant-scoped
+- `domain/auth/RefreshTokenRepository` — port for refresh token storage, tenant-scoped
 - `domain/auth/TokenIssuer` — port for JWT issuance and hashing
-- `domain/security/SecurityRejectionStatRepository` — port for 401 rejection aggregate
+- `domain/security/SecurityRejectionStatRepository` — port for 401 rejection aggregate, tenant-scoped
 - `domain/user/User`, `domain/user/Role`, `domain/user/UserRepository`, `domain/user/RoleRepository`
+- `domain/tenant/Tenant` — organization tenant identity, `tenant_id` internal key
+- `domain/tenant/TenantRepository` — port for tenant resolution from external organization ID
+- `domain/tenant/TenantContext` — request-scoped holder of current `tenantId`
+- `domain/logging/LoggingService` — port for categorized logging: errors, generals, integrations, timers, emails
+- `domain/logging/LogCategory` — enum: ERRORS, GENERALS, INTEGRATIONS, TIMERS, EMAILS
+- `domain/logging/LogEntry` — structured log entry value object
 
 ### 3.2 Application
 
-- `application/auth/AuthService` — login, refresh, logout, list sessions, revoke session, revoke all tokens
-- `application/auth/SessionCleanupService` — delete revoked/inactive sessions
-- `application/auth/RefreshTokenCleanupService` — delete expired refresh tokens
+- `application/auth/AuthService` — login, refresh, logout, list sessions, revoke session, revoke all tokens (tenant-scoped)
+- `application/auth/SessionCleanupService` — delete revoked/inactive sessions (tenant-scoped)
+- `application/auth/RefreshTokenCleanupService` — delete expired refresh tokens (tenant-scoped)
 - `application/auth/RefreshTokenReuseService` — revoke all sessions on token reuse, log `REFRESH_TOKEN_REUSE`
 - `application/auth/SessionSummary` — DTO for device list response
 - `application/audit/AuditService` — audit logging (transactional and independent)
-- `application/security/SecurityRejectionStatsService` — record 401 aggregate, cleanup by retention
+- `application/security/SecurityRejectionStatsService` — record 401 aggregate, cleanup by retention (tenant-scoped)
 - `application/security/PasswordPolicy` — password strength rules
+- `application/tenant/TenantResolver` — resolves `X-Organization-ID` header to internal `tenantId`, sets `TenantContext`
+- `application/logging/LoggingServiceImpl` — implements `LoggingService`, writes to SLF4J/Logback with MDC
+- `application/logging/LogMessage` — developer action to send custom general log message
 
 ### 3.3 Infrastructure
 
-- `infrastructure/persistence/SessionJpaEntity` — JPA entity for `sessions` table
-- `infrastructure/persistence/RefreshTokenJpaEntity` — JPA entity for `refresh_tokens` table
-- `infrastructure/persistence/SessionPersistenceAdapter` — implements `SessionRepository`
-- `infrastructure/persistence/RefreshTokenPersistenceAdapter` — implements `RefreshTokenRepository`
-- `infrastructure/persistence/SecurityRejectionStatPersistenceAdapter` — implements `SecurityRejectionStatRepository` via JdbcTemplate
+- `infrastructure/persistence/SessionJpaEntity` — JPA entity for `sessions` table, `tenant_id` column
+- `infrastructure/persistence/RefreshTokenJpaEntity` — JPA entity for `refresh_tokens` table, `tenant_id` column
+- `infrastructure/persistence/TenantJpaEntity` — JPA entity for `tenants` table
+- `infrastructure/persistence/SessionPersistenceAdapter` — implements `SessionRepository`, tenant-scoped queries
+- `infrastructure/persistence/RefreshTokenPersistenceAdapter` — implements `RefreshTokenRepository`, tenant-scoped queries
+- `infrastructure/persistence/TenantPersistenceAdapter` — implements `TenantRepository`
+- `infrastructure/persistence/SecurityRejectionStatPersistenceAdapter` — implements `SecurityRejectionStatRepository` via JdbcTemplate, tenant-scoped
+- `infrastructure/logging/LoggingAdapter` — SLF4J/Logback adapter, MDC injection of `tenantId` and `traceId`
 
 ### 3.4 REST Adapter
 
-- `adapter/rest/AuthController` — login, refresh, logout, sessions list, revoke session
-- `adapter/rest/WebMapper` — shared web-to-domain translator (actor ID, session ID, pagination)
+- `adapter/rest/AuthController` — login, refresh, logout, sessions list, revoke session (requires `X-Organization-ID`)
+- `adapter/rest/WebMapper` — shared web-to-domain translator (actor ID, session ID, pagination, tenant ID)
+- `adapter/rest/TenantHeaderFilter` — extracts `X-Organization-ID`, delegates to `TenantResolver`
 
 ### 3.5 Config
 
@@ -66,7 +79,8 @@ Dependency direction is enforced by `ArchitectureLayerTest`. No framework import
 - `config/SecurityEventRecorder` — records security events to log, metric, and audit
 - `config/JwtKeyRing` — key rotation with `kid`, current + previous key
 - `config/IamProperties` — all `iam.*` configuration properties
-- `config/SessionCleanupJob`, `config/RefreshTokenCleanupJob`, `config/SecurityRejectionStatsCleanupJob` — scheduled tasks
+- `config/SessionCleanupJob`, `config/RefreshTokenCleanupJob`, `config/SecurityRejectionStatsCleanupJob` — scheduled tasks (tenant-scoped)
+- `config/LoggingConfig` — Logback appenders, MDC pattern, structured output
 
 ## 4. Security Controls
 
@@ -91,9 +105,108 @@ Dependency direction is enforced by `ArchitectureLayerTest`. No framework import
 | Docker | Multi-stage, JRE 21, user 10001:10001, prod profile |
 | Scheduling pool | 4 threads (4 cleanup tasks) |
 
-## 6. Known Limits
+## 6. Multi-tenancy (Package B)
+
+### 6.1 Design
+
+Internal implementation uses `tenant_id` (consistent across code, database, domain).
+External API contract uses `X-Organization-ID` header for business-friendly terminology.
+
+A `TenantResolver` extracts `X-Organization-ID` from the request header, resolves it to
+an internal `tenantId` via `TenantRepository`, and stores it in request-scoped
+`TenantContext`. All repository queries for core tables (`users`, `roles`,
+`sessions`, `refresh_tokens`, `audit_logs`, `security_rejection_stats`) are filtered
+by `WHERE tenant_id = :currentTenantId`.
+
+Role master rows (`ADMIN`, `AUDITOR`, `USER`) remain global (no `tenant_id`) to avoid
+replication. Tenant-specific roles can be added later if required.
+
+### 6.2 Diagram (C4 Level 2 — Container)
+
+```mermaid
+C4Container
+  title System Context — Multi-tenancy
+  Person(admin, "Admin", "Manages users and roles within an organization")
+  Person(clientApp, "Client Application", "Calls /v1 API on behalf of an organization")
+  System_Boundary(c1, "iam-service") {
+    Container(api, "REST API", "Spring MVC", "Handles /v1 requests")
+    Container(resolver, "TenantResolver", "Java Filter", "Extracts X-Organization-ID, sets TenantContext")
+    Container(context, "TenantContext", "Request-scoped", "Holds current tenantId")
+    Container(db, "PostgreSQL 16", "Relational DB", "Shared schema, tenant_id column on core tables")
+  }
+  System_Ext(idp, "External IdP", "Optional future SAML/OIDC")
+
+  Rel(clientApp, api, "HTTP/JSON + X-Organization-ID", "HTTPS")
+  Rel(api, resolver, "Request", "Internal")
+  Rel(resolver, context, "Set tenantId", "Internal")
+  Rel(context, db, "WHERE tenant_id = ?", "JDBC")
+  Rel(api, db, "Tenant-scoped queries", "JDBC")
+```
+
+### 6.3 Security implications
+
+- Missing `X-Organization-ID` on tenant-isolated endpoints → `400 Bad Request`
+- Invalid organization ID → `401 Unauthorized` or `404 Not Found` (indistinguishable from non-existent, to prevent ID guessing)
+- Tenant A cannot access Tenant B data; enforced at repository layer, tested via integration tests
+
+## 7. Structured Logging (Package B)
+
+### 7.1 Design
+
+Logging is implemented via existing SLF4J/Logback (no new dependency). A `LoggingService`
+domain port defines five categories:
+
+| Category | Purpose | Status |
+|----------|---------|--------|
+| `errors` | Unhandled exceptions, system errors, custom error messages | Implemented |
+| `generals` | General messages, custom `LogMessage` action from developers | Implemented |
+| `integrations` | External REST API request/response, inbound and outbound | Implemented |
+| `timers` | Background job execution: started, success, failed, timeout | Implemented |
+| `emails` | SMTP send status: success, failure, trouble | Scaffold only (deferred) |
+
+Every log record includes `tenantId` (from `TenantContext` via MDC) and `traceId`
+(from OpenTelemetry when sampling enabled). Output is structured JSON or `key=value`
+to stdout/file. Log rotation and retention are operator-managed.
+
+### 7.2 Diagram (C4 Level 2 — Container)
+
+```mermaid
+C4Container
+  title System Context — Structured Logging
+  Person(dev, "Developer", "Sends custom LogMessage")
+  System_Boundary(c1, "iam-service") {
+    Container(api, "REST API", "Spring MVC", "Application entry point")
+    Container(logger, "LoggingService", "SLF4J/Logback", "Categorized structured logging")
+    Container(file, "Log file / stdout", "File", "Rotated by operator")
+  }
+  System_Ext(aggregator, "Log aggregator", "ELK / Loki / CloudWatch (future)")
+
+  Rel(dev, api, "LogMessage action", "Internal")
+  Rel(api, logger, "Log by category", "Internal")
+  Rel(logger, file, "Write structured log", "File append")
+  Rel(file, aggregator, "Ship logs (future)", "HTTP/syslog (not yet)")
+```
+
+## 8. Non-Functional Requirements
+
+| NFR | Value | Status |
+|-----|-------|--------|
+| Test coverage | ≥ 80% line per class (JaCoCo) | Existing |
+| Checkstyle | 0 violations | Existing |
+| SpotBugs | Medium threshold, per-class exclusions | Existing |
+| SBOM | CycloneDX 1.6 JSON on `verify` | Existing |
+| Docker | Multi-stage, JRE 21, user 10001:10001, prod profile | Existing |
+| Scheduling pool | 4 threads (4 cleanup tasks) | Existing |
+| Tenant isolation | Repository-enforced `tenant_id` filter | New (Package B) |
+| Logging categories | 5 categories: errors, generals, integrations, timers, emails | New (Package B) |
+| Logging output | Self-managed stdout/file, structured | New (Package B) |
+
+## 9. Known Limits
 
 - Rate limit is per instance (no distributed rate limiting in Package A)
 - Access tokens are not revocable directly (expire after 15 minutes max)
 - No WORM / append-only external audit storage
-- No SAML/OIDC, no multi-tenancy, no self-registration
+- No SAML/OIDC, no self-registration
+- Multi-tenancy is logical isolation (`tenant_id` column), not physical; a repository filter bug can leak data across tenants (mitigated by tests)
+- Logging is local per instance; no central aggregator yet
+- Email logging category is scaffold only; SMTP implementation deferred

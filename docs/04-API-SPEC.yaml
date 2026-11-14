@@ -77,6 +77,13 @@ paths:
       operationId: logout
       security:
         - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-Organization-ID
+          required: true
+          schema:
+            type: string
+          description: Organization identifier for multi-tenancy isolation
       requestBody:
         required: true
         content:
@@ -86,8 +93,10 @@ paths:
       responses:
         '204':
           description: Refresh token revoked
+        '400':
+          description: Missing X-Organization-ID header
         '401':
-          description: Not authenticated
+          description: Not authenticated or invalid organization
         '403':
           description: Refresh token does not belong to caller
   /auth/sessions:
@@ -97,6 +106,13 @@ paths:
       operationId: listSessions
       security:
         - bearerAuth: []
+      parameters:
+        - in: header
+          name: X-Organization-ID
+          required: true
+          schema:
+            type: string
+          description: Organization identifier for multi-tenancy isolation
       responses:
         '200':
           description: List of sessions
@@ -106,8 +122,10 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Missing X-Organization-ID header
         '401':
-          description: Not authenticated
+          description: Not authenticated or invalid organization
   /auth/sessions/{sessionId}:
     delete:
       tags: [auth]
@@ -116,6 +134,12 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - in: header
+          name: X-Organization-ID
+          required: true
+          schema:
+            type: string
+          description: Organization identifier for multi-tenancy isolation
         - in: path
           name: sessionId
           required: true
@@ -125,8 +149,10 @@ paths:
       responses:
         '204':
           description: Session revoked
+        '400':
+          description: Missing X-Organization-ID header
         '401':
-          description: Not authenticated
+          description: Not authenticated or invalid organization
         '404':
           description: Session not found or not owned by caller
 components:

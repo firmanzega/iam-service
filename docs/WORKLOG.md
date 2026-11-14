@@ -37,8 +37,16 @@ Kartu memori status lintas sesi untuk alur `team-workflow` linear.
 
 **Kesimpulan:** Skenario D ditunda. Endpoint self-service dasar yang sudah ada (ganti kata sandi, daftar perangkat, cabut perangkat) cukup untuk sekarang. Portal self-service terpisah dapat dibangun nanti tanpa mengubah backend.
 
+## Tahap 3 - Arsitektur (selesai, checkpoint)
+- ADR-0016: Multi-tenancy — internal `tenant_id`, external `X-Organization-ID` header
+- ADR-0017: Structured logging — 5 categories (errors, generals, integrations, timers, emails)
+- docs/03-ARCHITECTURE.md: added TenantContext, TenantResolver, LoggingService, tenant_id on core tables, C4 diagrams, logging categories
+- docs/04-API-SPEC.yaml: added `X-Organization-ID` header to /auth/logout, /auth/sessions, /auth/sessions/{sessionId}
+
 ## Pertanyaan Terbuka
-- Dokumen lama di docs/ (security.md, deployment.md, manual-testing.md, dll.) akan disinkronisasi atau diarsipkan?
+- docs/01-PRD.md perlu diperbarui untuk mencakup multi-tenancy dan logging sebagai kebutuhan Package B (Tahap 1 harus selesai sebelum implementasi Tahap 4)
+- Identifikasi tenant disetujui: header `X-Organization-ID` (external), `tenant_id` (internal)
+- Skala: < 5 tenant, self-managed logging (stdout/file), email ditunda
 
 ## Instruksi Sesi Berikutnya
-Baca WORKLOG.md ini terlebih dahulu.
+Baca WORKLOG.md ini terlebih dahulu. Jika Boss setuju, lanjut ke Tahap 4 (implementasi backend): tenant_id migration, TenantResolver, LoggingService, repository tenant-scoped queries.
