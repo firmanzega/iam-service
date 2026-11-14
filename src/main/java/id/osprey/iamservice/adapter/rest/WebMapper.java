@@ -54,29 +54,6 @@ final class WebMapper {
     }
 
     /**
-     * Tenant pemilik token, diambil dari klaim "tenant_id".
-     *
-     * Token yang terbit sebelum multi-tenancy tidak membawa klaim ini. Nilai
-     * seperti itu dikembalikan sebagai null, bukan ditebak dari data lain.
-     */
-    static Long tenantId(Jwt jwt) {
-        if (jwt == null) {
-            return null;
-        }
-
-        String value = jwt.getClaimAsString(TokenClaims.TENANT_ID);
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-
-        try {
-            return Long.valueOf(value);
-        } catch (NumberFormatException exception) {
-            return null;
-        }
-    }
-
-    /**
      * Menerjemahkan pagination dari lapisan web menjadi permintaan domain.
      */
     static PaginationRequest toRequest(Pageable pageable) {
