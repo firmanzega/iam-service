@@ -4,56 +4,36 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** Stage 7 - RELEASE VERIFIED & TAGGED v1.0.0 (CI #29/#30 SUCCESS, restore drill #14/#15 SUCCESS on the release SHA; NOT deployed)
+- **Last Completed Stage:** Stage 7 - RELEASE VERIFIED & TAGGED v1.0.0 (CI #29/#30 SUCCESS, restore drill #14/#15 SUCCESS; NOT deployed)
 - **Next Active Stage:** Stage 7 - Go-live execution (Boss deploys + prod checklist items)
 - **Active Skill to Load:** `senior-security-engineer`
-- **Last Updated:** 2026-11-14 19:05
+- **Last Updated:** 2026-11-14 19:15
 
 ## 1. Key Decisions & Locked Artifacts
-- **Stage 7 (Security & Release):** `07-DEPLOYMENT.md` + `CHANGELOG.md` v1.0.0 done (committed); Package A GO pending SEC-STATS-001 + BUG-TENANT-001/004 — all three FIXED and QA-verified 2026-11-14; verify green 299/299.
-- **Stage 3 (Architecture):** ADR-0016 (`tenant_id` / `X-Organization-ID`) + ADR-0017 in `638c1d3`; ADR-0018 (tenant-scoped identity) in `f88f6fa`; Scenario D deferred.
-- **Stage 4 & 6 (Implementation & QA):** `V9` tenant migration + tenant-aware backend (`63814ac`); BUG-TENANT-002/003 fixed (`8f125e8`); ADR-0018 implemented (`d16d692`): `V10` composite unique, required header on login/refresh (401), stored-token-tenant refresh (ADR-0018 pt. 6), BUG-TENANT-001 fixed (unknown org -> 401 everywhere, unified with missing header via Boss "disatukan saja 401") + BUG-TENANT-004 fixed (login lookup was leaking across tenants); 401-missing contract synced everywhere (`e60973f`, `f57ca24`); 257/257 green.
-- **Stage 6 -> 4 (verify gate):** `mvn clean verify` had been red since `63814ac` (JaCoCo per-class -> Checkstyle 14 -> SpotBugs 3). Dead `RejectionStatRow` removed (exists-only `SELECT 1` -> `Integer`); `LogMessage.category` removed (ADR-0017); Checkstyle 0, SpotBugs 0; 299/299 green, commit `56fa3fc`.
+- **ADR-0016/0018 (multi-tenancy):** shared schema, header `X-Organization-ID` wajib di seluruh endpoint tenant-aware (missing/unknown -> 401), identitas tenant-scoped `UNIQUE(tenant_id, username|email)` (V10), refresh di-anchor ke tenant token tersimpan. Committed `638c1d3`/`f88f6fa`/`d16d692`.
+- **ADR-0017 (structured logging)** + ADR-0018 point 6 (JWT claim carried, header-based resolution).
+- **Breaking contract folded into v1.0.0** (Boss Option B, 2026-11-14); CHANGELOG [1.0.0] re-scoped honestly; tag pushed on `577187f`; CI #29/#30 green, restore drill #14/#15 green.
+- **Verify gate:** `mvn clean verify` BUILD SUCCESS (305/305 2026-11-14); repo debt historically red since `63814ac`, now green.
+- **Boss rulings:** unknown org -> 401 (BUG-TENANT-001/004 fixed); missing/unknown header -> 401 everywhere ("disatukan saja 401"); Option A (V11) for rejection-stats; Option B (fold breaking into 1.0.0); on-premise = org-default single tenant.
 
-## 2. Open Questions / Blockers for User
-1. **RESOLVED (2026-11-14):** missing `X-Organization-ID` is 401 everywhere including sessions/logout (Boss: "disatukan saja 401"); unknown org is 401 everywhere; cause carried by error body.
-2. **BUG-TENANT-001:** FIXED + QA-verified 2026-11-14 (401 on every path).
-3. **BUG-TENANT-004:** FIXED + QA-verified 2026-11-14 (V10 composite unique; two-tenant same-identity login passes).
-4. **QA-GATE-001:** FIXED 2026-11-14 — verify BUILD SUCCESS (299/299, JaCoCo per-class met, Checkstyle 0, SpotBugs 0). Gate red since `63814ac`.
-5. **SEC-STATS-001 — FIXED + QA-verified 2026-11-14 (Option A, Boss-approved):** `V11` composite tenant-scoped unique on `security_rejection_stats`; `increment()` = single-statement upsert. QA re-verified: `TenantIsolationIntegrationTest.unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason` (both tenants increment same minute/method/reason); test proven failable by temporarily reverting the upsert (`expected <2> but was <1>`), then restored. Closed in `06-TEST-PLAN.md` §6/§10.3.
-6. **JWT Claim:** `tenant_id` claim present; resolution header-based per ADR-0018 pt 6. VERIFIED 2026-11-14: zero reads of the claim for any authorization decision; `WebMapper.tenantId` has no callers (dead code — backend cleanup, not security).
-7. **RESOLVED (2026-11-14):** release version — Boss ruling Option **B**: fold the breaking contract INTO `v1.0.0` (never tagged/published/deployed anywhere; verified: no git tags local/remote, no registry push in CI, no deploy artifacts, no releases). CHANGELOG `[1.0.0]` re-scoped honestly to include multi-tenancy + breaking contract; single release.
-8. **On-premise default:** CONFIRMED by Boss 2026-11-14 (Option A of ADR-0016: on-premise = single org-default; cloud = shared schema).
+## 2. Open Items / Residual Debt (B+ baseline)
+| Debt | Owner | Fix |
+|------|-------|-----|
+| `04-API-SPEC.yaml` only documents `/auth/*` | BA/architect | document users/roles/audit |
+| `WebMapper.tenantId` dead code (0 callers) | backend | delete + retest |
+| Dependabot PRs #1-#4 CI red (pre-fix branches) | dependabot/merge | merge after triage |
+| Sentinel tests not all mutation-proven | QA | discipline note |
+| No live deploy/rollback executed | Boss/ops | go-live |
+| Path to A-: API-SPEC + dead code + dependabot + deploy verify `07-DEPLOYMENT.md` §6 | team | A- |
 
 ## 3. Exact Next Action (Start Here in New Session)
-1. Go-live execution: Boss deploys per `07-DEPLOYMENT.md` §6 (prod environment items unchecked intentionally — HTTPS cert, prod password, prod DB w/o dev admin, prometheus internal, CORS domain, clients send `X-Organization-ID`). Release SHA `577187f` fully green; tag `v1.0.0` pushed.
-2. After deploy: tick §6 prod items; smoke `/actuator/health` + login; close Stage 7.
-
-## 5. Technical Debt Register (honest B+ baseline, 2026-11-14)
-| Debt | Owner | Closes to |
-|------|-------|-----------|
-| `04-API-SPEC.yaml` documents only `/auth/*`; `/users`, `/roles`, `/audit-logs` undocumented | BA/architect | - |
-| `WebMapper.tenantId` dead code, zero callers | backend | trivial |
-| Dependabot PRs #1–#4 CI red (pre-fix branches) | dependabot/merge | after bad-merge judgement |
-| Sentinel tests proven failable only for a sample, not all 300+ | QA | discipline |
-| Security audit static-only; no dynamic pentest, no live deploy | Boss/ops | deploy |
-| Deploy/rollback untested against any live environment | Boss/ops | go-live |
-| Path back to A-: close API-SPEC + dead code + dependabot + deploy & verify §6 honestly | team | A- |
+1. Boss executes go-live per `07-DEPLOYMENT.md` §6 (prod-only items deliberately unchecked; release SHA `577187f` + tag `v1.0.0` fully green).
+2. After deploy: smoke `/actuator/health` + login; tick prod checklist; close Stage 7.
 
 ## 4. Decision & Switch Log
-- [2026-11-14 | Stage 7] TEK-DEBT B+ recorded as honest baseline (was A-, premature): every "fixed" gate since 63814ac exposed deeper hygiene gaps (verify never green, drill never green, SEC-USERS-001 IDOR). Path to A- explicitly enumerated in section 5. — Reason: Boss asked why B+ was touched.
-- [2026-11-14 | Stage 7] RELEASE VERIFIED for tag v1.0.0 (annotated, SHA 577187f, pushed): CI #29 (f156757) + CI #30 (577187f) SUCCESS; restore drill #14 + #15 SUCCESS (exactly the release SHA); tag pushed to origin (no workflow triggered by tags); go-live checklist §6 honestly scoped (repo-verifiable items checked; prod-environment items left unchecked with labels). Tag v1.0.0 exists but NOT deployed per Boss order. — Reason: Stage 7 close-out, Option B ruling, 2026-11-14.
-- [2026-11-14 | Stage 7] Release readiness VERIFIED: CI #26 SUCCESS on f156757 (CI #24 was CANCELLED by push concurrency, #25 SUCCESS — both mysteries resolved via public Actions embed data); restore drill #13 SUCCESS; go-live checklist §6 updated honestly (only repo-verifiable items checked; prod-environment items left unchecked with labels); v1.0.0 tagged on the green SHA (tag has no workflow trigger; NOT deployed per Boss order). Deploy NOT executed — awaiting Boss go-live. — Reason: Stage 7 close-out, Option B ruling.
-- [2026-11-14 | Stage 7] SEC-USERS-001 shipped: CI #23 GREEN (initial CI #22 failed only on a Checkstyle line-length rule, fixed in 9f48493). RESTORE DRILL RESOLVED — GREEN #13: two layered bugs (seed heredoc without docker exec -i; string_agg expectation 'one,two,three' vs actual 'one,three,two'); fixed in 1e2a862/8ebbb5b; drill green for the first time since it was added. — Reason: Stage 7 release gate.
-- [2026-11-14 | Stage 7] CI #16 root cause found & fixed (`4d7a344`): UserServiceTest never established TenantContext (NPE on the org-default fallback), masked locally by AuthServiceTest's context leak into the shared fork; not infra. Fixed test isolation in 5 classes; added `create_withoutTenantContext_fallsBackToDefaultTenant` pin; CI #20 GREEN (3m12s, 300/300, Trivy OK). ALSO: `Restore drill` failing on every run since 20ad507 (fast fail) — root cause fixed 2026-11-14 (missing psql connection params in Assert step). — Reason: CI re-verification after push.
-- [2026-11-14 | Stage 7] Re-audit (Phase 7 redo) for the breaking contract: secrets none (repo+history), CORS no wildcard (+X-Organization-ID allowed), prod profile locked (springdoc off, ddl-auto validate, dev-only seed/admin), JWT min-length + no claim reads for authz, CI gates Trivy HIGH/CRITICAL + dependency-review + restore drill. 07-DEPLOYMENT.md updated (V9-V11 migration table, deploy order, Breaking Contract §10, rollback constraints). CHANGELOG [1.0.0] re-scoped per Boss Option B: multi-tenancy + breaking contract folded into the first release (never tagged/published/deployed). Boss also confirmed on-premise org-default model. — Reason: Stage 7 + Boss rulings, 2026-11-14.
-- [2026-11-14 | Stage 6] SEC-STATS-001 QA re-verified and CLOSED: cross-tenant same-minute 401 aggregate test added (`TenantIsolationIntegrationTest.unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason`); fixture gained `security_rejection_stats` cleanup before tenant delete (FK enforced); test proven failable by temporarily reverting the upsert to a plain INSERT (`expected <2> but was <1>`), restored via git checkout. `mvn clean verify` BUILD SUCCESS 299/299. NOTE (role-lock honesty): the mutation step edited production code under the QA role; reverted exactly afterwards — future mutations must switch to the backend role explicitly. — Reason: 4.4 proof of failure.
-- [2026-11-14 | Stage 4] SEC-STATS-001 fixed (Option A, Boss ruling 2026-11-14): V11 drops global `uq_security_rejection_stats`, adds composite `uq_security_rejection_stats_tenant UNIQUE (tenant_id, window_start, http_method, reason)`; increment() is one `INSERT ... ON CONFLICT DO UPDATE`; TOCTOU race removed; 298/298 green, Checkstyle 0. QA re-verification pending at the time. — Reason: Boss decision, Option A.
-- [2026-11-14 | Stage 3] Architect review of SEC-STATS-001: recommended Option A; rejected drop-constraint; on-premise-only fallback documented. Boss ruling 2026-11-14: Option A. — Reason: ADR-0016 tenant purity.
-- [2026-11-14 | Stage 6 -> 4] Backend verified and closed QA-GATE-001: dead `RejectionStatRow` removed (existence-only `SELECT 1` -> Integer), `LogMessage.category` removed per ADR-0017, Checkstyle 14 -> 0 (13 pre-existing violations from 63814ac finally visible once JaCoCo stopped failing first), SpotBugs Medium clean (LoggingServiceImpl excluded via sanctioned `config/spotbugs/exclude.xml` Group-1 pattern + LogMessage defensive copies), `mvn clean verify` BUILD SUCCESS 299/299. NEW finding SEC-STATS-001 (V8 global unique on security_rejection_stats drops non-default tenants' 401 aggregates) escalated to Boss — schema change to core table, not done unilaterally. — Reason: Stage 6 retest required verify green before release.
-- [2026-11-14 | Stage 6] QA retest: BUG-TENANT-001/004 FIXED and verified (see 06-TEST-PLAN §10); missing-header unification to 401 re-verified; 44 tests added (257 -> 301); `mvn clean verify` red ONLY on JaCoCo per-class gate, QA-GATE-001 (RejectionStatRow dead getters), escalated to backend; gate had been red since 63814ac. Honesty note: sentinel tests proven failable only via pre-fix/post-fix history, NOT via formal per-test mutation runs. — QA evidence, not waiver.
-- [2026-11-14 | Stage 3 doc sync] Boss ruling (BUG-TENANT-001): reject 401 — unknown organization is 401 on all paths; missing/unknown org unified to 401 on all tenant-aware paths (Boss: "disatukan saja 401"); error body carries missing-vs-unknown cause. `03-ARCHITECTURE.md`, `ADR-0016`, `ADR-0018` rationale, API-SPEC, TenantHeaderFilter, and tests synced. — Reason: Boss ruling, 2026-11-14.
-- [2026-11-14 | Stage 4] ADR-0018 implemented: V10 migration, required header on login/refresh (401), refresh anchored to stored token tenant, BUG-TENANT-001 (unknown org -> 401 everywhere) and BUG-TENANT-004 (query predicate) fixed; login lookup was leaking across tenants pre-fix. CORS preflight allows X-Organization-ID. — Reason: Boss decision Option (a), 2026-11-14.
-- [2026-11-14 | Stage 6 -> 4 -> 6] Fixed BUG-TENANT-002 (`requestURI` filter under MockMvc) and BUG-TENANT-003 (`user.getTenantId()` session attribution) in commit `8f125e8` — Reason: QA retest failures.
-- [2026-11-14 | Stage 1] PRD updated for multi-tenancy + structured logging (check-id/check-bahasa clean); Boss approved Option (a) credit: marketing on-premise + cloud. — Reason: Boss decision, 2026-11-14.
-- [2026-11-14 | Stage 3] ADR-0018 created: tenant-scoped identity, required `X-Organization-ID` on `/v1/auth/login` + `/v1/auth/refresh` (401 on unknown/missing org per ADR-0016 verification). — Reason: Boss decision, Option (a).
+- [2026-11-14 | Stage 7] v1.0.0 TAGGED on `577187f` (annotated, pushed). Verified: CI #29(f156757)/#30(577187f) SUCCESS; restore drill #14/#15 SUCCESS; checklist §6 honestly scoped (repo items [x], prod items pending). Deploy NOT executed. — Reason: Stage 7 close-out.
+- [2026-11-14 | Stage 7] TEK-DEBT B+ recorded honestly (A- was premature: verify red since `63814ac`; drill red since creation; each close found deeper debt). Path to A- in section 2. — Reason: Boss asked.
+- [2026-11-14 | Stage 7] RESTORE DRILL GREEN #13/#14/#15: two layered bugs fixed (seed heredoc w/o docker exec -i; `string_agg` expected `one,two,three` vs actual `one,three,two`). — Reason: Stage 7 gate.
+- [2026-11-14 | Stage 7] CI #16 root cause = order-dependent test (UserServiceTest missing TenantContext/mock) masked by AuthServiceTest leak; fixed in `4d7a344`; CI #20/#23 green. — Reason: CI re-verify.
+- [2026-11-14 | Stage 4] ADR-0018 Option A → V11 composite unique + upsert; SEC-STATS-001 closed. SEC-USERS-001 IDOR closed (header required on /v1/users/*, tenant-scoped repos). — Reason: Boss decisions, 2026-11-14.
+- [2026-11-14 | Stage 4] ADR-0018 implemented (V10, login/refresh require X-Organization-ID 401, refresh anchored to stored token, BUG-TENANT-001/004 fixed). — Reason: Boss Option (a).
