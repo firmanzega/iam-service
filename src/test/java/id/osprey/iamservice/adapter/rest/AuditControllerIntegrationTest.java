@@ -42,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuditControllerIntegrationTest {
 
     private static final String PASSWORD = "Rahasia123";
+    private static final Long TENANT_ID = 1L;
     private static final String PREFIX = "audittest-";
 
     @Autowired
@@ -66,7 +67,7 @@ class AuditControllerIntegrationTest {
     void setUp() throws Exception {
         Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
 
-        User admin = new User(PREFIX + "admin", PREFIX + "admin@mail.com",
+        User admin = new User(TENANT_ID, PREFIX + "admin", PREFIX + "admin@mail.com",
                 passwordEncoder.encode(PASSWORD));
         admin.replaceRoles(Set.of(adminRole));
         adminId = userRepository.save(admin).getId();
@@ -98,7 +99,8 @@ class AuditControllerIntegrationTest {
 
         mockMvc.perform(get("/v1/audit-logs")
                         .param("size", "3")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(secondNewestId))
                 .andExpect(jsonPath("$.content[1].id").value(firstNewestId))
@@ -115,7 +117,8 @@ class AuditControllerIntegrationTest {
         mockMvc.perform(get("/v1/audit-logs")
                         .param("size", "2")
                         .param("sort", "action,asc")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].action").value("0-" + PREFIX + "a"))
                 .andExpect(jsonPath("$.content[1].action").value("0-" + PREFIX + "b"));
@@ -132,8 +135,8 @@ class AuditControllerIntegrationTest {
 
     private Long insertLog(String action, Instant createdAt) {
         return jdbcTemplate.queryForObject(
-                "insert into audit_logs (actor_user_id, action, created_at) values (?, ?, ?) returning id",
-                Long.class, adminId, action, Timestamp.from(createdAt));
+                "insert into audit_logs (actor_user_id, action, created_at, tenant_id) values (?, ?, ?, ?) returning id",
+                Long.class, adminId, action, Timestamp.from(createdAt), TENANT_ID);
     }
 
     private String login(String username) throws Exception {

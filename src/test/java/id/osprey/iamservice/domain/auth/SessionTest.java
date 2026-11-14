@@ -24,10 +24,11 @@ class SessionTest {
 
     private static final Instant NOW = Instant.parse("2026-01-01T10:00:00Z");
     private static final Duration TTL = Duration.ofDays(7);
+    private static final Long TENANT_ID = 10L;
 
     @Test
     void start_createsActiveSessionWithOwnIdentity() {
-        Session session = Session.start(1L, "laptop", NOW);
+        Session session = Session.start(1L, TENANT_ID, "laptop", NOW);
 
         assertEquals(1L, session.getUserId());
         assertEquals("laptop", session.getDeviceLabel());
@@ -39,29 +40,29 @@ class SessionTest {
 
     @Test
     void start_generatesDifferentIdentityForEachSession() {
-        UUID first = Session.start(1L, null, NOW).getId();
-        UUID second = Session.start(1L, null, NOW).getId();
+        UUID first = Session.start(1L, TENANT_ID, null, NOW).getId();
+        UUID second = Session.start(1L, TENANT_ID, null, NOW).getId();
 
         assertFalse(first.equals(second), "setiap login perangkat harus punya id sesi sendiri");
     }
 
     @Test
     void start_trimsLabelAndTreatsBlankAsAbsent() {
-        assertEquals("laptop kantor", Session.start(1L, "  laptop kantor  ", NOW).getDeviceLabel());
-        assertNull(Session.start(1L, "   ", NOW).getDeviceLabel());
-        assertNull(Session.start(1L, null, NOW).getDeviceLabel());
+        assertEquals("laptop kantor", Session.start(1L, TENANT_ID, "  laptop kantor  ", NOW).getDeviceLabel());
+        assertNull(Session.start(1L, TENANT_ID, "   ", NOW).getDeviceLabel());
+        assertNull(Session.start(1L, TENANT_ID, null, NOW).getDeviceLabel());
     }
 
     @Test
     void start_rejectsLabelLongerThanColumnWidth() {
         String tooLong = "a".repeat(Session.MAX_DEVICE_LABEL_LENGTH + 1);
 
-        assertThrows(IllegalArgumentException.class, () -> Session.start(1L, tooLong, NOW));
+        assertThrows(IllegalArgumentException.class, () -> Session.start(1L, TENANT_ID, tooLong, NOW));
     }
 
     @Test
     void touch_movesLastSeenForwardButNeverBackward() {
-        Session session = Session.start(1L, "laptop", NOW);
+        Session session = Session.start(1L, TENANT_ID, "laptop", NOW);
 
         session.touch(NOW.plusSeconds(60));
         assertEquals(NOW.plusSeconds(60), session.getLastSeenAt());
@@ -72,7 +73,7 @@ class SessionTest {
 
     @Test
     void touch_doesNotReviveRevokedSession() {
-        Session session = Session.start(1L, "laptop", NOW);
+        Session session = Session.start(1L, TENANT_ID, "laptop", NOW);
         session.revoke(NOW.plusSeconds(10));
 
         session.touch(NOW.plusSeconds(60));
@@ -83,7 +84,7 @@ class SessionTest {
 
     @Test
     void revoke_keepsTheFirstRevocationTime() {
-        Session session = Session.start(1L, "laptop", NOW);
+        Session session = Session.start(1L, TENANT_ID, "laptop", NOW);
 
         session.revoke(NOW.plusSeconds(10));
         session.revoke(NOW.plusSeconds(60));
@@ -93,7 +94,7 @@ class SessionTest {
 
     @Test
     void isExpired_whenRevoked() {
-        Session session = Session.start(1L, "laptop", NOW);
+        Session session = Session.start(1L, TENANT_ID, "laptop", NOW);
         session.revoke(NOW);
 
         assertTrue(session.isExpired(NOW, TTL));
@@ -101,7 +102,7 @@ class SessionTest {
 
     @Test
     void isExpired_whenNotSeenForLongerThanRefreshTokenLifetime() {
-        Session session = Session.start(1L, "laptop", NOW);
+        Session session = Session.start(1L, TENANT_ID, "laptop", NOW);
 
         assertFalse(session.isExpired(NOW.plus(TTL).minusSeconds(1), TTL));
         assertTrue(session.isExpired(NOW.plus(TTL), TTL));
@@ -109,7 +110,7 @@ class SessionTest {
 
     @Test
     void belongsTo_onlyMatchesItsOwner() {
-        Session session = Session.start(1L, "laptop", NOW);
+        Session session = Session.start(1L, TENANT_ID, "laptop", NOW);
 
         assertTrue(session.belongsTo(1L));
         assertFalse(session.belongsTo(2L));

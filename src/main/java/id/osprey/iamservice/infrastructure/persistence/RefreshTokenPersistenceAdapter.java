@@ -10,6 +10,7 @@ import java.util.UUID;
 
 /**
  * Adapter yang memenuhi port RefreshTokenRepository memakai Spring Data JPA.
+ * Setiap query difilter tenant_id sehingga token tidak pernah melintas tenant.
  */
 @Repository
 public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
@@ -38,6 +39,7 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
                 : repository.findById(refreshToken.getId()).orElseThrow();
 
         entity.setUser(userRepository.getReferenceById(refreshToken.getUser().getId()));
+        entity.setTenantId(refreshToken.getTenantId());
         entity.setSessionId(refreshToken.getSessionId());
 
         if (refreshToken.getRevokedAt() != null) {
@@ -48,17 +50,22 @@ public class RefreshTokenPersistenceAdapter implements RefreshTokenRepository {
     }
 
     @Override
-    public long revokeAllForUser(Long userId, Instant revokedAt) {
-        return repository.revokeAllByUserId(userId, revokedAt);
+    public long revokeAllForUser(Long userId, Long tenantId, Instant revokedAt) {
+        return repository.revokeAllByUserId(userId, tenantId, revokedAt);
     }
 
     @Override
-    public long revokeAllForSession(UUID sessionId, Instant revokedAt) {
-        return repository.revokeAllBySessionId(sessionId, revokedAt);
+    public long revokeAllForSession(UUID sessionId, Long tenantId, Instant revokedAt) {
+        return repository.revokeAllBySessionId(sessionId, tenantId, revokedAt);
+    }
+
+    @Override
+    public long deleteExpiredBefore(Long tenantId, Instant cutoff) {
+        return repository.deleteExpiredBefore(tenantId, cutoff);
     }
 
     @Override
     public long deleteExpiredBefore(Instant cutoff) {
-        return repository.deleteExpiredBefore(cutoff);
+        return repository.deleteExpiredBeforeAll(cutoff);
     }
 }

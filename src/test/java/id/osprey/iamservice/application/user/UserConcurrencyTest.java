@@ -2,8 +2,10 @@ package id.osprey.iamservice.application.user;
 
 import id.osprey.iamservice.TestcontainersConfiguration;
 import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.tenant.TenantContext;
 import id.osprey.iamservice.domain.user.User;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +55,11 @@ class UserConcurrencyTest {
                 "delete from user_roles where user_id in (select id from users where username like ?)",
                 TEST_USERNAME_PREFIX + "%");
         jdbcTemplate.update("delete from users where username like ?", TEST_USERNAME_PREFIX + "%");
+    }
+
+    @BeforeEach
+    void setTenantContext() {
+        TenantContext.setTenantId(1L);
     }
 
     @RepeatedTest(10)

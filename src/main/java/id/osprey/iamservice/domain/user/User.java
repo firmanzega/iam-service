@@ -25,6 +25,7 @@ import java.util.Set;
 public class User {
 
     private Long id;
+    private Long tenantId;
     private String username;
     private String email;
     private String passwordHash;
@@ -40,10 +41,19 @@ public class User {
     }
 
     public User(String username, String email, String passwordHash) {
-        this.username = username;
-        this.email = email;
-        this.passwordHash = passwordHash;
-        this.active = true;
+        this(null, null, username, email, passwordHash, true, 0, null, null, null, 0L, null);
+    }
+
+    /**
+     * Membuat pengguna dengan tenant, untuk integrasi dan pengujian.
+     *
+     * @param tenantId tenant internal pemilik pengguna
+     * @param username nama masuk
+     * @param email alamat surel
+     * @param passwordHash hash kata sandi
+     */
+    public User(Long tenantId, String username, String email, String passwordHash) {
+        this(null, tenantId, username, email, passwordHash, true, 0, null, null, null, 0L, null);
     }
 
     /**
@@ -64,7 +74,31 @@ public class User {
     public User(Long id, String username, String email, String passwordHash, boolean active,
                 int failedLoginAttempts, Instant lockedUntil, LocalDateTime createdAt,
                 LocalDateTime updatedAt, long version, Set<Role> roles) {
+        this(id, null, username, email, passwordHash, active, failedLoginAttempts, lockedUntil,
+                createdAt, updatedAt, version, roles);
+    }
+
+    /**
+     * Menyusun ulang pengguna yang sudah tersimpan di database, termasuk tenant.
+     *
+     * @param id identitas pengguna
+     * @param tenantId tenant internal pemilik pengguna
+     * @param username nama masuk
+     * @param email alamat surel
+     * @param passwordHash hash kata sandi
+     * @param active apakah akun sedang aktif
+     * @param failedLoginAttempts jumlah kegagalan login beruntun
+     * @param lockedUntil batas waktu sampai akun terkunci, null bila tidak terkunci
+     * @param createdAt waktu pembuatan
+     * @param updatedAt waktu perubahan terakhir
+     * @param version nomor versi untuk penguncian optimistis
+     * @param roles role yang dimiliki pengguna
+     */
+    public User(Long id, Long tenantId, String username, String email, String passwordHash,
+                boolean active, int failedLoginAttempts, Instant lockedUntil,
+                LocalDateTime createdAt, LocalDateTime updatedAt, long version, Set<Role> roles) {
         this.id = id;
+        this.tenantId = tenantId;
         this.username = username;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -151,6 +185,10 @@ public class User {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
     }
 
     public String getUsername() {

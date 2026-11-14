@@ -78,6 +78,12 @@ public class JwtTokenService implements TokenIssuer {
             claims.claim(TokenClaims.SESSION_ID, sessionId.toString());
         }
 
+        // tenant_id diklaim supaya resource server dan layer bawah dapat
+        // mengenal tenant pemanggil tanpa mencari ke database.
+        if (user.getTenantId() != null) {
+            claims.claim(TokenClaims.TENANT_ID, user.getTenantId().toString());
+        }
+
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256)
                 .keyId(keyRing.currentKeyId())
                 .build();
@@ -112,6 +118,10 @@ public class JwtTokenService implements TokenIssuer {
 
         if (sessionId != null) {
             claims.claim(TokenClaims.SESSION_ID, sessionId.toString());
+        }
+
+        if (user.getTenantId() != null) {
+            claims.claim(TokenClaims.TENANT_ID, user.getTenantId().toString());
         }
 
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256)

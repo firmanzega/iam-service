@@ -35,7 +35,7 @@ class SessionCleanupServiceTest {
         SessionCleanupService service = new SessionCleanupService(sessionRepository, settings);
 
         Instant now = Instant.parse("2026-01-08T10:00:00Z");
-        when(sessionRepository.deleteInactiveBefore(eq(now.minus(ttl)))).thenReturn(3L);
+        when(sessionRepository.deleteInactiveBefore(now.minus(ttl))).thenReturn(3L);
 
         long deleted = service.deleteInactive(now);
 

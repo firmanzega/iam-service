@@ -7,9 +7,12 @@ import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
+import id.osprey.iamservice.domain.tenant.Tenant;
+import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
+import id.osprey.iamservice.domain.tenant.TenantContext;
 import id.osprey.iamservice.domain.user.UserRepository;
 import id.osprey.iamservice.domain.user.UserSortableProperties;
 import org.springframework.stereotype.Service;
@@ -37,25 +40,40 @@ public class UserService {
     private static final String AUDIT_PASSWORD_RESET = "PASSWORD_RESET";
     private static final String AUDIT_TOKENS_REVOKED = "TOKENS_REVOKED";
 
+    private static final String DEFAULT_ORGANIZATION_ID = "org-default";
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordPolicy passwordPolicy;
     private final AuditService auditService;
     private final TokenRevocationService tokenRevocationService;
     private final PasswordEncoder passwordEncoder;
+    private final TenantRepository tenantRepository;
 
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
                        PasswordPolicy passwordPolicy,
                        AuditService auditService,
                        TokenRevocationService tokenRevocationService,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       TenantRepository tenantRepository) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordPolicy = passwordPolicy;
         this.auditService = auditService;
         this.tokenRevocationService = tokenRevocationService;
         this.passwordEncoder = passwordEncoder;
+        this.tenantRepository = tenantRepository;
+    }
+
+    private Long currentTenantId() {
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByOrganizationId(DEFAULT_ORGANIZATION_ID)
+                .map(Tenant::getId)
+                .orElse(null);
     }
 
     /**
@@ -101,7 +119,7 @@ public class UserService {
         passwordPolicy.validate(rawPassword);
 
         String hash = passwordEncoder.encode(rawPassword);
-        User user = userRepository.save(new User(username, email, hash));
+        User user = userRepository.save(new User(currentTenantId(), username, email, hash));
 
         auditService.record(actorUserId, AUDIT_USER_CREATED, user.getId(), user.getUsername());
 

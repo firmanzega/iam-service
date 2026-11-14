@@ -11,6 +11,9 @@ import id.osprey.iamservice.domain.auth.TokenSettings;
 import id.osprey.iamservice.domain.auth.TokenRevocationService;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.tenant.Tenant;
+import id.osprey.iamservice.domain.tenant.TenantContext;
+import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
 import org.slf4j.Logger;
@@ -37,6 +40,8 @@ public class AuthService implements TokenRevocationService {
     private static final String AUDIT_LOGOUT = "LOGOUT";
     private static final String AUDIT_SESSION_REVOKED = "SESSION_REVOKED";
 
+    private static final String DEFAULT_ORGANIZATION_ID = "org-default";
+
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final SessionRepository sessionRepository;
@@ -47,6 +52,7 @@ public class AuthService implements TokenRevocationService {
     private final LoginPolicy loginPolicy;
     private final TokenSettings tokenSettings;
     private final RefreshTokenReuseService refreshTokenReuseService;
+    private final TenantRepository tenantRepository;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -57,7 +63,8 @@ public class AuthService implements TokenRevocationService {
                        AuditService auditService,
                        LoginPolicy loginPolicy,
                        TokenSettings tokenSettings,
-                       RefreshTokenReuseService refreshTokenReuseService) {
+                       RefreshTokenReuseService refreshTokenReuseService,
+                       TenantRepository tenantRepository) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.sessionRepository = sessionRepository;
@@ -68,6 +75,7 @@ public class AuthService implements TokenRevocationService {
         this.loginPolicy = loginPolicy;
         this.tokenSettings = tokenSettings;
         this.refreshTokenReuseService = refreshTokenReuseService;
+        this.tenantRepository = tenantRepository;
     }
 
     /**
@@ -80,8 +88,10 @@ public class AuthService implements TokenRevocationService {
     @Transactional
     public TokenPair login(String identifier, String password, String deviceLabel) {
         Instant now = Instant.now();
+        TenantContext.setTenantId(currentTenantId());
 
-        User user = userRepository.findByUsernameOrEmail(identifier, identifier).orElse(null);
+        User user = userRepository.findByUsernameOrEmail(identifier, identifier,
+                TenantContext.getTenantId()).orElse(null);
 
         if (user == null) {
             // Pesan yang sama dipakai untuk akun yang tidak ada dan untuk kata
@@ -110,7 +120,7 @@ public class AuthService implements TokenRevocationService {
         user.clearFailedLogins();
         userRepository.save(user);
 
-        Session session = sessionRepository.save(Session.start(user.getId(), deviceLabel, now));
+        Session session = sessionRepository.save(Session.start(user.getId(), currentTenantId(), deviceLabel, now));
 
         auditService.record(user.getId(), AUDIT_LOGIN_SUCCESS, user.getId(), null);
 
@@ -131,6 +141,7 @@ public class AuthService implements TokenRevocationService {
     @Transactional
     public TokenPair refresh(String rawRefreshToken) {
         Instant now = Instant.now();
+        TenantContext.setTenantId(currentTenantId());
 
         RefreshToken stored = refreshTokenRepository.findByTokenHash(tokenIssuer.hashToken(rawRefreshToken))
                 .orElseThrow(() -> new DomainException(DomainException.Reason.INVALID_CREDENTIALS,
@@ -138,7 +149,7 @@ public class AuthService implements TokenRevocationService {
 
         Session session = stored.getSessionId() == null
                 ? null
-                : sessionRepository.findById(stored.getSessionId()).orElse(null);
+                : sessionRepository.findById(stored.getSessionId(), TenantContext.getTenantId()).orElse(null);
 
         if (stored.isRevoked()) {
             // Pencabutan karena logout atau pencabutan sesi bukan bukti
@@ -179,7 +190,7 @@ public class AuthService implements TokenRevocationService {
             // Token yang terbit sebelum sesi perangkat ada tetap bisa ditukar.
             // Sesi baru dibuat sekarang supaya token pengganti punya identitas
             // sesi dan bisa dicabut sendiri nanti.
-            session = sessionRepository.save(Session.start(user.getId(), null, now));
+            session = sessionRepository.save(Session.start(user.getId(), currentTenantId(), null, now));
         } else {
             session.touch(now);
             sessionRepository.save(session);
@@ -234,7 +245,7 @@ public class AuthService implements TokenRevocationService {
         Instant now = Instant.now();
         var ttl = tokenSettings.refreshTokenTtl();
 
-        return sessionRepository.findActiveByUser(userId, now.minus(ttl)).stream()
+        return sessionRepository.findActiveByUser(userId, TenantContext.getTenantId(), now.minus(ttl)).stream()
                 .map(session -> new SessionSummary(
                         session.getId(),
                         session.getDeviceLabel(),
@@ -257,7 +268,7 @@ public class AuthService implements TokenRevocationService {
      */
     @Transactional
     public void revokeSession(Long userId, UUID sessionId) {
-        Session session = sessionRepository.findById(sessionId)
+        Session session = sessionRepository.findById(sessionId, TenantContext.getTenantId())
                 .filter(found -> found.belongsTo(userId))
                 .orElseThrow(() -> new DomainException(DomainException.Reason.SESSION_NOT_FOUND,
                         "Session not found"));
@@ -277,8 +288,8 @@ public class AuthService implements TokenRevocationService {
     public long revokeAllTokens(Long userId) {
         Instant now = Instant.now();
 
-        long revoked = refreshTokenRepository.revokeAllForUser(userId, now);
-        sessionRepository.revokeAllForUser(userId, now);
+        long revoked = refreshTokenRepository.revokeAllForUser(userId, TenantContext.getTenantId(), now);
+        sessionRepository.revokeAllForUser(userId, TenantContext.getTenantId(), now);
 
         if (revoked > 0) {
             log.debug("Revoked {} refresh tokens for user {}", revoked, userId);
@@ -290,15 +301,32 @@ public class AuthService implements TokenRevocationService {
         // Kalau baris sesinya sudah tidak ada, token di dalamnya tetap dicabut.
         // Baris sesi bisa hilang karena pembersihan berkala, dan token yang
         // masih hidup tanpa sesi tidak boleh lolos dari pencabutan.
-        sessionRepository.findById(sessionId).ifPresentOrElse(
+        sessionRepository.findById(sessionId, TenantContext.getTenantId()).ifPresentOrElse(
                 session -> revokeSession(session, now),
-                () -> refreshTokenRepository.revokeAllForSession(sessionId, now));
+                () -> refreshTokenRepository.revokeAllForSession(sessionId, TenantContext.getTenantId(), now));
     }
 
     private void revokeSession(Session session, Instant now) {
         session.revoke(now);
         sessionRepository.save(session);
-        refreshTokenRepository.revokeAllForSession(session.getId(), now);
+        refreshTokenRepository.revokeAllForSession(session.getId(), TenantContext.getTenantId(), now);
+    }
+
+    /**
+     * Mengembalikan tenantId untuk permintaan saat ini. Login adalah endpoint
+     * publik yang tidak memakai header X-Organization-ID, jadi kalau konteks
+     * tenant kosong pakai tenant default supaya sesi dan token tetap bisa
+     * dibuat dengan tenant yang valid.
+     */
+    private Long currentTenantId() {
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByOrganizationId(DEFAULT_ORGANIZATION_ID)
+                .map(Tenant::getId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Tenant default '" + DEFAULT_ORGANIZATION_ID + "' tidak ditemukan"));
     }
 
     private DomainException invalidRefreshToken() {
@@ -311,7 +339,8 @@ public class AuthService implements TokenRevocationService {
 
         Instant expiresAt = Instant.now().plus(tokenSettings.refreshTokenTtl());
         refreshTokenRepository.save(
-                new RefreshToken(user, tokenIssuer.hashToken(refreshToken), session.getId(), expiresAt));
+                new RefreshToken(user, currentTenantId(),
+                        tokenIssuer.hashToken(refreshToken), session.getId(), expiresAt));
 
         return new TokenPair(accessToken, refreshToken,
                 tokenSettings.accessTokenTtl().toSeconds(), tokenIssuer.roleNames(user));

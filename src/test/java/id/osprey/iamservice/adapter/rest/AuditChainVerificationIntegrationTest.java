@@ -51,6 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuditChainVerificationIntegrationTest {
 
     private static final String PASSWORD = "Rahasia123";
+    private static final Long TENANT_ID = 1L;
     private static final String PREFIX = "chaintest-";
 
     /**
@@ -188,7 +189,7 @@ class AuditChainVerificationIntegrationTest {
 
     private Long createUser(String name, String roleName) {
         Role role = roleRepository.findByName(roleName).orElseThrow();
-        User user = new User(PREFIX + name, PREFIX + name + "@mail.com", passwordEncoder.encode(PASSWORD));
+        User user = new User(TENANT_ID, PREFIX + name, PREFIX + name + "@mail.com", passwordEncoder.encode(PASSWORD));
         user.replaceRoles(Set.of(role));
 
         return userRepository.save(user).getId();
@@ -196,8 +197,8 @@ class AuditChainVerificationIntegrationTest {
 
     private Long insertLog(String action) {
         return jdbcTemplate.queryForObject(
-                "insert into audit_logs (actor_user_id, action, details) values (?, ?, ?) returning id",
-                Long.class, adminId, action, action.toLowerCase());
+                "insert into audit_logs (actor_user_id, action, details, tenant_id) values (?, ?, ?, ?) returning id",
+                Long.class, adminId, action, action.toLowerCase(), TENANT_ID);
     }
 
     private long countAuditLogs() {

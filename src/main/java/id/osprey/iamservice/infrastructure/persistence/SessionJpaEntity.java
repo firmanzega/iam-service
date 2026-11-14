@@ -30,6 +30,9 @@ public class SessionJpaEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private UserJpaEntity user;
 
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Column(name = "device_label", length = Session.MAX_DEVICE_LABEL_LENGTH)
     private String deviceLabel;
 
@@ -51,12 +54,20 @@ public class SessionJpaEntity {
     }
 
     public Session toDomain() {
-        return new Session(id, user == null ? null : user.getId(), deviceLabel,
+        return new Session(id, user == null ? null : user.getId(), tenantId, deviceLabel,
                 createdAt, lastSeenAt, revokedAt);
     }
 
     public UUID getId() {
         return id;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
     }
 
     public void setUser(UserJpaEntity user) {

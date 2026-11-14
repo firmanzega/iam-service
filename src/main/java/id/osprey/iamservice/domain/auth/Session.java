@@ -22,6 +22,7 @@ public class Session {
 
     private final UUID id;
     private final Long userId;
+    private final Long tenantId;
     private final String deviceLabel;
     private final Instant createdAt;
     private Instant lastSeenAt;
@@ -29,8 +30,14 @@ public class Session {
 
     public Session(UUID id, Long userId, String deviceLabel, Instant createdAt,
                    Instant lastSeenAt, Instant revokedAt) {
+        this(id, userId, null, deviceLabel, createdAt, lastSeenAt, revokedAt);
+    }
+
+    public Session(UUID id, Long userId, Long tenantId, String deviceLabel, Instant createdAt,
+                   Instant lastSeenAt, Instant revokedAt) {
         this.id = id;
         this.userId = userId;
+        this.tenantId = tenantId;
         this.deviceLabel = deviceLabel;
         this.createdAt = createdAt;
         this.lastSeenAt = lastSeenAt;
@@ -43,9 +50,11 @@ public class Session {
      * Label perangkat berasal dari pemanggil dan boleh kosong. Layanan tidak
      * menebaknya dari User-Agent: nilai itu dikendalikan klien, mudah dipalsukan,
      * dan tidak cukup dapat dipercaya untuk dijadikan identitas perangkat.
+     *
+     * @param tenantId tenant internal pemilik sesi ini
      */
-    public static Session start(Long userId, String deviceLabel, Instant now) {
-        return new Session(UUID.randomUUID(), userId, normalizeLabel(deviceLabel), now, now, null);
+    public static Session start(Long userId, Long tenantId, String deviceLabel, Instant now) {
+        return new Session(UUID.randomUUID(), userId, tenantId, normalizeLabel(deviceLabel), now, now, null);
     }
 
     public void touch(Instant now) {
@@ -83,6 +92,10 @@ public class Session {
 
     public Long getUserId() {
         return userId;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
     }
 
     public String getDeviceLabel() {

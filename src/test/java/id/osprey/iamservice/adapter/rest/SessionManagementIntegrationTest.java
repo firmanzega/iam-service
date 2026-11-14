@@ -43,6 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SessionManagementIntegrationTest {
 
     private static final String PASSWORD = "Rahasia123";
+    private static final Long TENANT_ID = 1L;
     private static final String PREFIX = "sessiontest-";
 
     @Autowired
@@ -99,6 +100,7 @@ class SessionManagementIntegrationTest {
 
         mockMvc.perform(post("/v1/auth/logout")
                         .header("Authorization", "Bearer " + laptop.accessToken())
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + laptop.refreshToken() + "\"}"))
                 .andExpect(status().isNoContent());
@@ -121,7 +123,8 @@ class SessionManagementIntegrationTest {
         UUID laptopSessionId = sessionIdByLabel(listSessions(telepon.accessToken()), "laptop");
 
         mockMvc.perform(delete("/v1/auth/sessions/{id}", laptopSessionId)
-                        .header("Authorization", "Bearer " + telepon.accessToken()))
+                        .header("Authorization", "Bearer " + telepon.accessToken())
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isNoContent());
 
         refresh(laptop.refreshToken()).andExpect(status().isUnauthorized());
@@ -140,11 +143,13 @@ class SessionManagementIntegrationTest {
         UUID sessionMilikDua = sessionIdByLabel(listSessions(milikDua.accessToken()), "telepon");
 
         mockMvc.perform(delete("/v1/auth/sessions/{id}", sessionMilikDua)
-                        .header("Authorization", "Bearer " + milikSatu.accessToken()))
+                        .header("Authorization", "Bearer " + milikSatu.accessToken())
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isNotFound());
 
         mockMvc.perform(delete("/v1/auth/sessions/{id}", UUID.randomUUID())
-                        .header("Authorization", "Bearer " + milikSatu.accessToken()))
+                        .header("Authorization", "Bearer " + milikSatu.accessToken())
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isNotFound());
 
         refresh(milikDua.refreshToken()).andExpect(status().isOk());
@@ -202,7 +207,8 @@ class SessionManagementIntegrationTest {
 
     private List<Map<String, Object>> listSessions(String accessToken) throws Exception {
         MvcResult result = mockMvc.perform(get("/v1/auth/sessions")
-                        .header("Authorization", "Bearer " + accessToken))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andReturn();
 
@@ -224,7 +230,7 @@ class SessionManagementIntegrationTest {
     }
 
     private void createUser(String username) {
-        userRepository.save(new User(username, username + "@mail.com", passwordEncoder.encode(PASSWORD)));
+        userRepository.save(new User(TENANT_ID, username, username + "@mail.com", passwordEncoder.encode(PASSWORD)));
     }
 
     private void removeTestData() {

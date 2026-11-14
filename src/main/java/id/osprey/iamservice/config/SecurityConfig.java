@@ -1,5 +1,7 @@
 package id.osprey.iamservice.config;
 
+import id.osprey.iamservice.adapter.rest.TenantHeaderFilter;
+import id.osprey.iamservice.application.tenant.TenantResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -12,6 +14,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -37,9 +40,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final IamProperties properties;
+    private final TenantResolver tenantResolver;
 
-    public SecurityConfig(IamProperties properties) {
+    public SecurityConfig(IamProperties properties, TenantResolver tenantResolver) {
         this.properties = properties;
+        this.tenantResolver = tenantResolver;
     }
 
     @Bean
@@ -52,6 +57,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(new TenantHeaderFilter(tenantResolver),
+                        UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // Seluruh kontrak publik berada di bawah /v1. Awalan versi
                         // ini bagian dari kontrak, bukan hiasan: perubahan yang

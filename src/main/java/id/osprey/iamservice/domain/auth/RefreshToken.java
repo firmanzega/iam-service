@@ -19,6 +19,7 @@ public class RefreshToken {
 
     private final Long id;
     private final User user;
+    private final Long tenantId;
     private final String tokenHash;
     private final UUID sessionId;
     private final Instant expiresAt;
@@ -26,17 +27,27 @@ public class RefreshToken {
     private final Instant createdAt;
 
     protected RefreshToken() {
-        this(null, null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null, null);
     }
 
     public RefreshToken(User user, String tokenHash, UUID sessionId, Instant expiresAt) {
-        this(null, user, tokenHash, sessionId, expiresAt, null, Instant.now());
+        this(null, user, null, tokenHash, sessionId, expiresAt, null, Instant.now());
+    }
+
+    public RefreshToken(User user, Long tenantId, String tokenHash, UUID sessionId, Instant expiresAt) {
+        this(null, user, tenantId, tokenHash, sessionId, expiresAt, null, Instant.now());
     }
 
     public RefreshToken(Long id, User user, String tokenHash, UUID sessionId, Instant expiresAt,
                         Instant revokedAt, Instant createdAt) {
+        this(id, user, null, tokenHash, sessionId, expiresAt, revokedAt, createdAt);
+    }
+
+    public RefreshToken(Long id, User user, Long tenantId, String tokenHash, UUID sessionId,
+                        Instant expiresAt, Instant revokedAt, Instant createdAt) {
         this.id = id;
         this.user = user;
+        this.tenantId = tenantId;
         this.tokenHash = tokenHash;
         this.sessionId = sessionId;
         this.expiresAt = expiresAt;
@@ -64,6 +75,10 @@ public class RefreshToken {
 
     public User getUser() {
         return user;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
     }
 
     public String getTokenHash() {

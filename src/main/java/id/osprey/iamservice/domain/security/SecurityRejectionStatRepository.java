@@ -16,20 +16,30 @@ import java.time.Instant;
 public interface SecurityRejectionStatRepository {
 
     /**
-     * Menambah satu kejadian pada jendela waktu tertentu.
+     * Menambah satu kejadian pada jendela waktu tertentu dalam satu tenant.
      *
+     * @param tenantId tenant internal
      * @param windowStart awal jendela, sudah dipotong ke batas yang dipakai
      * @param httpMethod method permintaan, misalnya GET atau POST
      * @param reason alasan penolakan, misalnya unauthorized
      * @param seenAt waktu kejadian
      */
-    void increment(Instant windowStart, String httpMethod, String reason, Instant seenAt);
+    void increment(Long tenantId, Instant windowStart, String httpMethod, String reason, Instant seenAt);
 
     /**
-     * Menghapus agregat yang jendelanya lebih lama dari batas retensi.
+     * Menghapus agregat yang jendelanya lebih lama dari batas retensi dalam
+     * satu tenant.
      *
+     * @param tenantId tenant internal
      * @param cutoff jendela yang dimulai sebelum waktu ini dihapus
      * @return jumlah baris yang dihapus
+     */
+    long deleteOlderThan(Long tenantId, Instant cutoff);
+
+    /**
+     * Menghapus agregat yang jendelanya lebih lama dari batas retensi di
+     * seluruh tenant. Dipakai oleh penjadwal pembersihan yang tidak berjalan
+     * dalam konteks permintaan tenant tertentu.
      */
     long deleteOlderThan(Instant cutoff);
 }

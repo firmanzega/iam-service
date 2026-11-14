@@ -38,6 +38,7 @@ class UserServiceTest {
 
     private static final Long ACTOR_ID = 1L;
     private static final Long USER_ID = 1L;
+    private static final Long TENANT_ID = 1L;
 
     @Mock
     UserRepository userRepository;
@@ -61,7 +62,7 @@ class UserServiceTest {
     UserService userService;
 
     private User user() {
-        return new User(USER_ID, "budi", "budi@mail.com", "HASH", true, 0, null,
+        return new User(USER_ID, TENANT_ID, "budi", "budi@mail.com", "HASH", true, 0, null,
                 null, null, 0L, Set.of());
     }
 
@@ -195,7 +196,7 @@ class UserServiceTest {
 
     @Test
     void activate_marksActiveAndClearsFailedLogins() {
-        User user = new User(USER_ID, "budi", "budi@mail.com", "HASH", false, 3,
+        User user = new User(USER_ID, TENANT_ID, "budi", "budi@mail.com", "HASH", false, 3,
                 java.time.Instant.now(), null, null, 0L, Set.of());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));

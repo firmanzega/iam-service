@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class RefreshTokenCleanupIntegrationTest {
 
     private static final String USERNAME = "cleanup-test";
+    private static final Long TENANT_ID = 1L;
     private static final String EXPIRED_HASH = "cleanup-expired-hash";
     private static final String ACTIVE_HASH = "cleanup-active-hash";
     private static final String REVOKED_HASH = "cleanup-revoked-hash";
@@ -53,7 +54,7 @@ class RefreshTokenCleanupIntegrationTest {
     void setUp() {
         removeTestData();
 
-        User user = userRepository.save(new User(USERNAME, USERNAME + "@mail.com",
+        User user = userRepository.save(new User(TENANT_ID, USERNAME, USERNAME + "@mail.com",
                 passwordEncoder.encode("Rahasia123")));
         userId = user.getId();
 
@@ -82,10 +83,10 @@ class RefreshTokenCleanupIntegrationTest {
 
     private void insertToken(String tokenHash, Instant expiresAt, Instant revokedAt) {
         jdbcTemplate.update(
-                "insert into refresh_tokens (user_id, token_hash, expires_at, revoked_at)"
-                        + " values (?, ?, ?, ?)",
+                "insert into refresh_tokens (user_id, token_hash, expires_at, revoked_at, tenant_id)"
+                        + " values (?, ?, ?, ?, ?)",
                 userId, tokenHash, Timestamp.from(expiresAt),
-                revokedAt == null ? null : Timestamp.from(revokedAt));
+                revokedAt == null ? null : Timestamp.from(revokedAt), TENANT_ID);
     }
 
     private int countByHash(String tokenHash) {

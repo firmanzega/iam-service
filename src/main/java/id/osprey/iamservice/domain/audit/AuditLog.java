@@ -12,6 +12,7 @@ import java.time.Instant;
 public class AuditLog {
 
     private final Long id;
+    private final Long tenantId;
     private final Long actorUserId;
     private final String action;
     private final Long targetUserId;
@@ -19,16 +20,26 @@ public class AuditLog {
     private final Instant createdAt;
 
     protected AuditLog() {
-        this(null, null, null, null, null, null);
+        this(null, null, null, null, null, null, null);
     }
 
     public AuditLog(Long actorUserId, String action, Long targetUserId, String details) {
-        this(null, actorUserId, action, targetUserId, details, Instant.now());
+        this(null, null, actorUserId, action, targetUserId, details, Instant.now());
+    }
+
+    public AuditLog(Long actorUserId, Long tenantId, String action, Long targetUserId, String details) {
+        this(null, tenantId, actorUserId, action, targetUserId, details, Instant.now());
     }
 
     public AuditLog(Long id, Long actorUserId, String action, Long targetUserId,
                     String details, Instant createdAt) {
+        this(id, null, actorUserId, action, targetUserId, details, createdAt);
+    }
+
+    public AuditLog(Long id, Long tenantId, Long actorUserId, String action, Long targetUserId,
+                    String details, Instant createdAt) {
         this.id = id;
+        this.tenantId = tenantId;
         this.actorUserId = actorUserId;
         this.action = action;
         this.targetUserId = targetUserId;
@@ -38,6 +49,10 @@ public class AuditLog {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
     }
 
     public Long getActorUserId() {

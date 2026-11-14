@@ -17,13 +17,14 @@ public interface UserRepository {
     Optional<User> findById(Long id);
 
     /**
-     * Mencari pengguna berdasarkan username atau email.
+     * Mencari pengguna berdasarkan username atau email dalam satu tenant.
      *
      * @param username nilai yang dicocokkan dengan kolom username
      * @param email nilai yang dicocokkan dengan kolom email
+     * @param tenantId tenant internal pemilik pengguna
      * @return pengguna yang cocok, atau kosong kalau tidak ada
      */
-    Optional<User> findByUsernameOrEmail(String username, String email);
+    Optional<User> findByUsernameOrEmail(String username, String email, Long tenantId);
 
     User save(User user);
 

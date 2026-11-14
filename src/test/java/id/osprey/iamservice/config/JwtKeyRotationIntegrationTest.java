@@ -54,6 +54,7 @@ class JwtKeyRotationIntegrationTest {
     private static final String PREVIOUS_SECRET = "kunci-lama-integrasi-yang-juga-cukup-panjang-0987654321";
     private static final String UNKNOWN_SECRET = "kunci-asing-integrasi-yang-juga-cukup-panjang-13579";
     private static final String PASSWORD = "Rahasia123";
+    private static final Long TENANT_ID = 1L;
     private static final String PREFIX = "rotasitest-";
 
     @Autowired
@@ -178,7 +179,7 @@ class JwtKeyRotationIntegrationTest {
 
     private void createUser(String username) {
         Role role = roleRepository.findByName("USER").orElseThrow();
-        User user = new User(username, username + "@mail.com", passwordEncoder.encode(PASSWORD));
+        User user = new User(TENANT_ID, username, username + "@mail.com", passwordEncoder.encode(PASSWORD));
         user.replaceRoles(Set.of(role));
         userRepository.save(user);
     }

@@ -11,6 +11,7 @@ import java.util.UUID;
 
 /**
  * Adapter yang memenuhi port SessionRepository memakai Spring Data JPA.
+ * Setiap query difilter tenant_id sehingga sesi tidak pernah melintas tenant.
  */
 @Repository
 public class SessionPersistenceAdapter implements SessionRepository {
@@ -32,6 +33,7 @@ public class SessionPersistenceAdapter implements SessionRepository {
                 .orElseGet(() -> new SessionJpaEntity(session.getId(), session.getCreatedAt()));
 
         entity.setUser(userRepository.getReferenceById(session.getUserId()));
+        entity.setTenantId(session.getTenantId());
         entity.setDeviceLabel(session.getDeviceLabel());
         entity.setLastSeenAt(session.getLastSeenAt());
         entity.setRevokedAt(session.getRevokedAt());
@@ -40,24 +42,29 @@ public class SessionPersistenceAdapter implements SessionRepository {
     }
 
     @Override
-    public Optional<Session> findById(UUID id) {
-        return repository.findById(id).map(SessionJpaEntity::toDomain);
+    public Optional<Session> findById(UUID id, Long tenantId) {
+        return repository.findByIdAndTenantId(id, tenantId).map(SessionJpaEntity::toDomain);
     }
 
     @Override
-    public List<Session> findActiveByUser(Long userId, Instant activeSince) {
-        return repository.findActiveByUserId(userId, activeSince).stream()
+    public List<Session> findActiveByUser(Long userId, Long tenantId, Instant activeSince) {
+        return repository.findActiveByUserId(userId, tenantId, activeSince).stream()
                 .map(SessionJpaEntity::toDomain)
                 .toList();
     }
 
     @Override
-    public long revokeAllForUser(Long userId, Instant revokedAt) {
-        return repository.revokeAllByUserId(userId, revokedAt);
+    public long revokeAllForUser(Long userId, Long tenantId, Instant revokedAt) {
+        return repository.revokeAllByUserId(userId, tenantId, revokedAt);
+    }
+
+    @Override
+    public long deleteInactiveBefore(Long tenantId, Instant cutoff) {
+        return repository.deleteInactiveBefore(tenantId, cutoff);
     }
 
     @Override
     public long deleteInactiveBefore(Instant cutoff) {
-        return repository.deleteInactiveBefore(cutoff);
+        return repository.deleteInactiveBeforeAll(cutoff);
     }
 }

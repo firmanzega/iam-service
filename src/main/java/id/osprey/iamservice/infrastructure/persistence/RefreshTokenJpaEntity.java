@@ -36,6 +36,9 @@ public class RefreshTokenJpaEntity {
     @Column(name = "session_id")
     private UUID sessionId;
 
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
@@ -63,12 +66,20 @@ public class RefreshTokenJpaEntity {
      * Mengubah entitas database menjadi objek domain.
      */
     public RefreshToken toDomain() {
-        return new RefreshToken(id, user == null ? null : user.toDomain(), tokenHash, sessionId,
+        return new RefreshToken(id, user == null ? null : user.toDomain(), tenantId, tokenHash, sessionId,
                 expiresAt, revokedAt, createdAt);
     }
 
     public Long getId() {
         return id;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
     }
 
     public UserJpaEntity getUser() {

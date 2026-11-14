@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class RefreshTokenReuseIntegrationTest {
 
     private static final String PASSWORD = "Rahasia123";
+    private static final Long TENANT_ID = 1L;
     private static final String USERNAME = "reusetest-user";
 
     @Autowired
@@ -55,7 +56,7 @@ class RefreshTokenReuseIntegrationTest {
     void setUp() {
         removeTestData();
 
-        User user = userRepository.save(new User(USERNAME, USERNAME + "@mail.com",
+        User user = userRepository.save(new User(TENANT_ID, USERNAME, USERNAME + "@mail.com",
                 passwordEncoder.encode(PASSWORD)));
         userId = user.getId();
     }

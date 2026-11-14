@@ -3,6 +3,7 @@ package id.osprey.iamservice.application.auth;
 import id.osprey.iamservice.application.audit.AuditService;
 import id.osprey.iamservice.domain.auth.RefreshTokenRepository;
 import id.osprey.iamservice.domain.auth.SessionRepository;
+import id.osprey.iamservice.domain.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -59,11 +60,11 @@ public class RefreshTokenReuseService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public long revokeAllAfterReuse(Long userId) {
         Instant now = Instant.now();
-        long revoked = refreshTokenRepository.revokeAllForUser(userId, now);
+        long revoked = refreshTokenRepository.revokeAllForUser(userId, TenantContext.getTenantId(), now);
 
         // Sesi ikut dicabut supaya daftar perangkat tidak menampilkan sesi yang
         // tokennya sudah tidak bisa diperpanjang lagi.
-        sessionRepository.revokeAllForUser(userId, now);
+        sessionRepository.revokeAllForUser(userId, TenantContext.getTenantId(), now);
 
         auditService.record(userId, AUDIT_TOKEN_REUSE, userId,
                 "token refresh yang sudah dicabut dipakai lagi; " + revoked

@@ -26,6 +26,9 @@ public class AuditLogJpaEntity {
     @Column(name = "actor_user_id")
     private Long actorUserId;
 
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Column(name = "action", nullable = false, length = 50)
     private String action;
 
@@ -50,8 +53,10 @@ public class AuditLogJpaEntity {
     protected AuditLogJpaEntity() {
     }
 
-    public AuditLogJpaEntity(Long actorUserId, String action, Long targetUserId, String details) {
+    public AuditLogJpaEntity(Long actorUserId, Long tenantId, String action, Long targetUserId,
+                             String details) {
         this.actorUserId = actorUserId;
+        this.tenantId = tenantId;
         this.action = action;
         this.targetUserId = targetUserId;
         this.details = details;
@@ -66,7 +71,7 @@ public class AuditLogJpaEntity {
      * Mengubah entitas database menjadi objek domain.
      */
     public AuditLog toDomain() {
-        return new AuditLog(id, actorUserId, action, targetUserId, details, createdAt);
+        return new AuditLog(id, tenantId, actorUserId, action, targetUserId, details, createdAt);
     }
 
     /**
@@ -78,6 +83,14 @@ public class AuditLogJpaEntity {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
     }
 
     public Long getActorUserId() {

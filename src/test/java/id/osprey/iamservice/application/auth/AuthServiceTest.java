@@ -10,9 +10,11 @@ import id.osprey.iamservice.domain.auth.TokenIssuer;
 import id.osprey.iamservice.domain.auth.TokenSettings;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
+import id.osprey.iamservice.domain.tenant.TenantContext;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,6 +51,7 @@ class AuthServiceTest {
 
     private static final String PASSWORD = "Rahasia123";
     private static final String HASH = "HASH";
+    private static final Long TENANT_ID = 1L;
     private static final UUID SESSION_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     @Mock
@@ -85,10 +88,15 @@ class AuthServiceTest {
     @InjectMocks
     AuthService authService;
 
+    @BeforeEach
+    void setTenantContext() {
+        TenantContext.setTenantId(TENANT_ID);
+    }
+
     private User user(boolean active, boolean locked) {
         Instant lockedUntil = locked ? Instant.now().plusSeconds(900) : null;
 
-        return new User(1L, "budi", "budi@mail.com", HASH, active, 0, lockedUntil,
+        return new User(1L, TENANT_ID, "budi", "budi@mail.com", HASH, active, 0, lockedUntil,
                 null, null, 0L, Set.of(new Role(2L, "USER")));
     }
 
@@ -110,7 +118,7 @@ class AuthServiceTest {
 
     @Test
     void login_validCredentials_returnsTokenPair() {
-        when(userRepository.findByUsernameOrEmail("budi", "budi")).thenReturn(Optional.of(user(true, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, false)));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(true);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         stubSessionSave();
@@ -132,7 +140,7 @@ class AuthServiceTest {
 
     @Test
     void login_withoutDeviceLabel_storesSessionWithoutLabel() {
-        when(userRepository.findByUsernameOrEmail("budi", "budi")).thenReturn(Optional.of(user(true, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, false)));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(true);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         stubSessionSave();
@@ -147,7 +155,7 @@ class AuthServiceTest {
 
     @Test
     void login_unknownUser_throwsUnauthorizedWithoutRevealingUserExistence() {
-        when(userRepository.findByUsernameOrEmail("entah", "entah")).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameOrEmail(eq("entah"), eq("entah"), eq(1L))).thenReturn(Optional.empty());
 
         DomainException ex = assertThrows(DomainException.class,
                 () -> authService.login("entah", PASSWORD, null));
@@ -158,7 +166,7 @@ class AuthServiceTest {
 
     @Test
     void login_wrongPassword_recordsFailureAndThrowsUnauthorized() {
-        when(userRepository.findByUsernameOrEmail("budi", "budi")).thenReturn(Optional.of(user(true, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, false)));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(false);
 
         DomainException ex = assertThrows(DomainException.class,
@@ -170,7 +178,7 @@ class AuthServiceTest {
 
     @Test
     void login_lockedAccount_throwsLocked() {
-        when(userRepository.findByUsernameOrEmail("budi", "budi")).thenReturn(Optional.of(user(true, true)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, true)));
 
         DomainException ex = assertThrows(DomainException.class,
                 () -> authService.login("budi", PASSWORD, null));
@@ -181,7 +189,7 @@ class AuthServiceTest {
 
     @Test
     void login_inactiveAccount_throwsForbidden() {
-        when(userRepository.findByUsernameOrEmail("budi", "budi")).thenReturn(Optional.of(user(false, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(false, false)));
 
         DomainException ex = assertThrows(DomainException.class,
                 () -> authService.login("budi", PASSWORD, null));
@@ -194,7 +202,7 @@ class AuthServiceTest {
         User user = user(true, false);
         user.registerFailedLogin(10, Duration.ofMinutes(15), Instant.now());
 
-        when(userRepository.findByUsernameOrEmail("budi", "budi")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(true);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         stubSessionSave();
@@ -222,7 +230,7 @@ class AuthServiceTest {
 
         when(tokenIssuer.hashToken("token")).thenReturn("hash");
         when(refreshTokenRepository.findByTokenHash("hash")).thenReturn(Optional.of(stored));
-        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session(SESSION_ID, false)));
+        when(sessionRepository.findById(eq(SESSION_ID), eq(1L))).thenReturn(Optional.of(session(SESSION_ID, false)));
 
         DomainException ex = assertThrows(DomainException.class, () -> authService.refresh("token"));
 
@@ -237,7 +245,7 @@ class AuthServiceTest {
 
         when(tokenIssuer.hashToken("token")).thenReturn("hash");
         when(refreshTokenRepository.findByTokenHash("hash")).thenReturn(Optional.of(stored));
-        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session(SESSION_ID, true)));
+        when(sessionRepository.findById(eq(SESSION_ID), eq(1L))).thenReturn(Optional.of(session(SESSION_ID, true)));
 
         DomainException ex = assertThrows(DomainException.class, () -> authService.refresh("token"));
 
@@ -282,7 +290,7 @@ class AuthServiceTest {
 
         when(tokenIssuer.hashToken("token")).thenReturn("hash");
         when(refreshTokenRepository.findByTokenHash("hash")).thenReturn(Optional.of(stored));
-        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(sessionRepository.findById(eq(SESSION_ID), eq(1L))).thenReturn(Optional.of(session));
         when(tokenIssuer.issueAccessToken(any(), any())).thenReturn("access-token-baru");
         when(tokenIssuer.issueRefreshToken(any(), any())).thenReturn("refresh-token-baru");
         when(tokenIssuer.hashToken("refresh-token-baru")).thenReturn("hash-baru");
@@ -334,7 +342,7 @@ class AuthServiceTest {
 
     @Test
     void logout_tokenOfAnotherUser_throwsForbidden() {
-        User other = new User(2L, "lain", "lain@mail.com", HASH, true, 0, null,
+        User other = new User(2L, TENANT_ID, "lain", "lain@mail.com", HASH, true, 0, null,
                 null, null, 0L, Set.of());
         RefreshToken stored = new RefreshToken(1L, other, "hash", null,
                 Instant.now().plusSeconds(600), null, Instant.now());
@@ -357,14 +365,14 @@ class AuthServiceTest {
 
         when(tokenIssuer.hashToken("token")).thenReturn("hash");
         when(refreshTokenRepository.findByTokenHash("hash")).thenReturn(Optional.of(stored));
-        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(sessionRepository.findById(eq(SESSION_ID), eq(1L))).thenReturn(Optional.of(session));
 
         authService.logout(1L, "token");
 
         assertTrue(session.isRevoked());
         assertTrue(stored.isRevoked());
         verify(sessionRepository).save(session);
-        verify(refreshTokenRepository).revokeAllForSession(eq(SESSION_ID), any(Instant.class));
+        verify(refreshTokenRepository).revokeAllForSession(eq(SESSION_ID), anyLong(), any(Instant.class));
         verify(auditService).record(eq(1L), eq("LOGOUT"), eq(1L), eq(null));
     }
 
@@ -373,7 +381,7 @@ class AuthServiceTest {
         Session foreign = new Session(SESSION_ID, 2L, "milik orang lain",
                 Instant.now(), Instant.now(), null);
 
-        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(foreign));
+        when(sessionRepository.findById(eq(SESSION_ID), eq(1L))).thenReturn(Optional.of(foreign));
 
         DomainException ex = assertThrows(DomainException.class,
                 () -> authService.revokeSession(1L, SESSION_ID));
@@ -386,13 +394,13 @@ class AuthServiceTest {
     void revokeSession_ofOwnSession_revokesSessionAndItsTokens() {
         Session session = session(SESSION_ID, false);
 
-        when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(sessionRepository.findById(eq(SESSION_ID), eq(1L))).thenReturn(Optional.of(session));
 
         authService.revokeSession(1L, SESSION_ID);
 
         assertTrue(session.isRevoked());
         verify(sessionRepository).save(session);
-        verify(refreshTokenRepository).revokeAllForSession(eq(SESSION_ID), any(Instant.class));
+        verify(refreshTokenRepository).revokeAllForSession(eq(SESSION_ID), anyLong(), any(Instant.class));
         verify(auditService).record(eq(1L), eq("SESSION_REVOKED"), eq(1L), any(String.class));
     }
 
@@ -403,7 +411,7 @@ class AuthServiceTest {
         UUID otherId = UUID.fromString("22222222-2222-2222-2222-222222222222");
         Session other = new Session(otherId, 1L, "telepon", now, now, null);
 
-        when(sessionRepository.findActiveByUser(eq(1L), any(Instant.class)))
+        when(sessionRepository.findActiveByUser(eq(1L), anyLong(), any(Instant.class)))
                 .thenReturn(List.of(current, other));
 
         List<SessionSummary> sessions = authService.listSessions(1L, SESSION_ID);
@@ -417,12 +425,12 @@ class AuthServiceTest {
 
     @Test
     void revokeAllTokens_revokesTokensAndSessions() {
-        when(refreshTokenRepository.revokeAllForUser(eq(1L), any(Instant.class))).thenReturn(2L);
+        when(refreshTokenRepository.revokeAllForUser(eq(1L), anyLong(), any(Instant.class))).thenReturn(2L);
 
         long revoked = authService.revokeAllTokens(1L);
 
         assertEquals(2L, revoked);
-        verify(refreshTokenRepository).revokeAllForUser(eq(1L), any(Instant.class));
-        verify(sessionRepository).revokeAllForUser(eq(1L), any(Instant.class));
+        verify(refreshTokenRepository).revokeAllForUser(eq(1L), anyLong(), any(Instant.class));
+        verify(sessionRepository).revokeAllForUser(eq(1L), anyLong(), any(Instant.class));
     }
 }

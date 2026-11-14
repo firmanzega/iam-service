@@ -41,6 +41,9 @@ public class UserJpaEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Column(unique = true, nullable = false, length = 50)
     private String username;
 
@@ -111,6 +114,7 @@ public class UserJpaEntity {
         this.active = domain.isActive();
         this.failedLoginAttempts = domain.getFailedLoginAttempts();
         this.lockedUntil = domain.getLockedUntil();
+        this.tenantId = domain.getTenantId();
     }
 
     /**
@@ -131,12 +135,20 @@ public class UserJpaEntity {
                 .map(RoleJpaEntity::toDomain)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        return new User(id, username, email, passwordHash, active, failedLoginAttempts, lockedUntil,
+        return new User(id, tenantId, username, email, passwordHash, active, failedLoginAttempts, lockedUntil,
                 createdAt, updatedAt, version == null ? 0L : version, domainRoles);
     }
 
     public Long getId() {
         return id;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
     }
 
     public String getUsername() {

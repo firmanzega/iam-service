@@ -27,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class PersistenceEntityTest {
 
+    private static final Long TENANT_ID = 1L;
+
     @Test
     void roleEntity_mapsToDomainAndComparesByName() {
         RoleJpaEntity admin = new RoleJpaEntity("ADMIN");
@@ -45,11 +47,12 @@ class PersistenceEntityTest {
 
     @Test
     void auditLogEntity_persistsAndMapsAllFields() {
-        AuditLogJpaEntity entity = new AuditLogJpaEntity(1L, "USER_UPDATED", 2L, "detail");
+        AuditLogJpaEntity entity = new AuditLogJpaEntity(1L, 100L, "USER_UPDATED", 2L, "detail");
 
         entity.onCreate();
 
         assertEquals(1L, entity.getActorUserId());
+        assertEquals(100L, entity.getTenantId());
         assertEquals("USER_UPDATED", entity.getAction());
         assertEquals(2L, entity.getTargetUserId());
         assertEquals("detail", entity.getDetails());
@@ -57,6 +60,7 @@ class PersistenceEntityTest {
         assertNull(entity.getId());
 
         AuditLog domain = entity.toDomain();
+        assertEquals(100L, domain.getTenantId());
         assertEquals("USER_UPDATED", domain.getAction());
         assertEquals(2L, domain.getTargetUserId());
         assertEquals("detail", domain.getDetails());
@@ -103,7 +107,7 @@ class PersistenceEntityTest {
 
     @Test
     void userEntity_copiesDomainStateAndTimestamps() {
-        User domain = new User(5L, "budi", "budi@example.com", "hash", false, 2,
+        User domain = new User(5L, TENANT_ID, "budi", "budi@example.com", "hash", false, 2,
                 Instant.now().plusSeconds(300), null, null, 4L, Set.of(new Role(1L, "ADMIN")));
 
         UserJpaEntity entity = new UserJpaEntity("lama", "lama@example.com", "hash-lama");

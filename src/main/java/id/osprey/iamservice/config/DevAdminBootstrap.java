@@ -1,6 +1,8 @@
 package id.osprey.iamservice.config;
 
 import id.osprey.iamservice.domain.security.PasswordEncoder;
+import id.osprey.iamservice.domain.tenant.Tenant;
+import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
@@ -43,13 +45,16 @@ public class DevAdminBootstrap implements ApplicationRunner {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final TenantRepository tenantRepository;
     private final PasswordEncoder passwordEncoder;
 
     public DevAdminBootstrap(UserRepository userRepository,
                              RoleRepository roleRepository,
+                             TenantRepository tenantRepository,
                              PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.tenantRepository = tenantRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -60,7 +65,15 @@ public class DevAdminBootstrap implements ApplicationRunner {
         String email = env("IAM_DEV_ADMIN_EMAIL", "admin@iam.local");
         String password = env("IAM_DEV_ADMIN_PASSWORD", "Admin1234");
 
-        if (userRepository.findByUsernameOrEmail(username, email).isPresent()) {
+        // Tenant default sudah dibuat oleh migrasi V9. Bootstrap pakai tenant
+        // itu sehingga akun admin punya tenant_id yang valid.
+        var defaultTenant = tenantRepository.findByOrganizationId("org-default")
+                .orElseGet(() -> {
+                    var t = new Tenant(null, "Default Tenant", "org-default", true, null);
+                    return tenantRepository.save(t);
+                });
+
+        if (userRepository.findByUsernameOrEmail(username, email, defaultTenant.getId()).isPresent()) {
             log.info("Bootstrap administrator skipped, account {} already exists", username);
             return;
         }
@@ -68,8 +81,8 @@ public class DevAdminBootstrap implements ApplicationRunner {
         Role adminRole = roleRepository.findByName("ADMIN")
                 .orElseThrow(() -> new IllegalStateException("Role ADMIN is missing, check the Flyway seed migration"));
 
-        User admin = new User(username, email, passwordEncoder.encode(password));
-        admin.replaceRoles(Set.of(adminRole));
+        User admin = new User(null, defaultTenant.getId(), username, email,
+                passwordEncoder.encode(password), true, 0, null, null, null, 0L, Set.of(adminRole));
 
         userRepository.save(admin);
 

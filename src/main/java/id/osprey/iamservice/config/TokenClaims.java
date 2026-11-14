@@ -11,6 +11,7 @@ package id.osprey.iamservice.config;
 public final class TokenClaims {
 
     public static final String SESSION_ID = "session_id";
+    public static final String TENANT_ID = "tenant_id";
 
     private TokenClaims() {
     }

@@ -3,6 +3,7 @@ package id.osprey.iamservice.infrastructure.persistence;
 import id.osprey.iamservice.domain.audit.AuditChainEntry;
 import id.osprey.iamservice.domain.audit.AuditLog;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
+import id.osprey.iamservice.domain.tenant.TenantContext;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
 import org.springframework.stereotype.Repository;
@@ -24,7 +25,8 @@ public class AuditLogPersistenceAdapter implements AuditLogRepository {
     @Override
     public AuditLog save(AuditLog auditLog) {
         AuditLogJpaEntity entity = new AuditLogJpaEntity(
-                auditLog.getActorUserId(), auditLog.getAction(), auditLog.getTargetUserId(), auditLog.getDetails());
+                auditLog.getActorUserId(), auditLog.getTenantId(), auditLog.getAction(),
+                auditLog.getTargetUserId(), auditLog.getDetails());
 
         return repository.save(entity).toDomain();
     }
@@ -32,7 +34,8 @@ public class AuditLogPersistenceAdapter implements AuditLogRepository {
     @Override
     public PageResult<AuditLog> findAll(PaginationRequest request) {
         return PaginationTranslator.toPageResult(
-                repository.findAll(PaginationTranslator.toPageable(request)), AuditLogJpaEntity::toDomain);
+                repository.findAllByTenantId(TenantContext.getTenantId(),
+                        PaginationTranslator.toPageable(request)), AuditLogJpaEntity::toDomain);
     }
 
     @Override

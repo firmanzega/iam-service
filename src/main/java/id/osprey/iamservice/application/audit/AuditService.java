@@ -5,6 +5,9 @@ import id.osprey.iamservice.domain.audit.AuditChainVerification;
 import id.osprey.iamservice.domain.audit.AuditChainVerifier;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
 import id.osprey.iamservice.domain.audit.AuditLogSortableProperties;
+import id.osprey.iamservice.domain.tenant.Tenant;
+import id.osprey.iamservice.domain.tenant.TenantContext;
+import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
@@ -30,10 +33,35 @@ import java.util.List;
 @Service
 public class AuditService {
 
-    private final AuditLogRepository auditLogRepository;
+    private static final String DEFAULT_ORGANIZATION_ID = "org-default";
 
-    public AuditService(AuditLogRepository auditLogRepository) {
+    private final AuditLogRepository auditLogRepository;
+    private final TenantRepository tenantRepository;
+
+    public AuditService(AuditLogRepository auditLogRepository,
+                        TenantRepository tenantRepository) {
         this.auditLogRepository = auditLogRepository;
+        this.tenantRepository = tenantRepository;
+    }
+
+    private Long currentTenantId() {
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        var existing = tenantRepository.findByOrganizationId(DEFAULT_ORGANIZATION_ID);
+        if (existing.isPresent()) {
+            return existing.get().getId();
+        }
+        try {
+            Tenant t = tenantRepository.save(new Tenant(null, "Default Tenant", DEFAULT_ORGANIZATION_ID, true, null));
+            return t.getId();
+        } catch (Exception e) {
+            // Tenant already exists (unique constraint on name/organization_id)
+            return tenantRepository.findByOrganizationId(DEFAULT_ORGANIZATION_ID)
+                    .map(Tenant::getId)
+                    .orElseThrow(() -> new IllegalStateException("Tenant default tidak tersedia"));
+        }
     }
 
     /**
@@ -94,7 +122,8 @@ public class AuditService {
 
     @Transactional
     public void record(Long actorUserId, String action, Long targetUserId, String details) {
-        auditLogRepository.save(new AuditLog(actorUserId, action, targetUserId, details));
+        auditLogRepository.save(new AuditLog(actorUserId, currentTenantId(), action,
+                targetUserId, details));
     }
 
     /**
@@ -112,6 +141,7 @@ public class AuditService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordIndependently(Long actorUserId, String action, Long targetUserId, String details) {
-        auditLogRepository.save(new AuditLog(actorUserId, action, targetUserId, details));
+        auditLogRepository.save(new AuditLog(actorUserId, currentTenantId(), action,
+                targetUserId, details));
     }
 }

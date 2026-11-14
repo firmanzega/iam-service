@@ -23,11 +23,16 @@ public interface SpringDataRefreshTokenRepository extends JpaRepository<RefreshT
      * padahal jejak itu yang dipakai untuk membedakan token yang dicabut dari
      * token yang tidak pernah ada. Satu update massal juga menghindari memuat
      * seluruh baris ke memori.
+     *
+     * Filter tenant_id mencegah pencabutan token melintas tenant.
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update RefreshTokenJpaEntity token set token.revokedAt = :revokedAt "
-            + "where token.user.id = :userId and token.revokedAt is null")
-    int revokeAllByUserId(@Param("userId") Long userId, @Param("revokedAt") Instant revokedAt);
+            + "where token.user.id = :userId and token.tenantId = :tenantId "
+            + "and token.revokedAt is null")
+    int revokeAllByUserId(@Param("userId") Long userId,
+                          @Param("tenantId") Long tenantId,
+                          @Param("revokedAt") Instant revokedAt);
 
     /**
      * Mencabut seluruh token dalam satu sesi. Dipakai saat pengguna logout
@@ -35,8 +40,10 @@ public interface SpringDataRefreshTokenRepository extends JpaRepository<RefreshT
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update RefreshTokenJpaEntity token set token.revokedAt = :revokedAt "
-            + "where token.sessionId = :sessionId and token.revokedAt is null")
+            + "where token.sessionId = :sessionId and token.tenantId = :tenantId "
+            + "and token.revokedAt is null")
     int revokeAllBySessionId(@Param("sessionId") UUID sessionId,
+                             @Param("tenantId") Long tenantId,
                              @Param("revokedAt") Instant revokedAt);
 
     /**
@@ -47,8 +54,17 @@ public interface SpringDataRefreshTokenRepository extends JpaRepository<RefreshT
      * pembersihan berkala, cara itu membengkakkan memori dan jumlah round trip
      * seiring bertambahnya token. Satu perintah delete membuat biayanya tetap
      * datar.
+     *
+     * Filter tenant_id memastikan pembersihan hanya berisi token milik tenant
+     * yang bersangkutan.
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from RefreshTokenJpaEntity token where token.tenantId = :tenantId "
+            + "and token.expiresAt < :cutoff")
+    int deleteExpiredBefore(@Param("tenantId") Long tenantId,
+                            @Param("cutoff") Instant cutoff);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from RefreshTokenJpaEntity token where token.expiresAt < :cutoff")
-    int deleteExpiredBefore(@Param("cutoff") Instant cutoff);
+    int deleteExpiredBeforeAll(@Param("cutoff") Instant cutoff);
 }

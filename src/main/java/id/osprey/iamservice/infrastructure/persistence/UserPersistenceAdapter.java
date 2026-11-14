@@ -3,6 +3,7 @@ package id.osprey.iamservice.infrastructure.persistence;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
+import id.osprey.iamservice.domain.tenant.TenantContext;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
@@ -40,8 +41,9 @@ public class UserPersistenceAdapter implements UserRepository {
     }
 
     @Override
-    public Optional<User> findByUsernameOrEmail(String username, String email) {
-        return repository.findByUsernameOrEmail(username, email).map(UserJpaEntity::toDomain);
+    public Optional<User> findByUsernameOrEmail(String username, String email, Long tenantId) {
+        return repository.findByUsernameOrEmail(username, email, tenantId)
+                .map(UserJpaEntity::toDomain);
     }
 
     @Override
@@ -84,13 +86,15 @@ public class UserPersistenceAdapter implements UserRepository {
     @Override
     public PageResult<User> findAll(PaginationRequest request) {
         return PaginationTranslator.toPageResult(
-                repository.findAll(PaginationTranslator.toPageable(request)), UserJpaEntity::toDomain);
+                repository.findAllByTenantId(TenantContext.getTenantId(),
+                        PaginationTranslator.toPageable(request)), UserJpaEntity::toDomain);
     }
 
     @Override
     public PageResult<User> search(String query, PaginationRequest request) {
         return PaginationTranslator.toPageResult(
-                repository.search(query, PaginationTranslator.toPageable(request)), UserJpaEntity::toDomain);
+                repository.search(query, TenantContext.getTenantId(), PaginationTranslator.toPageable(request)),
+                UserJpaEntity::toDomain);
     }
 
     /**
