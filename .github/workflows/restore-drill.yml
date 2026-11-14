@@ -66,7 +66,7 @@ jobs:
               created_at timestamptz not null default now()
           );
           create index restore_probe_created_at_idx on restore_probe (created_at);
-          insert into restore_probe (label) values ('satu'), ('dua'), ('tiga');
+          insert into restore_probe (label) values ('one'), ('two'), ('three');
           SQL
 
       - name: Create the backup
@@ -86,7 +86,7 @@ jobs:
           test "$rows" = "3"
 
           labels=$(psql -tAc "select string_agg(label, ',' order by label) from restore_probe;")
-          test "$labels" = "dua,satu,tiga"
+          test "$labels" = "one,two,three"
 
           index_count=$(psql -tAc \
             "select count(*) from pg_indexes where indexname = 'restore_probe_created_at_idx';")

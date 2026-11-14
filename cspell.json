@@ -1,0 +1,27 @@
+{
+  "language": "en",
+  "words": [
+    "firmanzega",
+    "promtool",
+    "upserted",
+    "VARCHAR",
+    "pg_isready",
+    "psql",
+    "timestamptz",
+    "conrelid",
+    "relname",
+    "contype",
+    "hikaricp",
+    "HikariCP",
+    "PGPASSWORD"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "vendor/**",
+    "target/**",
+    ".next/**"
+  ]
+}
