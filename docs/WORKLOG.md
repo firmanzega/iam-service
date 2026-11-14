@@ -4,10 +4,10 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** Stage 7 - Release readiness VERIFIED (CI green #26 on f156757, restore drill green #13, go-live checklist updated honestly, v1.0.0 tagged, NOT deployed)
-- **Next Active Stage:** Stage 7 - Go-live execution (Boss: deploy + prod checklist items)
+- **Last Completed Stage:** Stage 7 - RELEASE VERIFIED & TAGGED v1.0.0 (CI #29/#30 SUCCESS, restore drill #14/#15 SUCCESS on the release SHA; NOT deployed)
+- **Next Active Stage:** Stage 7 - Go-live execution (Boss deploys + prod checklist items)
 - **Active Skill to Load:** `senior-security-engineer`
-- **Last Updated:** 2026-11-14 18:55
+- **Last Updated:** 2026-11-14 19:05
 
 ## 1. Key Decisions & Locked Artifacts
 - **Stage 7 (Security & Release):** `07-DEPLOYMENT.md` + `CHANGELOG.md` v1.0.0 done (committed); Package A GO pending SEC-STATS-001 + BUG-TENANT-001/004 — all three FIXED and QA-verified 2026-11-14; verify green 299/299.
@@ -30,6 +30,7 @@
 2. BUG-TENANT-001/004 and SEC-STATS-001: all FIXED and QA-verified 2026-11-14 (see `06-TEST-PLAN.md` §6/§10).
 
 ## 4. Decision & Switch Log
+- [2026-11-14 | Stage 7] RELEASE VERIFIED for tag v1.0.0 (annotated, SHA 577187f, pushed): CI #29 (f156757) + CI #30 (577187f) SUCCESS; restore drill #14 + #15 SUCCESS (exactly the release SHA); tag pushed to origin (no workflow triggered by tags); go-live checklist §6 honestly scoped (repo-verifiable items checked; prod-environment items left unchecked with labels). Tag v1.0.0 exists but NOT deployed per Boss order. — Reason: Stage 7 close-out, Option B ruling, 2026-11-14.
 - [2026-11-14 | Stage 7] Release readiness VERIFIED: CI #26 SUCCESS on f156757 (CI #24 was CANCELLED by push concurrency, #25 SUCCESS — both mysteries resolved via public Actions embed data); restore drill #13 SUCCESS; go-live checklist §6 updated honestly (only repo-verifiable items checked; prod-environment items left unchecked with labels); v1.0.0 tagged on the green SHA (tag has no workflow trigger; NOT deployed per Boss order). Deploy NOT executed — awaiting Boss go-live. — Reason: Stage 7 close-out, Option B ruling.
 - [2026-11-14 | Stage 7] SEC-USERS-001 shipped: CI #23 GREEN (initial CI #22 failed only on a Checkstyle line-length rule, fixed in 9f48493). RESTORE DRILL RESOLVED — GREEN #13: two layered bugs (seed heredoc without docker exec -i; string_agg expectation 'one,two,three' vs actual 'one,three,two'); fixed in 1e2a862/8ebbb5b; drill green for the first time since it was added. — Reason: Stage 7 release gate.
 - [2026-11-14 | Stage 7] CI #16 root cause found & fixed (`4d7a344`): UserServiceTest never established TenantContext (NPE on the org-default fallback), masked locally by AuthServiceTest's context leak into the shared fork; not infra. Fixed test isolation in 5 classes; added `create_withoutTenantContext_fallsBackToDefaultTenant` pin; CI #20 GREEN (3m12s, 300/300, Trivy OK). ALSO: `Restore drill` failing on every run since 20ad507 (fast fail) — root cause fixed 2026-11-14 (missing psql connection params in Assert step). — Reason: CI re-verification after push.
