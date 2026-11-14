@@ -4,6 +4,8 @@
     "firmanzega",
     "promtool",
     "upserted",
+    "upserts",
+    "cutover",
     "VARCHAR",
     "pg_isready",
     "psql",

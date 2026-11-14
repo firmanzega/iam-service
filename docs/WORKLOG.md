@@ -4,10 +4,10 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** Stage 6 - QA Re-verification (SEC-STATS-001 closed: cross-tenant 401 aggregate verified, test proven failable; 299/299 green, BUILD SUCCESS)
-- **Next Active Stage:** Stage 7 - Release Prep (version bump 1.1.0 vs 2.0.0; CHANGELOG; deployment checklist)
-- **Active Skill to Load:** `senior-security-engineer` (Stage 7)
-- **Last Updated:** 2026-11-14 16:50
+- **Last Completed Stage:** Stage 7 - Security & Release docs (re-audit done; 07-DEPLOYMENT V10/V11 + breaking contract + re-audit tables; CHANGELOG v1.0.0 re-scoped per Boss Option B; verify green)
+- **Next Active Stage:** Stage 7 - Release sign-off (Boss: cut tag v1.0.0 / deploy; then close Stage 7)
+- **Active Skill to Load:** `senior-security-engineer` (Stage 7 close-out)
+- **Last Updated:** 2026-11-14 17:20
 
 ## 1. Key Decisions & Locked Artifacts
 - **Stage 7 (Security & Release):** `07-DEPLOYMENT.md` + `CHANGELOG.md` v1.0.0 done (committed); Package A GO pending SEC-STATS-001 + BUG-TENANT-001/004 — all three FIXED and QA-verified 2026-11-14; verify green 299/299.
@@ -21,15 +21,16 @@
 3. **BUG-TENANT-004:** FIXED + QA-verified 2026-11-14 (V10 composite unique; two-tenant same-identity login passes).
 4. **QA-GATE-001:** FIXED 2026-11-14 — verify BUILD SUCCESS (299/299, JaCoCo per-class met, Checkstyle 0, SpotBugs 0). Gate red since `63814ac`.
 5. **SEC-STATS-001 — FIXED + QA-verified 2026-11-14 (Option A, Boss-approved):** `V11` composite tenant-scoped unique on `security_rejection_stats`; `increment()` = single-statement upsert. QA re-verified: `TenantIsolationIntegrationTest.unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason` (both tenants increment same minute/method/reason); test proven failable by temporarily reverting the upsert (`expected <2> but was <1>`), then restored. Closed in `06-TEST-PLAN.md` §6/§10.3.
-6. **JWT Claim:** `tenant_id` claim present; resolution stays header-based per ADR-0018 point 6. Stage 6/7: verify nothing reads the claim for authorization decisions.
-7. **Release version for breaking contract:** `1.1.0` or `2.0.0`? Decision needed at release time (see PRD §6).
-8. **On-premise default:** Confirm single `org-default` tenant per on-premise install; cloud shares schema (ADR-0016 Alternative A).
+6. **JWT Claim:** `tenant_id` claim present; resolution header-based per ADR-0018 pt 6. VERIFIED 2026-11-14: zero reads of the claim for any authorization decision; `WebMapper.tenantId` has no callers (dead code — backend cleanup, not security).
+7. **RESOLVED (2026-11-14):** release version — Boss ruling Option **B**: fold the breaking contract INTO `v1.0.0` (never tagged/published/deployed anywhere; verified: no git tags local/remote, no registry push in CI, no deploy artifacts, no releases). CHANGELOG `[1.0.0]` re-scoped honestly to include multi-tenancy + breaking contract; single release.
+8. **On-premise default:** CONFIRMED by Boss 2026-11-14 (Option A of ADR-0016: on-premise = single org-default; cloud = shared schema).
 
 ## 3. Exact Next Action (Start Here in New Session)
-1. Stage 7 release prep: version bump decision (open question 7), CHANGELOG, deployment checklist (V10/V11 rollback path); `mvn clean verify` green as of 2026-11-14 (299/299).
+1. Stage 7 sign-off: Boss to confirm tag `v1.0.0` / deploy decision; then close Stage 7. `mvn clean verify` green (299/299) as of 2026-11-14.
 2. BUG-TENANT-001/004 and SEC-STATS-001: all FIXED and QA-verified 2026-11-14 (see `06-TEST-PLAN.md` §6/§10).
 
 ## 4. Decision & Switch Log
+- [2026-11-14 | Stage 7] Re-audit (Phase 7 redo) for the breaking contract: secrets none (repo+history), CORS no wildcard (+X-Organization-ID allowed), prod profile locked (springdoc off, ddl-auto validate, dev-only seed/admin), JWT min-length + no claim reads for authz, CI gates Trivy HIGH/CRITICAL + dependency-review + restore drill. 07-DEPLOYMENT.md updated (V9-V11 migration table, deploy order, Breaking Contract §10, rollback constraints). CHANGELOG [1.0.0] re-scoped per Boss Option B: multi-tenancy + breaking contract folded into the first release (never tagged/published/deployed). Boss also confirmed on-premise org-default model. — Reason: Stage 7 + Boss rulings, 2026-11-14.
 - [2026-11-14 | Stage 6] SEC-STATS-001 QA re-verified and CLOSED: cross-tenant same-minute 401 aggregate test added (`TenantIsolationIntegrationTest.unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason`); fixture gained `security_rejection_stats` cleanup before tenant delete (FK enforced); test proven failable by temporarily reverting the upsert to a plain INSERT (`expected <2> but was <1>`), restored via git checkout. `mvn clean verify` BUILD SUCCESS 299/299. NOTE (role-lock honesty): the mutation step edited production code under the QA role; reverted exactly afterwards — future mutations must switch to the backend role explicitly. — Reason: 4.4 proof of failure.
 - [2026-11-14 | Stage 4] SEC-STATS-001 fixed (Option A, Boss ruling 2026-11-14): V11 drops global `uq_security_rejection_stats`, adds composite `uq_security_rejection_stats_tenant UNIQUE (tenant_id, window_start, http_method, reason)`; increment() is one `INSERT ... ON CONFLICT DO UPDATE`; TOCTOU race removed; 298/298 green, Checkstyle 0. QA re-verification pending at the time. — Reason: Boss decision, Option A.
 - [2026-11-14 | Stage 3] Architect review of SEC-STATS-001: recommended Option A; rejected drop-constraint; on-premise-only fallback documented. Boss ruling 2026-11-14: Option A. — Reason: ADR-0016 tenant purity.

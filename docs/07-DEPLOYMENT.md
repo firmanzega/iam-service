@@ -91,7 +91,9 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 - [ ] Database port not open to internet
 - [ ] HTTPS active, certificate valid
 - [ ] Production database does not contain default `admin` account from dev profile
-- [ ] `CORS_ALLOWED_ORIGINS` filled with correct domain
+- [ ] `CORS_ALLOWED_ORIGINS` filled with correct domain, and browser clients send `X-Organization-ID` (CORS policy allows the header)
+- [ ] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401)
+- [ ] Flyway migrations V9–V11 applied and validated (`spring.flyway.validate-on-migrate`)
 - [ ] `/actuator/prometheus` only available on internal network, not via public gateway
 - [ ] GitHub Actions green on last commit (mvn verify + Trivy + restore drill)
 - [ ] Container image successfully built and run as non-root
@@ -105,9 +107,20 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 
 ## 7. Database Migration
 
-Flyway migration is the single source of truth for schema. `V8__add_sessions_and_rejection_stats.sql` adds the `sessions` and `security_rejection_stats` tables. No backfill needs to be waited for: there are no old sessions, users just log in again to get their first session. Access tokens issued before migration do not carry a `session_id` claim and are treated as session-less, not invalid.
+Flyway migration is the single source of truth for schema. `V1` through `V11` are applied automatically at first boot; production runs `ddl-auto: validate` and `validate-on-migrate: true`, so the service refuses to start against a drifted schema. Migration is idempotent and forward-only: never edit an applied migration file.
 
-Run migration when no other instance is writing. Old-version instances remain safe after migration (trigger populates hash for each insert).
+| Migration | What it does | Rollback |
+|-----------|--------------|----------|
+| V1–V8 | Base schema: users, roles, RBAC, audit chain, sessions, rejection-stats | Restore from backup (forward-only) |
+| V9 | Adds `tenant_id` + `tenants` registry; backfills existing rows to `org-default` | Restore from backup; keep column, only safe additions |
+| V10 | Drops global `UNIQUE` on `users.username`/`email`; adds `UNIQUE(tenant_id, username)` and `UNIQUE(tenant_id, email)` (ADR-0018) | Re-create global unique **only** if all tenants hold no same-identity users |
+| V11 | Drops global `uq_security_rejection_stats` (window_start, method, reason); adds `UNIQUE(tenant_id, window_start, http_method, reason)`; enables the single-statement upsert (SEC-STATS-001) | Re-create the global unique **only before any second tenant exists** |
+
+Deploy order: **backup → apply migrations on one instance (or stop others) → roll out new instances**. For live databases created before V9, apply V9 → V10 → V11 in order; for fresh databases everything applies in one pass.
+
+**Rollback overall:** restore from backup (Flyway Community has no down migrations); or redeploy the previous image against a restored database. V11's rollback is only safe before cloud onboarding — see the warning in `V11__tenant_scoped_rejection_stats_unique.sql`.
+
+Access tokens issued before migration remain valid; `X-Organization-ID` is a new **required** header on login/refresh, so clients must be updated before or at deploy time (see §10).
 
 ---
 
@@ -117,13 +130,41 @@ Scripts in `scripts/`:
 - `backup-postgres.sh` — custom format backup with `pg_dump`, prints SHA-256
 - `restore-postgres.sh` — restores backup, rejects without `--yes`
 
-Both can run inside the database container or via PostgreSQL client on the host. Test recovery to a separate database periodically. Example daily cron schedule is in `docs/deployment.md`.
+Both can run inside the database container or via PostgreSQL client on the host. Test recovery to a separate database periodically. No cron example is committed in this repository yet — the GitHub Actions restore drill (`.github/workflows/restore-drill.yml`) is the reference implementation of a scheduled backup-verify cycle.
 
 Automated restore test runs in GitHub Actions (`.github/workflows/restore-drill.yml`): back up → delete data → restore → verify rows, indexes, and unique constraints.
 
 ---
 
-## 9. Security Audit (Phase 7 Results)
+## 9. Security Audit (re-audit 2026-11-14, Phase 7 redo for the multi-tenancy breaking contract)
+
+Full audit across the repository (OWASP Top 10, IDOR, secret leakage, dependencies, transport, config). Method: source→sink tracing for the new tenant boundary, targeted config review, dependency review via CI.
+
+### Findings and handling
+
+| Area | State (verified 2026-11-14) |
+|------|------------------------------|
+| Secrets | No secrets in repo or git history; `.env` gitignored and never committed; `.env.example` contains placeholders only; `JWT_SECRET` minimum length 32 enforced at startup |
+| CORS | Explicit origins only; no wildcard with credentials; `X-Organization-ID` added to allowed headers for browser clients |
+| Prod profile | `springdoc` disabled; `ddl-auto: validate`; dev-only seed and `DevAdminBootstrap` are `@Profile("dev")`; actuator exposure limited to health/metrics/prometheus |
+| JWT | HS256 with explicit algorithm (no `none`/confusion); min 32 bytes; `tenant_id` claim carried but **never read** for authorization decisions (resolution is header-based, ADR-0018 §6). `WebMapper.tenantId` has zero callers — dead code; backend cleanup noted, not a security issue |
+| Tenant isolation | Tenant-scoped repositories for users/sessions/tokens; unknown or missing organization → 401 on every tenant-aware path; `UNIQUE(tenant_id, username/email)`; cross-tenant access covered by `TenantIsolationIntegrationTest` |
+| Input handling | All request bodies are validated DTOs (`@Valid`); SQL via parameterized queries/JPA only; page size capped at 50; pagination serialization DTO-only |
+| Logging | No user-controlled strings logged; audit details stored raw but never printed; log injection surface reviewed, none found |
+| Supply chain | CI enforces Trivy HIGH/CRITICAL on the image, weekly dependency review, `dependency-review` on PRs, restore drill; commit `56fa3fc` note: `mvn clean verify` green (299/299, JaCoCo ≥80% per class, Checkstyle 0, SpotBugs 0) |
+| Docker | Multi-stage build; non-root 10001:10001; JRE runtime; `SPRING_PROFILES_ACTIVE=prod` baked into image |
+
+### Residual risks (accepted, intentionally documented)
+
+| Risk | Acceptance reason |
+|--------|-----------------|
+| Access token cannot be revoked instantly | Maximum 15-minute window; direct access token revocation requires a central revocation list that does not exist yet |
+| Rate limiter per instance | Gateway mitigation; per-account account lock still works |
+| 401 does not trace the actor | Requests without credentials can be sent by anyone; flood to audit_logs is riskier |
+| Hash chain is not an absolute guarantee | Database write access can recalculate the chain; periodic copy to append-only storage is recommended |
+| V10/V11 rollback only before second tenant onboards | Restoring the global uniques after cloud cutover is unsatisfiable |
+
+## Appendix A — Audit Phase 7 (Package A, prior pass, kept for history)
 
 Audit performed across the entire repository (OWASP Top 10, IDOR, secret leakage, dependencies).
 
@@ -151,7 +192,18 @@ Audit performed across the entire repository (OWASP Top 10, IDOR, secret leakage
 
 ---
 
-## 9. Security Incident Runbook
+## 10. Release Notes — Breaking Contract (v1.0.0)
+
+Multi-tenancy ships in the first release (Option B, Boss ruling 2026-11-14): v1.0.0 was never tagged, published, or deployed anywhere, so the breaking changes are folded into the initial release instead of forcing a v2.0.0 or an unshipped v1.1.0.
+
+Client migration steps before deploying:
+1. **Send `X-Organization-ID` on every tenant-aware request** — required by `POST /v1/auth/login` and `POST /v1/auth/refresh`; missing/unknown organization → 401 (unknown-org rejection was extended to all tenant-aware endpoints).
+2. **On-premise (single-tenant) clients** set the header to `org-default` (or the operator-provided organization id); **cloud clients** use their own `organization_id`.
+3. **Account migration:** identities are now per-tenant unique. Existing single-tenant deployments are unaffected; multi-tenant operators must verify no global-unique assumptions in their data tooling (e.g., ETL upserts by username).
+4. Unknown/missing organization rejects with 401 uniformly (no silent `org-default` fallback anywhere).
+5. Deployment order: **backup → migrate (Flyway auto, single instance first) → roll out**. Rollback past V10/V11 only before a second tenant exists.
+
+## 11. Security Incident Runbook
 
 1. **Revoke access immediately.** Replace `JWT_SECRET` with a new key and empty `JWT_SECRET_PREVIOUS`, then restart all instances. All old access tokens are immediately rejected.
 2. **Revoke all refresh tokens and sessions** in the database:

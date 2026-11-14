@@ -9,7 +9,9 @@ dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
 
 ## [1.0.0] - 2026-11-14
 
-Rilis pertama stabil: Package A selesai (Fase 1–6), layanan identitas dan akses siap produksi dengan kontrol keamanan berlapis.
+Rilis pertama stabil: Package A selesai (Fase 1–6) dan seluruh perluasan multi-tenancy, layanan identitas dan akses siap produksi dengan kontrol keamanan berlapis.
+
+**Perhatian — breaking contract dibanding 0.1.0:** lihat bagian "Breaking Contract" di bawah. Klien wajib mengirim `X-Organization-ID` pada endpoint yang memuat tenant, dan identitas pengguna tidak lagi global unik.
 
 ### Ditambahkan
 - Kontrak API berversi di bawah `/v1`, perubahan yang tidak kompatibel dapat diterbitkan sebagai `/v2`
@@ -24,16 +26,34 @@ Rilis pertama stabil: Package A selesai (Fase 1–6), layanan identitas dan akse
 - `CODEOWNERS` untuk seluruh repositori dan path sensitif keamanan
 - Gerbang mutu: JaCoCo ≥80% per kelas, Checkstyle 0, SpotBugs Medium, SBOM CycloneDX 1.6, Trivy image scan
 
+### Ditambahkan — Multi-tenancy (ADR-0016, ADR-0017, ADR-0018)
+- Shared schema: kolom `tenant_id` pada `users`, `sessions`, `refresh_tokens`, `audit_logs`, `security_rejection_stats`; tabel `tenants` dengan `organization_id` eksternal (`X-Organization-ID`) dihadapkan ke klien
+- Identitas tenant-scoped: `UNIQUE(tenant_id, username)` dan `UNIQUE(tenant_id, email)` menggantikan batasan global unik (V10); menyimpan `admin` di dua organisasi berbeda pada satu instalasi adalah keadaan yang sah
+- `POST /v1/auth/login` dan `POST /v1/auth/refresh` wajib `X-Organization-ID`; header hilang atau organisasi tidak dikenal → **401 Unauthorized** di seluruh endpoint tenant-aware
+- Structured logging berdasarkan kategori (errors/generals/integrations/timers/emails) dengan MDC `tenantId` dan `traceId` (ADR-0017)
+- Agregat 401 tenant-scoped: `UNIQUE(tenant_id, window_start, http_method, reason)` (V11) dengan satu statement upsert
+
+### Breaking Contract
+- Klien wajib mengirim `X-Organization-ID` pada `POST /v1/auth/login` dan `POST /v1/auth/refresh`; tanpa header → 401 Unauthorized
+- Identitas pengguna tidak lagi global unik: `username` dan `email` unik per tenant; aplikasi yang mengandalkan keunikan global harus migrasi data sebelum upgrade
+- Organisasi tidak dikenal ditolak 401 di seluruh endpoint tenant-aware (sebelumnya organisasi tidak dikenal dapat jatuh ke `org-default` pada jalur tertentu)
+- Deployment on-premise: klien mengirim `X-Organization-ID: org-default` sesuai konfigurasi deploy; cloud: klien mengirim organization id-nya
+
 ### Diperbaiki
 - `AuthService.revokeSession` tidak memanggil pencabutan token dua kali; `ifPresentOrElse` memastikan token tetap dicabut bila baris sesi sudah hilang
-- Docker image build: mirror repository Maven ke Maven Central via `.mvn/settings.ini` (maven.java.net tidak terjangkau dari jaringan build)
+- Docker image build: mirror repository Maven ke Maven Central via `.mvn/settings.xml` (maven.java.net tidak terjangkau dari jaringan build)
 - SpotBugs pengecualian `EI_EXPOSE_REP2` per kelas dan pola, tidak mematikan pola secara global
+- Login lookup bocor lintas tenant: derived query `findByUsernameOrEmail` mengabaikan `tenantId` → predikat tenant eksplisit (BUG-TENANT-004)
+- Organisasi tidak dikenal jatuh diam-diam ke `org-default` → kini ditolak 401 di seluruh path (BUG-TENANT-001)
+- Agregat 401 tenant non-default hilang diam-diam: constraint global `uq_security_rejection_stats` dilanggar insert tenant kedua pada menit yang sama → di-scope menjadi komposit tenant-aware (SEC-STATS-001, V11)
+- Pori cakupan JaCoCo per kelas yang menahan gerbang `mvn clean verify`: kelas logging, tenant, dan `WebMapper` kini terkover; `mvn clean verify` BUILD SUCCESS (299/299)
 
-### Batasan yang Diketahui (Paket A tidak mencakup)
-- Rate limit terdistribusi, pencabutan access token langsung, WORM eksternal, SAML/OIDC, multi-tenancy, pendaftaran mandiri
+### Batasan yang Diketahui
+- Rate limit terdistribusi, pencabutan access token langsung, WORM eksternal, SAML/OIDC, pendaftaran mandiri
 - Access token tidak dicabut seketika (maksimal 15 menit jendela)
 - Rate limiter per instance, mitigasi di gateway
 - 401 tidak ditulis ke audit_logs (hindari flood oleh pemanggil tidak teridentifikasi)
+- Rollback V11 hanya aman sebelum onboarding tenant kedua (lihat `docs/07-DEPLOYMENT.md` §7)
 
 ---
 
@@ -111,5 +131,6 @@ kontrol akses berbasis peran, jejak audit, dan dokumentasi.
 - Deadlock saat dua pembaruan pengguna berjalan bersamaan
 - Halaman Swagger UI yang tampil kosong putih
 
-[Belum Dirilis]: https://github.com/firmanzega/iam-service/compare/v0.1.0...HEAD
+[Belum Dirilis]: https://github.com/firmanzega/iam-service/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/firmanzega/iam-service/releases/tag/v1.0.0
 [0.1.0]: https://github.com/firmanzega/iam-service/releases/tag/v0.1.0
