@@ -55,6 +55,7 @@ class UserConcurrencyTest {
                 "delete from user_roles where user_id in (select id from users where username like ?)",
                 TEST_USERNAME_PREFIX + "%");
         jdbcTemplate.update("delete from users where username like ?", TEST_USERNAME_PREFIX + "%");
+        TenantContext.clear();
     }
 
     @BeforeEach

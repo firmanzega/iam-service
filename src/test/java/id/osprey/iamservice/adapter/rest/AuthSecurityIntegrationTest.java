@@ -110,6 +110,7 @@ class AuthSecurityIntegrationTest {
 
     @AfterEach
     void tearDown() {
+        TenantContext.clear();
         jdbcTemplate.update(
                 "delete from refresh_tokens where user_id in (select id from users where username like ?)",
                 USERNAME_PREFIX + "%");

@@ -6,6 +6,9 @@ import id.osprey.iamservice.domain.auth.TokenRevocationService;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
+import id.osprey.iamservice.domain.tenant.Tenant;
+import id.osprey.iamservice.domain.tenant.TenantContext;
+import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
 import id.osprey.iamservice.domain.shared.SortSpec;
 import id.osprey.iamservice.domain.user.Role;
@@ -58,8 +61,21 @@ class UserServiceTest {
     @Mock
     TokenRevocationService tokenRevocationService;
 
+    @Mock
+    TenantRepository tenantRepository;
+
     @InjectMocks
     UserService userService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setTenantContext() {
+        TenantContext.setTenantId(TENANT_ID);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        TenantContext.clear();
+    }
 
     private User user() {
         return new User(USER_ID, TENANT_ID, "budi", "budi@mail.com", "HASH", true, 0, null,
@@ -127,6 +143,24 @@ class UserServiceTest {
         verify(passwordPolicy).validate("password123");
         verify(userRepository).save(any(User.class));
         verify(auditService).record(eq(ACTOR_ID), eq("USER_CREATED"), any(), eq("budi"));
+    }
+
+    @Test
+    void create_withoutTenantContext_fallsBackToDefaultTenant() {
+        // Pins the current production behavior: context empty -> resolve org-default.
+        // If Boss rules that this must fail-closed instead, change production code
+        // and this test together.
+        TenantContext.clear();
+        Tenant defaultTenant = new Tenant(7L, "Default Tenant", "org-default", true,
+                java.time.Instant.parse("2026-01-01T00:00:00Z"));
+        when(tenantRepository.findByOrganizationId("org-default"))
+                .thenReturn(Optional.of(defaultTenant));
+        when(passwordEncoder.encode("password123")).thenReturn("HASHED");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        User created = userService.create("budi", "budi@mail.com", "password123", ACTOR_ID);
+
+        assertEquals(7L, created.getTenantId());
     }
 
     @Test

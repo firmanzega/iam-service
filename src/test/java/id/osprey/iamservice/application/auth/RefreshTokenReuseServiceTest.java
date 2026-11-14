@@ -49,6 +49,11 @@ class RefreshTokenReuseServiceTest {
         TenantContext.setTenantId(TENANT_ID);
     }
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        TenantContext.clear();
+    }
+
     @Test
     void revokeAllAfterReuse_revokesEveryTokenAndRecordsAudit() {
         when(refreshTokenRepository.revokeAllForUser(eq(7L), eq(TENANT_ID), any(Instant.class))).thenReturn(3L);

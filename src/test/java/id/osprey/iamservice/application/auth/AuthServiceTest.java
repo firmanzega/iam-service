@@ -93,6 +93,11 @@ class AuthServiceTest {
         TenantContext.setTenantId(TENANT_ID);
     }
 
+    @org.junit.jupiter.api.AfterEach
+    void clearTenantContext() {
+        TenantContext.clear();
+    }
+
     private User user(boolean active, boolean locked) {
         Instant lockedUntil = locked ? Instant.now().plusSeconds(900) : null;
 
