@@ -55,6 +55,29 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   mode container dan konfirmasi sebelum memulihkan
 - Catatan keputusan arsitektur kedua belas tentang database pengujian
   terisolasi dan ketiga belas tentang observability penolakan serta tracing
+- Kontrak API berversi di bawah `/v1`, sehingga perubahan yang tidak kompatibel
+  bisa diterbitkan sebagai `/v2` tanpa memaksa pemanggil lama ikut berubah
+- Gerbang mutu per kelas: cakupan baris minimal 80 persen untuk setiap kelas,
+  Checkstyle, SpotBugs ambang Medium, SBOM CycloneDX 1.6, dan pemindaian Trivy
+  pada image hasil build
+- Rantai hash pada `audit_logs` beserta endpoint `GET /v1/audit-logs/verify`
+  yang melaporkan entri rusak pertama dan alasannya
+- Rotasi kunci token memakai penanda `kid` pada header, dengan
+  `JWT_SECRET_PREVIOUS` menerima token lama selama masa transisi
+- Sesi per perangkat: setiap login membuka baris `sessions`, token membawa klaim
+  `session_id`, dan `GET /v1/auth/sessions` menampilkan daftar perangkat pemilik
+  token
+- Pencabutan satu sesi lewat `DELETE /v1/auth/sessions/{id}`; sesi milik
+  pengguna lain dijawab 404 tanpa membedakannya dari sesi yang tidak ada
+- Label perangkat opsional pada login sebagai alat bantu pemilik akun
+- Agregat penolakan 401 per menit, method, dan alasan di
+  `security_rejection_stats`, beserta tugas pembersihan berdasarkan retensi
+- Registry Prometheus, aturan alert di `ops/prometheus/alerts.yml`, dan uji
+  integrasi yang mengunci nama metrik yang dipakai aturan tersebut
+- Uji restore otomatis di GitHub Actions yang membuat cadangan, menghapus data,
+  memulihkannya, lalu memeriksa baris, indeks, dan batasan unik
+- `CODEOWNERS` yang menunjuk pemilik untuk seluruh repositori dan untuk path
+  sensitif keamanan
 
 ### Diperbaiki
 - Alasan galat saat role yang masih dipakai hendak dihapus kini `ROLE_IN_USE`,
@@ -97,6 +120,9 @@ Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
   JWT pengujian
 - Dokumentasi yang masih menyatakan Testcontainers tidak dipakai, tes memakai
   database pengembangan, dan repositori belum punya `Dockerfile`
+- Pencabutan sesi yang memanggil pencabutan seluruh token dua kali ketika baris
+  sesinya masih ada, dan yang kehilangan pencabutan token ketika baris sesinya
+  sudah terhapus lebih dulu
 
 ---
 

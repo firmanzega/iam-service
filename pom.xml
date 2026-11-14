@@ -73,6 +73,14 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <dependency>
+            <!-- Prometheus scrapes the service instead of the service pushing
+                 metrics to a collector. The registry is runtime-only because no
+                 production code references its classes directly. -->
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
             <!-- Menyediakan Tracer berbasis OpenTelemetry tanpa menarik
                  micrometer-registry-otlp, sehingga metrik tetap keluar lewat
                  endpoint Actuator dan tidak ikut dikirim ke collector. -->

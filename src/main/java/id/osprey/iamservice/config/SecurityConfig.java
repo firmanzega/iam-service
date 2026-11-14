@@ -83,6 +83,12 @@ public class SecurityConfig {
                         // orquestasi. Isinya tidak sensitif karena detail
                         // komponen tidak ditampilkan.
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // The Prometheus endpoint is scraped by an internal
+                        // collector, and that collector cannot refresh a
+                        // 15-minute access token. The exposure is acceptable
+                        // only while the service cannot be reached from the
+                        // public network; see docs/deployment.md.
+                        .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
                         // Halaman Swagger UI beserta asetnya. Hanya tersedia
                         // di profil pengembangan, karena di produksi springdoc

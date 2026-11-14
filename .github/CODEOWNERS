@@ -1,0 +1,17 @@
+# Default owner for every file in this repository.
+#
+# A single owner is not a substitute for review, but it guarantees that no
+# change is merged without at least one request going to someone responsible
+# for the service.
+* @firmanzega
+
+# Security-sensitive paths are listed explicitly so a future split of
+# ownership does not silently drop them.
+/.github/workflows/ @firmanzega
+/.github/dependabot.yml @firmanzega
+/.githooks/ @firmanzega
+/config/ @firmanzega
+/ops/ @firmanzega
+/scripts/ @firmanzega
+/src/main/resources/db/migration/ @firmanzega
+/docs/adr/ @firmanzega

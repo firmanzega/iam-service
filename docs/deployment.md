@@ -305,6 +305,8 @@ layanan memperlakukannya sebagai token tanpa sesi, bukan sebagai token tidak sah
 - [ ] `CORS_ALLOWED_ORIGINS` sudah diisi dengan domain yang benar
 - [ ] Layanan hanya bisa dijangkau lewat proxy internal, atau batas permintaan
       dipindahkan sepenuhnya ke gateway
+- [ ] `/actuator/prometheus` hanya tersedia pada jaringan internal, dan tidak
+      dilewatkan melalui gateway publik
 - [ ] GitHub Actions hijau pada commit terakhir
 - [ ] Image container berhasil dibangun dan dijalankan sebagai pengguna tanpa hak istimewa
 - [ ] Cadangan database terjadwal dan sudah pernah diuji memulihkannya

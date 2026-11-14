@@ -1,0 +1,102 @@
+# Alert rules for iam-service.
+#
+# Copy this file to the Prometheus rule directory, or point rule_files at it.
+# Every selector uses job="iam-service"; keep that job name in the scrape
+# configuration so these rules keep matching.
+#
+# The thresholds are starting points, not universal truths. Adjust them after
+# observing real traffic for a few weeks. Each rule says what the operator is
+# expected to do, because an alert without an action is noise.
+
+groups:
+  - name: iam-service-availability
+    rules:
+      - alert: IamServiceDown
+        expr: up{job="iam-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: iam-service is not being scraped successfully
+          description: >-
+            Prometheus has failed to scrape iam-service for two minutes. Check
+            the container status, the health endpoint, and whether the service
+            is still listening on the expected port.
+
+      - alert: IamServiceHighHttp5xxRatio
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="iam-service",status=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(http_server_requests_seconds_count{job="iam-service"}[5m])), 0.001)
+          > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: More than 5 percent of HTTP responses are 5xx
+          description: >-
+            Follow docs/runbook.md section 8. The error log is the first source
+            of truth; this alert only says the service is failing a meaningful
+            share of requests.
+
+  - name: iam-service-security
+    rules:
+      - alert: IamServiceUnauthorizedSpike
+        expr: |
+          sum by (method) (
+            rate(iam_security_rejected_total{job="iam-service",reason="unauthorized"}[5m])
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Unauthenticated requests are being rejected at a sustained rate
+          description: >-
+            More than two rejections per second for ten minutes on one HTTP
+            method. This is usually credential stuffing or a scanner. Follow
+            docs/runbook.md section 13 and check whether the service is only
+            reachable through the internal proxy.
+
+      - alert: IamServiceAccessDeniedSpike
+        expr: |
+          sum by (method) (
+            rate(iam_security_rejected_total{job="iam-service",reason="access_denied"}[5m])
+          ) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Authenticated callers keep hitting authorization failures
+          description: >-
+            A valid identity is repeatedly trying actions it is not allowed to
+            perform. Each occurrence also writes an ACCESS_DENIED audit entry;
+            use that entry to identify the actor before disabling anything.
+
+  - name: iam-service-resources
+    rules:
+      - alert: IamServiceHeapPressure
+        expr: |
+          sum(jvm_memory_used_bytes{job="iam-service",area="heap"})
+          /
+          sum(jvm_memory_max_bytes{job="iam-service",area="heap"})
+          > 0.90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Heap usage is above 90 percent for ten minutes
+          description: >-
+            Check the JVM options and the request rate. Repeated garbage
+            collection at this level usually precedes an OutOfMemoryError.
+
+      - alert: IamServiceDatabasePoolPending
+        expr: hikaricp_connections_pending{job="iam-service"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Threads are waiting for a database connection
+          description: >-
+            The connection pool has been exhausted for five minutes. Check for
+            long-running queries, lock waits, or a pool size that is too small
+            for the current traffic.

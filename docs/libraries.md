@@ -23,6 +23,7 @@ Semua versi library dikelola oleh `spring-boot-starter-parent`, kecuali
 | Validasi | `spring-boot-starter-validation` | 4.1.2 |
 | Dokumentasi | `springdoc-openapi-starter-webmvc-ui` | 3.2.0 |
 | Operasional | `spring-boot-starter-actuator` | 4.1.2 |
+| Metrik | `micrometer-registry-prometheus` | 1.17.2 |
 | Observability | `spring-boot-micrometer-tracing-opentelemetry`, `micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp` | 4.1.2, 1.7.2, 1.62.0 |
 | Analisis statis | `maven-checkstyle-plugin` + Checkstyle, `spotbugs-maven-plugin` | 3.6.0 + 10.26.1, 4.10.5.0 |
 | SBOM dan CVE | `cyclonedx-maven-plugin`, Trivy di GitHub Actions | 2.9.3, action v0.36.0 |
@@ -361,6 +362,35 @@ Trivy.
   sama sekali.
 - **Jadwal mingguan tetap berjalan** meskipun tidak ada push, supaya basis data
   kerentanan yang diperbarui tetap dibandingkan dengan image terakhir.
+
+### 2.16 `micrometer-registry-prometheus`
+
+**Apa itu:** Registry Micrometer yang mengekspos metrik dalam format teks
+Prometheus lewat `/actuator/prometheus`.
+
+**Kenapa dipakai:** Metrik yang dibaca manual lewat `/actuator/metrics` tidak
+bisa dipakai untuk alert. Prometheus mengambil metrik secara berkala, menyimpannya
+sebagai deret waktu, lalu menjalankan aturan alert di `ops/prometheus/alerts.yml`.
+Tanpa registry ini, aturan tersebut tidak punya data.
+
+**Dipakai di:** `pom.xml` (scope `runtime`), `application.yaml` pada daftar
+endpoint yang diekspos, serta `ops/prometheus/`.
+
+**Yang perlu diperhatikan:**
+
+- **Scope `runtime`** karena tidak ada kode produksi yang menyebut kelas
+  registry ini. Yang memakainya adalah konfigurasi otomatis Actuator.
+- **Endpoint tanpa token** dipilih karena scraper tidak bisa memperbarui token
+  akses 15 menit. Konsekuensinya endpoint wajib hanya bisa dijangkau jaringan
+  internal; syaratnya ada di `docs/deployment.md`.
+- **Nama metrik berbeda dari nama Micrometer.** Counter `iam.security.rejected`
+  muncul sebagai `iam_security_rejected_total`. Aturan alert memakai nama
+  Prometheus, dan `PrometheusEndpointIntegrationTest` gagal kalau nama itu
+  berubah.
+- **Bukan pengganti `/actuator/metrics`.** Endpoint Actuator tetap ada untuk
+  pembacaan manual dan tetap hanya untuk ADMIN.
+- **Tidak ada registry OTLP.** Metrik sengaja tidak dikirim ke collector;
+  Prometheus yang mengambil, sehingga jalur metrik dan jalur tracing terpisah.
 
 ---
 

@@ -215,6 +215,7 @@ sempurna.
 | **Rantai hash bukan jaminan mutlak** | Rantai mendeteksi perubahan dan penghapusan baris, tetapi pemegang akses tulis database masih bisa menghitung ulang seluruh rantai | Kirim salinan berkala ke penyimpanan append-only di luar database |
 | **Belum ada rate limit pada endpoint lain** | Endpoint selain autentikasi tidak dibatasi | Penyerang yang sudah terautentikasi bisa mengirim banyak permintaan |
 | **401 tidak disimpan ke jejak audit** | Percobaan tanpa kredensial tidak bisa ditelusuri sampai pelaku | Log WARN, metrik `iam.security.rejected`, dan agregat per menit tetap tersedia. Alasan lengkapnya ada di bagian 1.6 |
+| **`/actuator/prometheus` tanpa token** | Scraper bisa membaca metrik tanpa autentikasi. Metrik itu tidak sensitif, tapi mencerminkan volume lalu lintas | Endpoint wajib hanya bisa dijangkau jaringan internal scraper. Jangan publiekan melalui gateway publik |
 | **Dependency review hanya memeriksa perubahan** | Kerentanan pada dependensi lama tidak menggagalkan pull request | Dependabot alerts dan peninjauan berkala; jalankan pemindai penuh sebelum rilis besar |
 | **Analisis statis belum mencakup Low** | Temuan berprioritas Low belum memblokir build | Ambang Medium sudah berlaku; pengecualian ditulis per kelas dan pola, bukan mematikan pola global |
 | **Belum ada multi-tenancy** | Satu database untuk semua organisasi | Gunakan database terpisah per organisasi kalau sudah perlu |

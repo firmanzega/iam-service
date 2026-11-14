@@ -58,9 +58,13 @@ management:
   endpoints:
     web:
       exposure:
-        # Hanya health dan metrics yang dibuka. Endpoint lain yang punya
-        # actuator bisa membocorkan detail internal layanan.
-        include: health,metrics
+        # Only health, metrics, and prometheus are exposed. Other Actuator
+        # endpoints can leak internal details of the service.
+        #
+        # /actuator/prometheus is intentionally reachable without a token so a
+        # scraper does not need to refresh a 15-minute access token. It must be
+        # reachable only from the internal scraper network; see docs/security.md.
+        include: health,metrics,prometheus
   endpoint:
     health:
       probes:
