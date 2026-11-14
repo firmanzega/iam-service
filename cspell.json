@@ -37,7 +37,8 @@
     "MDC",
     "tenantId",
     "X-Organization-ID",
-    "WORKLOG"
+    "WORKLOG",
+    "Pageable"
   ],
   "ignorePaths": [
     "node_modules/**",

@@ -165,7 +165,741 @@ paths:
           description: Not authenticated, or missing/unknown X-Organization-ID header
         '404':
           description: Session not found or not owned by caller
+  /users:
+    get:
+      tags: [users]
+      summary: List users (paginated, searchable)
+      operationId: listUsers
+      description: |
+        ADMIN and AUDITOR only. Search matches username and email.
+        Sort properties allowed: id, username, email, active, createdAt, updatedAt.
+        Sorting by any other property (e.g. passwordHash) is rejected with 400.
+        Page size is capped at 50. Default sort: id.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Optional substring search on username and email
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+      x-allowed-sort: [id, username, email, active, createdAt, updatedAt]
+      x-default-sort: id
+      x-default-size: 10
+      responses:
+        '200':
+          description: Page of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          description: Size out of range (1-50) or sort property not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN or AUDITOR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [users]
+      summary: Create a user
+      operationId: createUser
+      description: |
+        ADMIN only. Uniqueness of username and email is scoped per tenant
+        (UNIQUE(tenant_id, username|email), V10). Password is stored hashed;
+        the raw value is never persisted or returned.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid request body (validation failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username or email already used in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [users]
+      summary: Get one user by id
+      operationId: findUserById
+      description: ADMIN and AUDITOR may read any user; a regular user may only read their own account (self).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed to read this user (not ADMIN/AUDITOR and not self)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [users]
+      summary: Replace user data (optimistic lock)
+      operationId: updateUser
+      description: |
+        ADMIN only. The `version` field is required and carries the version
+        read by the caller; a mismatch means someone else modified the row
+        first and is rejected with 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Version conflict (row changed by another writer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [users]
+      summary: Partially update user data (optimistic lock)
+      operationId: patchUser
+      description: |
+        ADMIN only. Fields omitted from the body are left unchanged.
+        `version` is required and carries optimistic-lock semantics; a
+        mismatch is rejected with 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Version conflict (row changed by another writer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}/activate:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags: [users]
+      summary: Activate a deactivated user
+      operationId: activateUser
+      description: ADMIN only. Reactivating also clears the failed-login history of the account.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      responses:
+        '204':
+          description: User activated
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}/deactivate:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags: [users]
+      summary: Deactivate a user
+      operationId: deactivateUser
+      description: |
+        ADMIN only. Deactivating revokes all of the user's refresh tokens,
+        so existing sessions terminate at access-token expiry (max 15 minutes).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      responses:
+        '204':
+          description: User deactivated
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}/roles:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+    put:
+      tags: [users]
+      summary: Replace the full set of roles of a user
+      operationId: replaceUserRoles
+      description: |
+        ADMIN only. Role names omitted from the body are removed; unknown
+        role names are rejected with 400. After a role change, all of the
+        user's refresh tokens are revoked so the next token carries the
+        latest roles. Optimistic lock via `version`; mismatch is rejected
+        with 409.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceRolesRequest'
+      responses:
+        '200':
+          description: Roles replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: One or more role names are unknown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Version conflict (row changed by another writer)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}/password:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+    put:
+      tags: [users]
+      summary: Change own password
+      operationId: changePassword
+      description: |
+        ADMIN may change any password; a regular user may only change their
+        own (id must equal the `sub` claim). After a password change, all
+        refresh tokens of the account are revoked.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Password changed
+        '400':
+          description: New password does not meet the password policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, wrong current password, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Only the account owner (or ADMIN) may change this password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{id}/reset-password:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+    post:
+      tags: [users]
+      summary: Set a new password as administrator
+      operationId: resetPassword
+      description: |
+        ADMIN only. Sets a new password without knowing the current one.
+        All refresh tokens of the account are revoked immediately and the
+        failed-login history is cleared.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '204':
+          description: Password reset
+        '400':
+          description: New password does not meet the password policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /roles:
+    get:
+      tags: [roles]
+      summary: List all roles
+      operationId: listRoles
+      description: |
+        Any authenticated user. Roles are GLOBAL reference data, deliberately
+        NOT tenant-scoped (see V9 comments and ADR-0016/0018): the role master
+        table carries no tenant_id. X-Organization-ID is therefore not
+        required on this path.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [roles]
+      summary: Create a role
+      operationId: createRole
+      description: |
+        ADMIN only. Role names must match `^[A-Z][A-Z0-9_]*$` (uppercase,
+        max 50 chars). Roles are global, not tenant-scoped.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Role created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleResponse'
+        '400':
+          description: Role name invalid (pattern ^[A-Z][A-Z0-9_]*$, max 50)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Role name already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /roles/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+    delete:
+      tags: [roles]
+      summary: Delete a role
+      operationId: deleteRole
+      description: |
+        ADMIN only. A role still assigned to at least one user is rejected
+        with 409; remove the role from its users first.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Role deleted
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Role is still assigned to one or more users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /audit-logs:
+    get:
+      tags: [audit]
+      summary: List audit logs (paginated)
+      operationId: listAuditLogs
+      description: |
+        ADMIN and AUDITOR only. Tenant-scoped: the list only contains entries
+        of the caller's organization.
+        Sort properties allowed: id, createdAt, action, actorUserId, targetUserId.
+        Default sort: createdAt desc, then id desc. Page size capped at 50.
+
+        Known gap (tracked as BUG-TENANT-005 candidate, see WORKLOG): the
+        tenant filter does not yet reject a MISSING X-Organization-ID header
+        on this path (it returns a 200 with an empty page because the query
+        is scoped by a null tenant). An UNKNOWN organization is rejected with
+        401 everywhere. Documented here as the implemented behavior; the
+        ADR-0018 intent is 401 for missing as well.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+      x-allowed-sort: [id, createdAt, action, actorUserId, targetUserId]
+      x-default-sort: 'createdAt desc, id desc'
+      x-default-size: 20
+      responses:
+        '200':
+          description: Page of audit log entries (tenant-scoped)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogPage'
+        '400':
+          description: Size out of range (1-50) or sort property not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or unknown X-Organization-ID header (missing header currently returns 200 empty; see description)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN or AUDITOR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /audit-logs/verify:
+    get:
+      tags: [audit]
+      summary: Verify the audit hash chain
+      operationId: verifyAuditChain
+      description: |
+        ADMIN only. Recomputes the hash of every entry and checks the chain
+        linkage. The chain itself is global by design (single chain across
+        tenants), so verification covers all entries, not only the caller's
+        tenant. Verifying broken entries reveals where tampering occurred;
+        therefore AUDITOR is not allowed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      responses:
+        '200':
+          description: Verification result (check body; `valid` is true when the chain is intact)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditChainVerificationResponse'
+        '401':
+          description: Not authenticated, or unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires ADMIN)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
+  parameters:
+    XOrganizationId:
+      in: header
+      name: X-Organization-ID
+      required: true
+      schema:
+        type: string
+      description: Organization identifier for multi-tenancy isolation (required on all tenant-aware paths; missing or unknown organization is rejected with 401)
+    Page:
+      in: query
+      name: page
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Zero-based page index
+    Size:
+      in: query
+      name: size
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+      description: Page size, capped at 50
+    Sort:
+      in: query
+      name: sort
+      required: false
+      schema:
+        type: string
+      description: |-
+        Spring Pageable format: `property,asc` or `property,desc`.
+        May be repeated for multiple sort keys. Unknown properties are
+        rejected with 400. See x-allowed-sort on each list operation.
   securitySchemes:
     bearerAuth:
       type: http
@@ -215,3 +949,221 @@ components:
           type: boolean
         revoked:
           type: boolean
+    ErrorResponse:
+      type: object
+      required: [status, error, timestamp, path, message]
+      properties:
+        status:
+          type: integer
+        error:
+          type: string
+          description: HTTP reason phrase
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+          description: Request path that failed
+        message:
+          type: string
+        details:
+          type: object
+          description: Per-field validation messages; only present for 400 validation failures
+          additionalProperties:
+            type: string
+    UserResponse:
+      type: object
+      required: [id, username, email, active, version, roles]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        active:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          description: Optimistic-lock version; required back in update/patch/roles payloads
+        roles:
+          type: array
+          items:
+            type: string
+    CreateUserRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 100
+        password:
+          type: string
+          format: password
+          maxLength: 72
+    UpdateUserRequest:
+      type: object
+      required: [username, email, version]
+      properties:
+        username:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 100
+        version:
+          type: integer
+          format: int64
+    PatchUserRequest:
+      type: object
+      required: [version]
+      description: Omitted fields are left unchanged.
+      properties:
+        username:
+          type: string
+          maxLength: 50
+          pattern: \S+
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 100
+        version:
+          type: integer
+          format: int64
+    ReplaceRolesRequest:
+      type: object
+      required: [roleNames, version]
+      properties:
+        roleNames:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+        version:
+          type: integer
+          format: int64
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          maxLength: 72
+        newPassword:
+          type: string
+          format: password
+          maxLength: 72
+    ResetPasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          type: string
+          format: password
+          maxLength: 72
+    RoleResponse:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+    CreateRoleRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          pattern: '^[A-Z][A-Z0-9_]*$'
+          description: Uppercase letters, digits and underscore; must start with a letter
+    PageInfo:
+      type: object
+      required: [size, number, totalElements, totalPages]
+      properties:
+        size:
+          type: integer
+        number:
+          type: integer
+          description: Zero-based page index
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+    UserPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserResponse'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+    AuditLogResponse:
+      type: object
+      required: [id, action, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        actorUserId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null for system-initiated actions
+        action:
+          type: string
+          example: USER_UPDATED
+        targetUserId:
+          type: integer
+          format: int64
+          nullable: true
+        details:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    AuditLogPage:
+      type: object
+      required: [content, page]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogResponse'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+    AuditChainVerificationResponse:
+      type: object
+      required: [valid, checkedEntries]
+      properties:
+        valid:
+          type: boolean
+          description: True when every entry hash recomputes correctly and the chain linkage is intact
+        checkedEntries:
+          type: integer
+        firstBrokenEntryId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Null when valid
+        reason:
+          type: string
+          nullable: true
+          description: Machine-readable cause code; null when valid
