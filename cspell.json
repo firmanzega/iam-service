@@ -16,7 +16,14 @@
     "iamservice",
     "springdoc",
     "HSTS",
-    "PGPASSWORD"
+    "PGPASSWORD",
+    "IDOR",
+    "Dtest",
+    "githook",
+    "temurin",
+    "remoteip",
+    "clickjacking",
+    "nosniff"
   ],
   "ignorePaths": [
     "node_modules/**",
