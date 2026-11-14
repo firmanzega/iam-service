@@ -149,6 +149,7 @@ class JwtKeyRotationIntegrationTest {
     @Test
     void loginIssuesTokenWithCurrentKeyId() throws Exception {
         MvcResult result = mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + PREFIX + "pengguna\",\"password\":\""
                                 + PASSWORD + "\"}"))

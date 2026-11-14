@@ -36,11 +36,19 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     /**
      * Mencari pengguna berdasarkan username atau email dalam satu tenant.
      *
-     * Filter tenant_id mencegah pencarian pengguna melintas tenant meski
-     * username atau email-nya sama.
+     * Query eksplisit, bukan derived: parameter tenantId WAJIB masuk ke
+     * WHERE. Versi derived sebelumnya menurunkan predicate
+     * `(username = ? OR email = ?)` dan mengabaikan tenantId sama sekali
+     * (terbukti dari NonUniqueResultException saat identitas yang sama
+     * didaftarkan di dua tenant). Filter tenant adalah satu-satunya yang
+     * menjaga login tidak melintas tenant.
      */
     @EntityGraph(attributePaths = "roles")
-    Optional<UserJpaEntity> findByUsernameOrEmail(String username, String email, @Param("tenantId") Long tenantId);
+    @Query("select u from UserJpaEntity u "
+            + "where u.tenantId = :tenantId and (u.username = :username or u.email = :email)")
+    Optional<UserJpaEntity> findByUsernameOrEmail(@Param("username") String username,
+                                                  @Param("email") String email,
+                                                  @Param("tenantId") Long tenantId);
 
     /**
      * Pencarian pada username dan email dalam satu tenant.

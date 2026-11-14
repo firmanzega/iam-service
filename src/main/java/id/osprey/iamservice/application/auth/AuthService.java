@@ -11,9 +11,7 @@ import id.osprey.iamservice.domain.auth.TokenSettings;
 import id.osprey.iamservice.domain.auth.TokenRevocationService;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
-import id.osprey.iamservice.domain.tenant.Tenant;
 import id.osprey.iamservice.domain.tenant.TenantContext;
-import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
 import org.slf4j.Logger;
@@ -40,8 +38,6 @@ public class AuthService implements TokenRevocationService {
     private static final String AUDIT_LOGOUT = "LOGOUT";
     private static final String AUDIT_SESSION_REVOKED = "SESSION_REVOKED";
 
-    private static final String DEFAULT_ORGANIZATION_ID = "org-default";
-
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final SessionRepository sessionRepository;
@@ -52,7 +48,6 @@ public class AuthService implements TokenRevocationService {
     private final LoginPolicy loginPolicy;
     private final TokenSettings tokenSettings;
     private final RefreshTokenReuseService refreshTokenReuseService;
-    private final TenantRepository tenantRepository;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
@@ -63,8 +58,7 @@ public class AuthService implements TokenRevocationService {
                        AuditService auditService,
                        LoginPolicy loginPolicy,
                        TokenSettings tokenSettings,
-                       RefreshTokenReuseService refreshTokenReuseService,
-                       TenantRepository tenantRepository) {
+                       RefreshTokenReuseService refreshTokenReuseService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.sessionRepository = sessionRepository;
@@ -75,7 +69,6 @@ public class AuthService implements TokenRevocationService {
         this.loginPolicy = loginPolicy;
         this.tokenSettings = tokenSettings;
         this.refreshTokenReuseService = refreshTokenReuseService;
-        this.tenantRepository = tenantRepository;
     }
 
     /**
@@ -88,10 +81,10 @@ public class AuthService implements TokenRevocationService {
     @Transactional
     public TokenPair login(String identifier, String password, String deviceLabel) {
         Instant now = Instant.now();
-        TenantContext.setTenantId(currentTenantId());
+        Long tenantId = requireTenantContext();
 
         User user = userRepository.findByUsernameOrEmail(identifier, identifier,
-                TenantContext.getTenantId()).orElse(null);
+                tenantId).orElse(null);
 
         if (user == null) {
             // Pesan yang sama dipakai untuk akun yang tidak ada dan untuk kata
@@ -121,9 +114,10 @@ public class AuthService implements TokenRevocationService {
         userRepository.save(user);
 
         // Sesi harus milik tenant pemilik pengguna, bukan tenant konteks
-        // permintaan. Konteks pada login biasanya kosong (login tidak memakai
-        // header) sehingga jatuh ke tenant default; itu membuat sesi pengguna
-        // tenant lain tercatat di tenant default.
+        // permintaan. Keduanya selalu sama karena filter menolak login
+        // tanpa konteks; pemakaian user.getTenantId() menjaga invariant
+        // itu tetap pada tempatnya bila service dipanggil langsung dari
+        // luar filter (misalnya pada pengujian use case).
         Session session = sessionRepository.save(Session.start(user.getId(), user.getTenantId(), deviceLabel, now));
 
         auditService.record(user.getId(), AUDIT_LOGIN_SUCCESS, user.getId(), null);
@@ -145,15 +139,21 @@ public class AuthService implements TokenRevocationService {
     @Transactional
     public TokenPair refresh(String rawRefreshToken) {
         Instant now = Instant.now();
-        TenantContext.setTenantId(currentTenantId());
 
         RefreshToken stored = refreshTokenRepository.findByTokenHash(tokenIssuer.hashToken(rawRefreshToken))
                 .orElseThrow(() -> new DomainException(DomainException.Reason.INVALID_CREDENTIALS,
                         "Invalid refresh token"));
 
+        // ADR-0018 poin 6: penukaran refresh token memakai tenant yang
+        // tersimpan pada token, bukan tenant dari header. Header tetap
+        // wajib (gerbang kontrak), tetapi sumber kebenaran tenant untuk
+        // alur ini adalah token itu sendiri supaya tidak ada dua standar.
+        Long storedTenantId = stored.getTenantId() != null ? stored.getTenantId() : stored.getUser().getTenantId();
+        TenantContext.setTenantId(storedTenantId);
+
         Session session = stored.getSessionId() == null
                 ? null
-                : sessionRepository.findById(stored.getSessionId(), TenantContext.getTenantId()).orElse(null);
+                : sessionRepository.findById(stored.getSessionId(), storedTenantId).orElse(null);
 
         if (stored.isRevoked()) {
             // Pencabutan karena logout atau pencabutan sesi bukan bukti
@@ -317,20 +317,21 @@ public class AuthService implements TokenRevocationService {
     }
 
     /**
-     * Mengembalikan tenantId untuk permintaan saat ini. Login adalah endpoint
-     * publik yang tidak memakai header X-Organization-ID, jadi kalau konteks
-     * tenant kosong pakai tenant default supaya sesi dan token tetap bisa
-     * dibuat dengan tenant yang valid.
+     * Mengembalikan tenantId untuk permintaan saat ini.
+     *
+     * Login wajib melewati TenantHeaderFilter, sehingga konteks selalu
+     * terisi atau permintaan sudah ditolak sebelum mencapai service.
+     * Konteks yang kosong di titik ini adalah kesalahan konfigurasi
+     * (filter tidak terpasang), bukan kesalahan klien, jadi dilempar
+     * sebagai IllegalStateException dan bukan DomainException.
      */
-    private Long currentTenantId() {
+    private Long requireTenantContext() {
         Long tenantId = TenantContext.getTenantId();
-        if (tenantId != null) {
-            return tenantId;
+        if (tenantId == null) {
+            throw new IllegalStateException(
+                    "TenantContext kosong di service; TenantHeaderFilter harus menolak permintaan lebih dulu");
         }
-        return tenantRepository.findByOrganizationId(DEFAULT_ORGANIZATION_ID)
-                .map(Tenant::getId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Tenant default '" + DEFAULT_ORGANIZATION_ID + "' tidak ditemukan"));
+        return tenantId;
     }
 
     private DomainException invalidRefreshToken() {

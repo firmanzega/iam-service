@@ -49,6 +49,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `application/audit/AuditService.java` | Audit logging. `record` joins transaction, `recordIndependently` uses separate transaction, `findAll` reads paginated audit log |
 | `application/security/PasswordPolicy.java` | Password strength rules |
 | `application/security/SecurityRejectionStatsService.java` | Records 401 rejection aggregate per minute in separate transaction, deletes aggregates past retention |
+| `application/tenant/TenantResolver.java` | Resolves `X-Organization-ID` to internal `tenant_id`, sets `TenantContext`; returns `RESOLVED`/`MISSING`/`UNKNOWN` so the filter can reject unknown organizations (BUG-TENANT-001) |
 
 ## 4. Infrastructure Layer
 
@@ -57,7 +58,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `infrastructure/persistence/SessionJpaEntity.java` | JPA entity for `sessions` table |
 | `infrastructure/persistence/RefreshTokenJpaEntity.java` | JPA entity for `refresh_tokens` table, including `session_id` column |
 | `infrastructure/persistence/AuditLogJpaEntity.java` | JPA entity for `audit_logs` table, including hash column written by database trigger |
-| `infrastructure/persistence/SpringDataUserRepository.java` | Spring Data repository for users |
+| `infrastructure/persistence/SpringDataUserRepository.java` | Spring Data repository for users; `findByUsernameOrEmail` is an explicit `@Query` with a mandatory `tenantId` predicate (derived query silently ignored the tenant parameter) |
 | `infrastructure/persistence/SpringDataRoleRepository.java` | Spring Data repository for roles |
 | `infrastructure/persistence/SpringDataRefreshTokenRepository.java` | Spring Data repository for refresh tokens, including bulk delete expired and bulk revoke via single `UPDATE` |
 | `infrastructure/persistence/SpringDataSessionRepository.java` | Spring Data repository for sessions, including active session lookup, bulk revocation, delete inactive sessions |
@@ -77,6 +78,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `adapter/rest/RoleController.java` | Endpoints: roles |
 | `adapter/rest/AuditController.java` | Endpoints: audit logs, hash chain integrity check |
 | `adapter/rest/WebMapper.java` | Shared web-to-domain translator: actor ID, session ID, pagination request |
+| `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: login/refresh missing or unknown organization → 401; tenant-scoped endpoints missing → 400, unknown → 401 (ADR-0018, BUG-TENANT-001) |
 | `adapter/rest/dto/SessionResponse.java` | Shape of one device session returned |
 | `adapter/rest/dto/TokenResponse.java` | Shape of token pair returned |
 
@@ -101,11 +103,14 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 |------|------|
 | `src/main/resources/db/migration/V1__create_schema.sql` | Initial schema |
 | `src/main/resources/db/migration/V8__add_sessions_and_rejection_stats.sql` | `sessions` table and `security_rejection_stats` table |
+| `src/main/resources/db/migration/V9__add_tenant_id.sql` | `tenant_id` on core tables, `tenants` registry, backfill to `org-default` |
+| `src/main/resources/db/migration/V10__tenant_scoped_identity.sql` | Drops global `UNIQUE` on `users.username`/`users.email`, adds `UNIQUE(tenant_id, username)` and `UNIQUE(tenant_id, email)` (ADR-0018) |
 
 ## 8. Tests
 
 | File | Role |
 |------|------|
+| `adapter/rest/TenantIsolationIntegrationTest.java` | Cross-tenant isolation via HTTP: sessions per tenant, unknown-organization 401 (BUG-TENANT-001), required `X-Organization-ID` on login/refresh (ADR-0018), tenant-scoped identity uniqueness (V10) |
 | `adapter/rest/AuthSecurityIntegrationTest.java` | Authorization matrix via HTTP, password change, account lock, logout, 401 aggregate |
 | `adapter/rest/SessionManagementIntegrationTest.java` | Per-device sessions via HTTP: two logins, `current` flag, single-device logout, other-user 404 |
 | `adapter/rest/PrometheusEndpointIntegrationTest.java` | Prometheus scrape without token, metric names match alert rules |

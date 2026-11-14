@@ -53,7 +53,7 @@ class TenantResolverTest {
         Tenant tenant = new Tenant(7L, "QA Tenant", "org-qa", true, Instant.parse("2026-01-01T00:00:00Z"));
         doReturn(Optional.of(tenant)).when(tenantRepository).findByOrganizationId("org-qa");
 
-        resolver.resolve("org-qa");
+        assertEquals(TenantResolver.Resolution.RESOLVED, resolver.resolve("org-qa"));
 
         assertEquals(7L, TenantContext.getTenantId());
     }
@@ -62,7 +62,7 @@ class TenantResolverTest {
     void resolve_clearsContext_whenHeaderIsBlank() {
         TenantContext.setTenantId(99L);
 
-        resolver.resolve("   ");
+        assertEquals(TenantResolver.Resolution.MISSING, resolver.resolve("   "));
 
         assertNull(TenantContext.getTenantId());
     }
@@ -71,7 +71,7 @@ class TenantResolverTest {
     void resolve_clearsContext_whenHeaderIsNull() {
         TenantContext.setTenantId(99L);
 
-        resolver.resolve(null);
+        assertEquals(TenantResolver.Resolution.MISSING, resolver.resolve(null));
 
         assertNull(TenantContext.getTenantId());
     }
@@ -80,7 +80,7 @@ class TenantResolverTest {
     void resolve_clearsContext_whenOrganizationNotFound() {
         doReturn(Optional.empty()).when(tenantRepository).findByOrganizationId("org-hilan");
 
-        resolver.resolve("org-hilan");
+        assertEquals(TenantResolver.Resolution.UNKNOWN, resolver.resolve("org-hilan"));
 
         assertNull(TenantContext.getTenantId());
     }
@@ -90,7 +90,7 @@ class TenantResolverTest {
         Tenant inactive = new Tenant(8L, "QA Tenant", "org-qa-inactive", false, Instant.parse("2026-01-01T00:00:00Z"));
         doReturn(Optional.of(inactive)).when(tenantRepository).findByOrganizationId("org-qa-inactive");
 
-        resolver.resolve("org-qa-inactive");
+        assertEquals(TenantResolver.Resolution.UNKNOWN, resolver.resolve("org-qa-inactive"));
 
         assertNull(TenantContext.getTenantId());
     }

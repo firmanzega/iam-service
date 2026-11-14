@@ -125,6 +125,7 @@ class AuthSecurityIntegrationTest {
 
     private String login(String username) throws Exception {
         MvcResult result = mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + username + "\",\"password\":\"" + PASSWORD + "\"}"))
                 .andExpect(status().isOk())
@@ -343,6 +344,7 @@ class AuthSecurityIntegrationTest {
     @Test
     void login_withWrongPassword_isUnauthorized() throws Exception {
         mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + USERNAME_PREFIX + "member\",\"password\":\"SalahSekali1\"}"))
                 .andExpect(status().isUnauthorized())
@@ -352,6 +354,7 @@ class AuthSecurityIntegrationTest {
     @Test
     void login_withInvalidBody_isBadRequest() throws Exception {
         mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"\",\"password\":\"\"}"))
                 .andExpect(status().isBadRequest())
@@ -433,6 +436,7 @@ class AuthSecurityIntegrationTest {
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + USERNAME_PREFIX + "member\",\"password\":\""
                                 + PASSWORD + "\"}"))
@@ -450,6 +454,7 @@ class AuthSecurityIntegrationTest {
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + USERNAME_PREFIX + "member\",\"password\":\""
                                 + PASSWORD + "\"}"))
@@ -478,6 +483,7 @@ class AuthSecurityIntegrationTest {
     @Test
     void logout_revokesTheRefreshToken() throws Exception {
         MvcResult loginResult = mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + USERNAME_PREFIX + "member\",\"password\":\""
                                 + PASSWORD + "\"}"))
@@ -497,6 +503,7 @@ class AuthSecurityIntegrationTest {
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(post("/v1/auth/refresh")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
                 .andExpect(status().isUnauthorized());

@@ -182,6 +182,7 @@ class SessionManagementIntegrationTest {
 
     private Tokens login(String username, String deviceLabel) throws Exception {
         MvcResult result = mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + username + "\",\"password\":\"" + PASSWORD
                                 + "\",\"deviceLabel\":\"" + deviceLabel + "\"}"))
@@ -193,6 +194,7 @@ class SessionManagementIntegrationTest {
 
     private org.springframework.test.web.servlet.ResultActions refresh(String refreshToken) throws Exception {
         return mockMvc.perform(post("/v1/auth/refresh")
+                .header("X-Organization-ID", "org-default")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"refreshToken\":\"" + refreshToken + "\"}"));
     }

@@ -117,6 +117,39 @@ class AuthServiceTest {
     }
 
     @Test
+    void login_withoutTenantContext_throwsIllegalState() {
+        TenantContext.clear();
+
+        assertThrows(IllegalStateException.class,
+                () -> authService.login("budi", PASSWORD, "laptop"));
+
+        verify(userRepository, never()).findByUsernameOrEmail(any(), any(), any());
+    }
+
+    @Test
+    void refresh_prefersStoredTokenTenant_overCurrentContext() {
+        // Konteks permintaan menunjuk tenant 99, tetapi token tersimpan
+        // milik tenant pengguna (1). ADR-0018 poin 6: penukaran menyesuaikan
+        // tenant tersimpan, sehingga lookup sesi memakai tenant 1.
+        TenantContext.setTenantId(99L);
+        User user = user(true, false);
+        RefreshToken stored = new RefreshToken(1L, user, TENANT_ID, "hash", SESSION_ID,
+                Instant.now().plusSeconds(600), null, Instant.now());
+        Session session = session(SESSION_ID, false);
+
+        when(tokenIssuer.hashToken("token")).thenReturn("hash");
+        when(refreshTokenRepository.findByTokenHash("hash")).thenReturn(Optional.of(stored));
+        when(sessionRepository.findById(SESSION_ID, TENANT_ID)).thenReturn(Optional.of(session));
+        stubSessionSave();
+        stubTokenIssuance();
+
+        authService.refresh("token");
+
+        verify(sessionRepository).findById(SESSION_ID, TENANT_ID);
+        assertEquals(TENANT_ID, TenantContext.getTenantId());
+    }
+
+    @Test
     void login_validCredentials_returnsTokenPair() {
         when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, false)));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(true);

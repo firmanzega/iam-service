@@ -47,9 +47,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
-          description: Missing X-Organization-ID header or invalid request body
+          description: Invalid request body
         '401':
-          description: Invalid credentials or invalid organization
+          description: Invalid credentials, or missing/unknown X-Organization-ID header
         '423':
           description: Account locked
   /auth/refresh:
@@ -79,9 +79,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
-          description: Missing X-Organization-ID header or invalid request body
+          description: Invalid request body
         '401':
-          description: Refresh token unknown, revoked, expired, or invalid organization
+          description: Refresh token unknown, revoked, expired, or missing/unknown X-Organization-ID header
         '423':
           description: Account locked
   /auth/logout:

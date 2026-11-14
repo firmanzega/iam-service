@@ -7,7 +7,6 @@ import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -41,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * tenant A melihat atau mencabut sesi tenant B. Uji ini mengeksekusi alur
  * nyata (login dua pengguna di dua tenant, list, revoke lintas-tenant).
  *
- * Prasyarat testcontainers: database dan skema V1-V9 dibangun ulang setiap
+ * Prasyarat testcontainers: database dan skema V1-V10 dibangun ulang setiap
  * run, sehingga tenant uji dimasukkan ulang di setiap metode.
  */
 @SpringBootTest(properties = "iam.rate-limit.max-requests=10000")
@@ -89,7 +88,7 @@ class TenantIsolationIntegrationTest {
 
     @Test
     void sessions_withoutOrganizationHeader_returns400() throws Exception {
-        Tokens tokens = login(PREFIX + "a", "laptop");
+        Tokens tokens = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
 
         mockMvc.perform(get("/v1/auth/sessions")
                         .header("Authorization", "Bearer " + tokens.accessToken()))
@@ -99,7 +98,7 @@ class TenantIsolationIntegrationTest {
 
     @Test
     void logout_withoutOrganizationHeader_returns400() throws Exception {
-        Tokens tokens = login(PREFIX + "a", "laptop");
+        Tokens tokens = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
 
         mockMvc.perform(post("/v1/auth/logout")
                         .header("Authorization", "Bearer " + tokens.accessToken())
@@ -110,8 +109,8 @@ class TenantIsolationIntegrationTest {
 
     @Test
     void sessions_listsOnlyCallerTenantOwnSessions() throws Exception {
-        Tokens tokensA = login(PREFIX + "a", "laptop");
-        Tokens tokensB = login(PREFIX + "b", "telepon");
+        Tokens tokensA = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
+        Tokens tokensB = login(PREFIX + "b", "telepon", QA_ORG_ID);
 
         List<Map<String, Object>> sessionsA = listSessions(tokensA.accessToken(), DEFAULT_ORG_ID);
         List<Map<String, Object>> sessionsB = listSessions(tokensB.accessToken(), QA_ORG_ID);
@@ -129,8 +128,8 @@ class TenantIsolationIntegrationTest {
 
     @Test
     void revokeSession_fromOtherTenant_isNotFound_andOriginalStaysAlive() throws Exception {
-        Tokens tokensA = login(PREFIX + "a", "laptop");
-        Tokens tokensB = login(PREFIX + "b", "telepon");
+        Tokens tokensA = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
+        Tokens tokensB = login(PREFIX + "b", "telepon", QA_ORG_ID);
 
         List<Map<String, Object>> sessionsA = listSessions(tokensA.accessToken(), DEFAULT_ORG_ID);
         UUID sessionA = sessionIdByLabel(sessionsA, "laptop");
@@ -141,6 +140,7 @@ class TenantIsolationIntegrationTest {
                 .andExpect(status().isNotFound());
 
         MvcResult refresh = mockMvc.perform(post("/v1/auth/refresh")
+                        .header("X-Organization-ID", DEFAULT_ORG_ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + tokensA.refreshToken() + "\"}"))
                 .andExpect(status().isOk())
@@ -149,21 +149,94 @@ class TenantIsolationIntegrationTest {
     }
 
     @Test
-    @Disabled("BUG-TENANT-001: organisasi tidak dikenal jatuh ke tenant default "
-            + "(layanan memakai fallback org-default) alih-alih ditolak. "
-            + "Menurut ADR-0016 Verification, organisasi tidak valid harus 401/404. "
-            + "Menunggu keputusan Boss tentang kontrak yang benar.")
-    void sessions_withUnknownOrganization_isRejected_notFallbackToDefaultTenant() throws Exception {
-        Tokens tokensA = login(PREFIX + "a", "laptop");
+    void sessions_withUnknownOrganization_isRejectedWith401_notFallbackToDefaultTenant() throws Exception {
+        Tokens tokensA = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
 
         mockMvc.perform(get("/v1/auth/sessions")
                         .header("Authorization", "Bearer " + tokensA.accessToken())
                         .header("X-Organization-ID", "org-does-not-exist"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isUnauthorized());
     }
 
-    private Tokens login(String username, String deviceLabel) throws Exception {
+    @Test
+    void login_withoutOrganizationHeader_returns401() throws Exception {
+        mockMvc.perform(post("/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"" + PREFIX + "a\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void login_withUnknownOrganization_returns401() throws Exception {
+        mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-does-not-exist")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"" + PREFIX + "a\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refresh_withoutOrganizationHeader_returns401() throws Exception {
+        Tokens tokensA = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
+
+        mockMvc.perform(post("/v1/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + tokensA.refreshToken() + "\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refresh_withUnknownOrganization_returns401() throws Exception {
+        Tokens tokensA = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
+
+        mockMvc.perform(post("/v1/auth/refresh")
+                        .header("X-Organization-ID", "org-does-not-exist")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + tokensA.refreshToken() + "\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void login_sameIdentityInTwoTenants_bothSucceed() throws Exception {
+        // V10 (ADR-0018): identitas unik per tenant, bukan global.
+        createUser(DEFAULT_TENANT_ID, PREFIX + "dup");
+        createUser(qaTenantId, PREFIX + "dup");
+
+        mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", DEFAULT_ORG_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"" + PREFIX + "dup\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", QA_ORG_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"" + PREFIX + "dup\",\"password\":\"" + PASSWORD + "\"}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void refresh_usesStoredTokenTenant_notHeaderTenant() throws Exception {
+        // ADR-0018 poin 6: sumber kebenaran tenant untuk penukaran refresh
+        // token adalah token tersimpan. Header org-default dikirim untuk
+        // user yang berasal dari tenant QA; sesi harus ditandai tetap satu
+        // (sesi lama disentuh), bukan dibuat sesi baru di tenant salah.
+        Tokens tokensB = login(PREFIX + "b", "telepon", QA_ORG_ID);
+
+        mockMvc.perform(post("/v1/auth/refresh")
+                        .header("X-Organization-ID", DEFAULT_ORG_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"refreshToken\":\"" + tokensB.refreshToken() + "\"}"))
+                .andExpect(status().isOk());
+
+        List<Map<String, Object>> sessions = listSessions(tokensB.accessToken(), QA_ORG_ID);
+        assertEquals(1, sessions.size(),
+                "penukaran refresh harus melanjutkan sesi tenant tersimpan, bukan membuat sesi baru");
+    }
+
+    private Tokens login(String username, String deviceLabel, String organizationId) throws Exception {
         MvcResult result = mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", organizationId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + username + "\",\"password\":\"" + PASSWORD
                                 + "\",\"deviceLabel\":\"" + deviceLabel + "\"}"))

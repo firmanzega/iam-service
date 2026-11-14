@@ -74,6 +74,7 @@ class RefreshTokenReuseIntegrationTest {
         // Token pertama sudah dicabut oleh rotasi. Memakainya lagi adalah bukti
         // pemakaian ulang, jadi permintaan ini harus ditolak.
         mockMvc.perform(post("/v1/auth/refresh")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + firstToken + "\"}"))
                 .andExpect(status().isUnauthorized());
@@ -81,6 +82,7 @@ class RefreshTokenReuseIntegrationTest {
         // Token terbaru ikut dicabut, sehingga pencuri tidak bisa melanjutkan
         // sesi walau dia memegang token hasil rotasi.
         mockMvc.perform(post("/v1/auth/refresh")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + secondToken + "\"}"))
                 .andExpect(status().isUnauthorized());
@@ -95,6 +97,7 @@ class RefreshTokenReuseIntegrationTest {
 
     private String login() throws Exception {
         MvcResult result = mockMvc.perform(post("/v1/auth/login")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"identifier\":\"" + USERNAME + "\",\"password\":\"" + PASSWORD + "\"}"))
                 .andExpect(status().isOk())
@@ -105,6 +108,7 @@ class RefreshTokenReuseIntegrationTest {
 
     private String refresh(String refreshToken) throws Exception {
         MvcResult result = mockMvc.perform(post("/v1/auth/refresh")
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
                 .andExpect(status().isOk())
