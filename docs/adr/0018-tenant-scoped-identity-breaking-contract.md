@@ -56,9 +56,15 @@ This ADR records the accepted breaking contract change and its consequences.
    endpoints:
    - `POST /v1/auth/login`
    - `POST /v1/auth/refresh`
-   Missing or unknown organization → **401 Unauthorized** (consistent with
-   ADR-0016 verification and the existing API contract for tenant-scoped
-   endpoints).
+   Missing or unknown organization → **401 Unauthorized**. This reflects the
+   Boss ruling of 2026-11-14 (BUG-TENANT-001): an unknown or absent
+   organization must be rejected, never silently fall back to `org-default`.
+   Note the deliberate asymmetry: missing header on `/v1/auth/login` and
+   `/v1/auth/refresh` is 401 (public endpoints, no credential exists yet to
+   bind to an organization), while missing header on the tenant-scoped
+   session endpoints (`/v1/auth/logout`, `/v1/auth/sessions*`) remains
+   400 Bad Request as locked in Stage 4/6 with green tests. Unknown
+   organization is 401 **everywhere**.
 3. Tenant-scoped lookups for login verify: `WHERE tenant_id = :tenantId AND
    (username = :identifier OR email = :identifier)`. The internal
    authentication path is unambiguous.

@@ -52,7 +52,7 @@ Internal implementation (code, database, domain layer):
 External API contract:
 - HTTP request header: `X-Organization-ID`
 - A `TenantResolver` (filter or interceptor) extracts `X-Organization-ID`, resolves it to an internal `tenant_id`, and stores it in a request-scoped `TenantContext`
-- Requests without `X-Organization-ID` on tenant-isolated endpoints receive `400 Bad Request` or `401 Unauthorized` (policy to be defined in implementation)
+- Requests without `X-Organization-ID` on tenant-isolated endpoints receive `400 Bad Request` or `401 Unauthorized` (policy now defined in ADR-0018: 401 on `/v1/auth/login` + `/v1/auth/refresh`, 400 on session endpoints; unknown organization is 401 on all paths per the Boss ruling of 2026-11-14, BUG-TENANT-001)
 
 ## Consequences
 
