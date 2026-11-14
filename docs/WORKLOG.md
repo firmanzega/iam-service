@@ -4,39 +4,28 @@ Kartu memori status lintas sesi untuk alur `team-workflow` linear.
 
 ## Status Saat Ini (2026-11-14)
 
-### Fase 4 (selesai, commit e4028ff)
-- Per-device sessions + 401 rejection aggregate diimplementasikan
-- `mvn verify` BUILD SUCCESS, 237 tes hijau, JaCoCo ≥80% per kelas, Checkstyle 0, SpotBugs lolos
+### Fase 4-6 (selesai, di-commit)
+- Fase 4 (e4028ff): per-device sessions + 401 rejection aggregate
+- Fase 5 (33aec68): Prometheus registry, alerts, restore drill CI, CODEOWNERS
+- Fase 6 (9d2a295, 12f1965): ADR 0014/0015, cspell, Docker build fix
+- Fase 6 tambahan (12f1965): .mvn/settings.xml mirror Maven Central, Docker build berhasil
 
-### Fase 5 (selesai, commit 33aec68)
-- Prometheus registry (`micrometer-registry-prometheus`) ditambahkan ke `pom.xml`
-- `/actuator/prometheus` diexpose, tidak butuh token (jaringan internal wajib)
-- Aturan alert di `ops/prometheus/alerts.yml`
-- Tes integrasi `PrometheusEndpointIntegrationTest` (2 tes)
-- `CODEOWNERS` dibuat
-- Uji restore otomatis di `.github/workflows/restore-drill.yml`
-- `CHANGELOG.md`, `docs/libraries.md`, `docs/security.md`, `docs/deployment.md` diperbarui
+### Team-Workflow Adopsi (selesai Tahap 0)
+- Struktur `/docs` baru dibuat sesuai team-workflow SKILL.md
+- 01-PRD.md hingga 09-LESSONS-LEARNED.md + WORKLOG.md dibuat
+- cspell.json diperbarui (WORKLOG.md dikecualikan, Bahasa Indonesia)
+- Folder docs/ lama tetap sebagai referensi
 
-### Fase 6 (selesai, commit 9d2a295 + 12f1965)
-- ADR 0014: per-device sessions + 401 rejection aggregate
-- ADR 0015: Prometheus metrics registry
-- `cspell.json` dengan istilah teknis untuk dokumen Bahasa Inggris
-- `.mvn/settings.xml` mirror Maven repository ke Maven Central
-- `Dockerfile` diperbaiki (copy settings.xml, hapus ca-certificates yang tidak perlu)
-- Docker image build berhasil (598MB)
-- `node_modules`, `package-lock.json`, `package.json` dihapus dan di-`.gitignore`
-
-### Team-Workflow Adopsi (sedang berjalan)
-- Struktur `/docs` baru dibuat sesuai `team-workflow` SKILL.md
-- `01-PRD.md` hingga `09-LESSONS-LEARNED.md` + `WORKLOG.md` dibuat
-- Folder `docs/` lama tetap ada sebagai referensi (akan disinkronisasi bertahap)
+### Tahap 6 - QA (selesai, commit menunggu)
+- docs/06-TEST-PLAN.md ditulis lengkap: analisis risiko, 13 test case, hasil eksekusi, release readiness GO
+- mvn clean verify BUILD SUCCESS, 237+ tes hijau, JaCoCo ≥80%, Checkstyle 0, SpotBugs lolos
+- cspell 0 issues pada dokumen Bahasa Inggris baru
 
 ## Tahap Berikutnya
-- **Tahap 6**: `senior-qa-engineer` — isi `06-TEST-PLAN.md`, evaluasi release readiness
-- **Tahap 7**: `senior-security-engineer` — isi `07-DEPLOYMENT.md`, security audit, hardening
+- **Tahap 7**: `senior-security-engineer` — isi 07-DEPLOYMENT.md, security audit, hardening
 
 ## Pertanyaan Terbuka
-- Dokumentasi lama di `docs/` (security.md, deployment.md, manual-testing.md, dll.) akan disinkronisasi ke struktur baru atau diarsipkan?
+- Dokumen lama di docs/ (security.md, deployment.md, dll.) akan disinkronisasi atau diarsipkan?
 
-## Instruksi untuk Sesi Berikutnya
-Baca `WORKLOG.md` ini terlebih dahulu, lalu muat `SKILL.md` dari skill yang aktif (Tahap 6: `senior-qa-engineer`).
+## Instruksi Sesi Berikutnya
+Baca WORKLOG.md, muat SKILL.md senior-security-engineer, jalankan Tahap 7.
