@@ -179,6 +179,37 @@ class TenantIsolationIntegrationTest {
     }
 
     @Test
+    void auditLogs_withoutOrganizationHeader_returns401() throws Exception {
+        String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
+
+        mockMvc.perform(get("/v1/audit-logs")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error", org.hamcrest.Matchers.containsString("X-Organization-ID")));
+    }
+
+    @Test
+    void auditLogsVerify_withoutOrganizationHeader_returns401() throws Exception {
+        String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
+
+        mockMvc.perform(get("/v1/audit-logs/verify")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error", org.hamcrest.Matchers.containsString("X-Organization-ID")));
+    }
+
+    @Test
+    void roles_withoutOrganizationHeader_remainReadable_globalReferenceData() throws Exception {
+        // Role master sengaja global (V9): endpoint ini tidak tenant-aware,
+        // pemanggil terautentikasi tetap boleh membacanya tanpa header.
+        Tokens tokens = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
+
+        mockMvc.perform(get("/v1/roles")
+                        .header("Authorization", "Bearer " + tokens.accessToken()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void findUserById_fromOtherTenant_isNotFound_notLeaked() throws Exception {
         String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
         Long qaUserId = userIdByUsername(PREFIX + "b");

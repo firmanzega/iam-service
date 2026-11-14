@@ -787,13 +787,8 @@ paths:
         of the caller's organization.
         Sort properties allowed: id, createdAt, action, actorUserId, targetUserId.
         Default sort: createdAt desc, then id desc. Page size capped at 50.
-
-        Known gap (tracked as BUG-TENANT-005 candidate, see WORKLOG): the
-        tenant filter does not yet reject a MISSING X-Organization-ID header
-        on this path (it returns a 200 with an empty page because the query
-        is scoped by a null tenant). An UNKNOWN organization is rejected with
-        401 everywhere. Documented here as the implemented behavior; the
-        ADR-0018 intent is 401 for missing as well.
+        X-Organization-ID is required: a missing header is rejected with 401
+        (BUG-TENANT-005, fixed 2026-11-14).
       security:
         - bearerAuth: []
       parameters:
@@ -818,7 +813,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Not authenticated, or unknown X-Organization-ID header (missing header currently returns 200 empty; see description)
+          description: Not authenticated, or missing/unknown X-Organization-ID header
           content:
             application/json:
               schema:
@@ -852,7 +847,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuditChainVerificationResponse'
         '401':
-          description: Not authenticated, or unknown X-Organization-ID header
+          description: Not authenticated, or missing/unknown X-Organization-ID header
           content:
             application/json:
               schema:

@@ -12,6 +12,8 @@ import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
 import id.osprey.iamservice.domain.shared.SortSpec;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,8 @@ import java.util.List;
 @Service
 public class AuditService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuditService.class);
+
     private static final String DEFAULT_ORGANIZATION_ID = "org-default";
 
     private final AuditLogRepository auditLogRepository;
@@ -49,6 +53,10 @@ public class AuditService {
         if (tenantId != null) {
             return tenantId;
         }
+        // Reachable only from global endpoints without tenant context (e.g. /v1/roles).
+        // Attribute the record to org-default explicitly and loudly instead of
+        // silently, so global-actor audit rows are distinguishable in support work.
+        log.warn("Audit record written without tenant context; attributed to '{}'", DEFAULT_ORGANIZATION_ID);
         var existing = tenantRepository.findByOrganizationId(DEFAULT_ORGANIZATION_ID);
         if (existing.isPresent()) {
             return existing.get().getId();

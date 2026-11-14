@@ -24,6 +24,11 @@ import java.io.IOException;
  *        merupakan BUG-TENANT-001.
  * Perbedaan penyebab (missing vs unknown) tetap dibedakan lewat isi body
  * error, bukan lewat status code.
+ *
+ * /v1/audit-logs masuk daftar wajib header (BUG-TENANT-005): jejak audit
+ * dipartisi per tenant (V9), dan tanpa header kueri dibatasi tenant null —
+ * pemanggil menerima 200 dengan halaman kosong, bukan 401. Peran (role)
+ * dikecualikan dengan sengaja karena role master bersifat global (V9).
  */
 public class TenantHeaderFilter extends OncePerRequestFilter {
 
@@ -36,7 +41,9 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
             "/v1/auth/sessions",
             "/v1/auth/sessions/",
             "/v1/users",
-            "/v1/users/"
+            "/v1/users/",
+            "/v1/audit-logs",
+            "/v1/audit-logs/"
     };
 
     private final TenantResolver tenantResolver;

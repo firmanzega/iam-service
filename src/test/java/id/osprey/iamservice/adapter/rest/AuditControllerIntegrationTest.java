@@ -128,7 +128,8 @@ class AuditControllerIntegrationTest {
     void listAuditLogs_withUnknownSortProperty_isRejectedWithBadRequest() throws Exception {
         mockMvc.perform(get("/v1/audit-logs")
                         .param("sort", "details,desc")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("not allowed")));
     }

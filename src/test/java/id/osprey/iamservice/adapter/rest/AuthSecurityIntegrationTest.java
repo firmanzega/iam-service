@@ -303,13 +303,15 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void listAuditLogs_asRegularMember_isForbidden() throws Exception {
-        mockMvc.perform(get("/v1/audit-logs").header("Authorization", "Bearer " + memberToken))
+        mockMvc.perform(get("/v1/audit-logs").header("Authorization", "Bearer " + memberToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void listAuditLogs_asAdmin_isAllowed() throws Exception {
-        mockMvc.perform(get("/v1/audit-logs").header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(get("/v1/audit-logs").header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }

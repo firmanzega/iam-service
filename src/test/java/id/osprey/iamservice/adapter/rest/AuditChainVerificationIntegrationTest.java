@@ -128,7 +128,8 @@ class AuditChainVerificationIntegrationTest {
         long total = countAuditLogs();
 
         mockMvc.perform(get("/v1/audit-logs/verify")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(true))
                 .andExpect(jsonPath("$.checkedEntries").value((int) total))
@@ -146,7 +147,8 @@ class AuditChainVerificationIntegrationTest {
                 "diubah setelah hash dihitung", changedId);
 
         mockMvc.perform(get("/v1/audit-logs/verify")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.firstBrokenEntryId").value(changedId))
@@ -165,7 +167,8 @@ class AuditChainVerificationIntegrationTest {
         // dilaporkan lebih dulu karena id-nya lebih kecil daripada akibat
         // lanjutan berupa entri yang tidak bisa dicapai dari awal rantai.
         mockMvc.perform(get("/v1/audit-logs/verify")
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
                 .andExpect(jsonPath("$.firstBrokenEntryId").value(afterRemovedId))
@@ -177,7 +180,8 @@ class AuditChainVerificationIntegrationTest {
         insertLog("VERIFY_AUDITOR");
 
         mockMvc.perform(get("/v1/audit-logs/verify")
-                        .header("Authorization", "Bearer " + auditorToken))
+                        .header("Authorization", "Bearer " + auditorToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isForbidden());
     }
 
