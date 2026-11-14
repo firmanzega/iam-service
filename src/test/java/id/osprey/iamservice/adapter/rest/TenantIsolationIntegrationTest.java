@@ -87,24 +87,24 @@ class TenantIsolationIntegrationTest {
     }
 
     @Test
-    void sessions_withoutOrganizationHeader_returns400() throws Exception {
+    void sessions_withoutOrganizationHeader_returns401() throws Exception {
         Tokens tokens = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
 
         mockMvc.perform(get("/v1/auth/sessions")
                         .header("Authorization", "Bearer " + tokens.accessToken()))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error", org.hamcrest.Matchers.containsString("X-Organization-ID")));
     }
 
     @Test
-    void logout_withoutOrganizationHeader_returns400() throws Exception {
+    void logout_withoutOrganizationHeader_returns401() throws Exception {
         Tokens tokens = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
 
         mockMvc.perform(post("/v1/auth/logout")
                         .header("Authorization", "Bearer " + tokens.accessToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + tokens.refreshToken() + "\"}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

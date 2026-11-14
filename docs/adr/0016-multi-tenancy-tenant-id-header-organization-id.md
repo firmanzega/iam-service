@@ -52,7 +52,7 @@ Internal implementation (code, database, domain layer):
 External API contract:
 - HTTP request header: `X-Organization-ID`
 - A `TenantResolver` (filter or interceptor) extracts `X-Organization-ID`, resolves it to an internal `tenant_id`, and stores it in a request-scoped `TenantContext`
-- Requests without `X-Organization-ID` on tenant-isolated endpoints receive `400 Bad Request` or `401 Unauthorized` (policy now defined in ADR-0018: 401 on `/v1/auth/login` + `/v1/auth/refresh`, 400 on session endpoints; unknown organization is 401 on all paths per the Boss ruling of 2026-11-14, BUG-TENANT-001)
+- Requests without `X-Organization-ID` on tenant-isolated endpoints receive `401 Unauthorized` (policy defined in ADR-0018: missing or unknown organization is 401 on all paths per the Boss ruling of 2026-11-14, BUG-TENANT-001; unified 2026-11-14)
 
 ## Consequences
 
@@ -74,7 +74,7 @@ External API contract:
 ## Verification
 
 - Integration tests must assert that tenant A cannot see tenant B's users, sessions, or tokens (IDOR protection)
-- `TenantResolver` unit tests: missing header is reported as MISSING (caller decides 400/401 per endpoint), invalid organization returns 401, valid header sets `TenantContext`
+- `TenantResolver` unit tests: missing header is reported as MISSING (the filter rejects with 401 on tenant-aware paths), invalid organization returns 401, valid header sets `TenantContext`
 - Repository tests assert every query includes `tenant_id` filter
 - `ArchitectureLayerTest` remains unchanged; domain layer still has no framework imports
 

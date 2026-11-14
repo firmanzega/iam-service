@@ -7,7 +7,7 @@
 - **Last Completed Stage:** Stage 3 doc sync (ADR-0016/0018 + ARCHITECTURE aligned to Boss's BUG-TENANT-001 ruling); Stage 4 - Backend Fixes done earlier today (ADR-0018 implemented, 257/257 green, committed d16d692)
 - **Next Active Stage:** Stage 6 - QA Retest (per Boss) -> Stage 7 - Release Prep
 - **Active Skill to Load:** `senior-qa-engineer`
-- **Last Updated:** 2026-11-14 14:40
+- **Last Updated:** 2026-11-14 14:55
 
 ## 1. Key Decisions & Locked Artifacts
 - **Stage 7 (Security & Release):** `docs/07-DEPLOYMENT.md` and `CHANGELOG.md` v1.0.0 completed (committed); Package A conditional GO pending BUG-TENANT-001/004 resolution.
@@ -17,7 +17,7 @@
 - **Stage 1 (PRD):** PRD updated for multi-tenancy + structured logging (committed in f88f6fa).
 
 ## 2. Open Questions / Blockers for User
-1. **RESOLVED (2026-11-14):** missing `X-Organization-ID` on login/refresh stays **401** (Boss: "sesuai informasi yang udah pernah gue pilih untuk BUG TENANT-001 ... reject 401"). `03-ARCHITECTURE.md`, `ADR-0016`, and `ADR-0018` rationale all synced in this pass; sessions/logout keep 400 for missing header; unknown org is 401 everywhere.
+1. **RESOLVED (2026-11-14):** missing `X-Organization-ID` on login/refresh stays **401** (Boss: "sesuai informasi yang udah pernah gue pilih untuk BUG TENANT-001 ... reject 401"). Sessions/logout missing also unified to **401** on 2026-11-14 (Boss: "disatukan saja 401"); unknown org is 401 everywhere. `03-ARCHITECTURE.md`, `ADR-0016`, `ADR-0018`, API-SPEC, and code all synced; missing-vs-unknown cause is carried by the error body.
 2. **BUG-TENANT-001:** Fixed in Stage 4, pending QA retest (Stage 6).
 3. **BUG-TENANT-004:** Fixed in Stage 4 (V10 + query predicate + composite unique), pending QA retest (Stage 6).
 4. **JWT Claim:** `tenant_id` claim present; resolution stays header-based per ADR-0018 point 6. Stage 6/7: verify nothing reads the claim for authorization decisions.
@@ -31,7 +31,7 @@
 4. Close BUG-TENANT-001/004 in `06-TEST-PLAN.md`, then proceed to Stage 7 (release prep) per Boss: version bump (open question 5), CHANGELOG, deployment checklist (V10 rollback path).
 
 ## 4. Decision & Switch Log
-- [2026-11-14 | Stage 3 doc sync] Boss ruling (BUG-TENANT-001): reject 401 — unknown organization is 401 on all paths; missing header on login/refresh also 401 (ADR-0018 poin 2), sessions/logout keep 400. `03-ARCHITECTURE.md:153`, `ADR-0016` (policy now defined), `ADR-0018` rationale synced; implementation (d16d692) matches. — Reason: Boss ruling, 2026-11-14.
+- [2026-11-14 | Stage 3 doc sync] Boss ruling (BUG-TENANT-001): reject 401 — unknown organization is 401 on all paths; missing/unknown org unified to 401 on all tenant-aware paths (Boss: "disatukan saja 401"); error body carries missing-vs-unknown cause. `03-ARCHITECTURE.md`, `ADR-0016`, `ADR-0018` rationale, API-SPEC, TenantHeaderFilter, and tests synced. — Reason: Boss ruling, 2026-11-14.
 - [2026-11-14 | Stage 4] ADR-0018 implemented: V10 migration, required header on login/refresh (401), refresh anchored to stored token tenant, BUG-TENANT-001 (unknown org -> 401 everywhere) and BUG-TENANT-004 (query predicate) fixed; login lookup was leaking across tenants pre-fix. CORS preflight allows X-Organization-ID. — Reason: Boss decision Option (a), 2026-11-14.
 - [2026-11-14 | Stage 6 -> 4 -> 6] Fixed BUG-TENANT-002 (`requestURI` filter under MockMvc) and BUG-TENANT-003 (`user.getTenantId()` session attribution) in commit `8f125e8` — Reason: QA retest failures.
 - [2026-11-14 | Stage 1] PRD updated for multi-tenancy + structured logging (check-id/check-bahasa clean); Boss approved Option (a) credit: marketing on-premise + cloud. — Reason: Boss decision, 2026-11-14.

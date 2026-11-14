@@ -97,7 +97,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Organization identifier for multi-tenancy isolation
+          description: Organization identifier for multi-tenancy isolation (required; missing or unknown organization is rejected with 401)
       requestBody:
         required: true
         content:
@@ -108,9 +108,9 @@ paths:
         '204':
           description: Refresh token revoked
         '400':
-          description: Missing X-Organization-ID header
+          description: Invalid request body
         '401':
-          description: Not authenticated or invalid organization
+          description: Not authenticated, or missing/unknown X-Organization-ID header
         '403':
           description: Refresh token does not belong to caller
   /auth/sessions:
@@ -126,7 +126,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Organization identifier for multi-tenancy isolation
+          description: Organization identifier for multi-tenancy isolation (required; missing or unknown organization is rejected with 401)
       responses:
         '200':
           description: List of sessions
@@ -136,10 +136,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SessionResponse'
-        '400':
-          description: Missing X-Organization-ID header
         '401':
-          description: Not authenticated or invalid organization
+          description: Not authenticated, or missing/unknown X-Organization-ID header
   /auth/sessions/{sessionId}:
     delete:
       tags: [auth]
@@ -153,7 +151,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Organization identifier for multi-tenancy isolation
+          description: Organization identifier for multi-tenancy isolation (required; missing or unknown organization is rejected with 401)
         - in: path
           name: sessionId
           required: true
@@ -163,10 +161,8 @@ paths:
       responses:
         '204':
           description: Session revoked
-        '400':
-          description: Missing X-Organization-ID header
         '401':
-          description: Not authenticated or invalid organization
+          description: Not authenticated, or missing/unknown X-Organization-ID header
         '404':
           description: Session not found or not owned by caller
 components:

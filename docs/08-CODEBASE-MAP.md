@@ -78,7 +78,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `adapter/rest/RoleController.java` | Endpoints: roles |
 | `adapter/rest/AuditController.java` | Endpoints: audit logs, hash chain integrity check |
 | `adapter/rest/WebMapper.java` | Shared web-to-domain translator: actor ID, session ID, pagination request |
-| `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: login/refresh missing or unknown organization → 401; tenant-scoped endpoints missing → 400, unknown → 401 (ADR-0018, BUG-TENANT-001) |
+| `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: missing or unknown organization → 401 on every tenant-aware path (ADR-0018, BUG-TENANT-001; unified 2026-11-14) |
 | `adapter/rest/dto/SessionResponse.java` | Shape of one device session returned |
 | `adapter/rest/dto/TokenResponse.java` | Shape of token pair returned |
 

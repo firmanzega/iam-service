@@ -151,10 +151,10 @@ C4Container
 ### 6.3 Security implications
 
 - `X-Organization-ID` **required** on every tenant-aware endpoint, **including**
-  `/v1/auth/login` and `/v1/auth/refresh` (ADR-0018). Missing header → `401 Unauthorized`
-  on login/refresh; `400 Bad Request` is kept only on the already-locked sessions/logout
-  contract. Unknown organization → `401 Unauthorized` on every path (Boss ruling
-  2026-11-14, BUG-TENANT-001: reject, never fall back to `org-default`).
+  `/v1/auth/login` and `/v1/auth/refresh` (ADR-0018). Missing or unknown organization →
+  `401 Unauthorized` on every path (Boss ruling 2026-11-14, BUG-TENANT-001: reject,
+  never fall back to `org-default`; unified to 401 on 2026-11-14). The missing-vs-unknown
+  distinction is carried by the error body, not the status code.
 - Tenant-scoped identity means `admin` in `org-a` and `admin` in `org-b` are distinct
   accounts with distinct credential sets; a shared global username is not permitted.
 - Tenant A cannot access Tenant B data; enforced at repository layer, tested via integration tests

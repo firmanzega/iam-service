@@ -15,30 +15,26 @@ import java.io.IOException;
  * TenantContext sebelum request diproses. Konteks dibersihkan setelah
  * response selesai agar tidak bocor antar request yang share thread.
  *
- * Perilaku menurut ADR-0018 dan BUG-TENANT-001:
- *      - /v1/auth/login dan /v1/auth/refresh wajib membawa header.
- *        Header yang hilang maupun organisasi yang tidak dikenal dijawab
- *        401 Unauthorized.
- *      - Endpoint tenant-scoped lainnya (logout, daftar sesi, pencabutan
- *        sesi): header yang hilang tetap 400 Bad Request; organisasi yang
- *        tidak dikenal dijawab 401.
- *      - Header yang dikirim tetapi tidak dikenal di path mana pun dijawab
- *        401: diam-diam mengabaikannya sama dengan fallback ke tenant
- *        default, yang merupakan BUG-TENANT-001.
+ * Perilaku sesuai ADR-0018 dan ruling Boss 2026-11-14 (BUG-TENANT-001) —
+ * satu aturan seragam untuk seluruh endpoint tenant-aware:
+ *      - Header yang hilang maupun organisasi yang tidak dikenal sama-sama
+ *        dijawab 401 Unauthorized, di path mana pun.
+ *      - Header yang dikirim tetapi tidak dikenal juga 401: diam-diam
+ *        mengabaikannya sama dengan fallback ke tenant default, yang
+ *        merupakan BUG-TENANT-001.
+ * Perbedaan penyebab (missing vs unknown) tetap dibedakan lewat isi body
+ * error, bukan lewat status code.
  */
 public class TenantHeaderFilter extends OncePerRequestFilter {
 
     private static final String HEADER_ORGANIZATION_ID = "X-Organization-ID";
 
     private static final String[] TENANT_REQUIRED_PATHS = {
+            "/v1/auth/login",
+            "/v1/auth/refresh",
             "/v1/auth/logout",
             "/v1/auth/sessions",
             "/v1/auth/sessions/"
-    };
-
-    private static final String[] TENANT_REQUIRED_UNAUTHORIZED_PATHS = {
-            "/v1/auth/login",
-            "/v1/auth/refresh"
     };
 
     private final TenantResolver tenantResolver;
@@ -62,19 +58,13 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
         }
         String organizationId = request.getHeader(HEADER_ORGANIZATION_ID);
 
-        boolean unauthorizedPath = matchesAny(path, TENANT_REQUIRED_UNAUTHORIZED_PATHS);
-        boolean tenantRequired = unauthorizedPath || matchesAny(path, TENANT_REQUIRED_PATHS);
+        boolean tenantRequired = matchesAny(path, TENANT_REQUIRED_PATHS);
 
         TenantResolver.Resolution resolution = tenantResolver.resolve(organizationId);
 
         if (resolution == TenantResolver.Resolution.MISSING) {
-            if (unauthorizedPath) {
-                reject(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        "Missing X-Organization-ID header");
-                return;
-            }
             if (tenantRequired) {
-                reject(response, HttpServletResponse.SC_BAD_REQUEST,
+                reject(response, HttpServletResponse.SC_UNAUTHORIZED,
                         "Missing X-Organization-ID header");
                 return;
             }
