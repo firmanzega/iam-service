@@ -120,7 +120,11 @@ public class AuthService implements TokenRevocationService {
         user.clearFailedLogins();
         userRepository.save(user);
 
-        Session session = sessionRepository.save(Session.start(user.getId(), currentTenantId(), deviceLabel, now));
+        // Sesi harus milik tenant pemilik pengguna, bukan tenant konteks
+        // permintaan. Konteks pada login biasanya kosong (login tidak memakai
+        // header) sehingga jatuh ke tenant default; itu membuat sesi pengguna
+        // tenant lain tercatat di tenant default.
+        Session session = sessionRepository.save(Session.start(user.getId(), user.getTenantId(), deviceLabel, now));
 
         auditService.record(user.getId(), AUDIT_LOGIN_SUCCESS, user.getId(), null);
 
@@ -190,7 +194,7 @@ public class AuthService implements TokenRevocationService {
             // Token yang terbit sebelum sesi perangkat ada tetap bisa ditukar.
             // Sesi baru dibuat sekarang supaya token pengganti punya identitas
             // sesi dan bisa dicabut sendiri nanti.
-            session = sessionRepository.save(Session.start(user.getId(), currentTenantId(), null, now));
+            session = sessionRepository.save(Session.start(user.getId(), user.getTenantId(), null, now));
         } else {
             session.touch(now);
             sessionRepository.save(session);
@@ -339,7 +343,7 @@ public class AuthService implements TokenRevocationService {
 
         Instant expiresAt = Instant.now().plus(tokenSettings.refreshTokenTtl());
         refreshTokenRepository.save(
-                new RefreshToken(user, currentTenantId(),
+                new RefreshToken(user, user.getTenantId(),
                         tokenIssuer.hashToken(refreshToken), session.getId(), expiresAt));
 
         return new TokenPair(accessToken, refreshToken,

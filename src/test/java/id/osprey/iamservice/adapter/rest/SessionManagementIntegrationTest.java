@@ -157,7 +157,8 @@ class SessionManagementIntegrationTest {
 
     @Test
     void listSessions_withoutToken_isUnauthorized() throws Exception {
-        mockMvc.perform(get("/v1/auth/sessions"))
+        mockMvc.perform(get("/v1/auth/sessions")
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isUnauthorized());
     }
 

@@ -491,6 +491,7 @@ class AuthSecurityIntegrationTest {
 
         mockMvc.perform(post("/v1/auth/logout")
                         .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
                 .andExpect(status().isNoContent());

@@ -42,7 +42,16 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String path = request.getServletPath();
+        String path = request.getRequestURI();
+        if (path == null || path.isBlank()) {
+            // Under MockMvc the servlet path is empty and the actual path lives in
+            // the path info, so fall back to it instead of matching nothing.
+            path = request.getPathInfo();
+        }
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
         String organizationId = request.getHeader(HEADER_ORGANIZATION_ID);
 
         boolean tenantRequired = isTenantRequired(path);
