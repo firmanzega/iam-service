@@ -74,7 +74,7 @@ External API contract:
 ## Verification
 
 - Integration tests must assert that tenant A cannot see tenant B's users, sessions, or tokens (IDOR protection)
-- `TenantResolver` unit tests: missing header returns error, invalid organization returns 401/404, valid header sets `TenantContext`
+- `TenantResolver` unit tests: missing header is reported as MISSING (caller decides 400/401 per endpoint), invalid organization returns 401, valid header sets `TenantContext`
 - Repository tests assert every query includes `tenant_id` filter
 - `ArchitectureLayerTest` remains unchanged; domain layer still has no framework imports
 
