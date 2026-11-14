@@ -10,6 +10,12 @@ WORKDIR /app
 # tidak perlu mengunduh ulang seluruh dependensi.
 COPY .mvn/ .mvn/
 COPY mvnw pom.xml ./
+
+# Konfigurasi Maven di dalam container. Mirror mengarahkan maven.java.net
+# (repository yang sudah tidak dapat diakses dari jaringan ini) ke Maven
+# Central, sehingga unduhan dependensi tidak gagal.
+COPY .mvn/settings.xml /root/.m2/settings.xml
+
 RUN chmod +x mvnw \
     && ./mvnw --batch-mode --no-transfer-progress -DskipTests dependency:go-offline
 
