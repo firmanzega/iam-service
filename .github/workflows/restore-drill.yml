@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Make the scripts executable
         run: chmod +x scripts/backup-postgres.sh scripts/restore-postgres.sh

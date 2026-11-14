@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Ambil kode
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Memeriksa dependensi yang ditambahkan atau diperbarui pada pull request.
       # Kerentanan yang sudah ada di branch utama tidak diperiksa di sini;
