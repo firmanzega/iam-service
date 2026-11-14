@@ -16,11 +16,11 @@ Kartu memori status lintas sesi untuk alur `team-workflow` linear.
 - Roles table tetap global; JWT claim tenant_id; TenantHeaderFilter (X-Organization-ID); repository tenant-scoped
 - Fix retest QA: `8f125e8` — filter pakai requestURI (getServletPath kosong under MockMvc) + sesi dibuat dengan user.getTenantId()
 
-### Tahap 6 - QA Retest Multi-Tenancy (selesai, commit menunggu)
+### Tahap 6 - QA Retest Multi-Tenancy (selesai)
 - 249/249 hijau (1 skipped = BUG-TENANT-001 disengaja), BUILD SUCCESS
 - 06-TEST-PLAN.md section 10 ditulis; bugs: TENANT-002 (filter), TENANT-003 (atribusi sesi) — fixed & verified
 - Tests baru: TenantResolverTest (5), TenantIsolationIntegrationTest (4 aktif, 1 disabled)
-- Commit Tahap 4 (paket A) & fix sudah di git; 06-TEST-PLAN + LL-007 BELUM di-commit
+- Commit: `63814ac` tahap 4 (paket A), `8f125e8` fix QA, `29ea651` docs test plan/lessons/WORKLOG
 
 ## Keputusan
 - Skenario D (self-service) ditunda
