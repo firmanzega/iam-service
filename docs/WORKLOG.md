@@ -7,7 +7,7 @@
 - **Last Completed Stage:** Stage 7 - A- items 1/2/4 DONE + BUG-TENANT-005 FIXED (`c18f14a`, 303/303); dependabot blocked on Boss merge ruling; go-live NOT executed
 - **Next Active Stage:** Stage 7 - Go-live execution (Boss deploys + prod checklist; then re-audit vs §12.4)
 - **Active Skill to Load:** `senior-security-engineer`
-- **Last Updated:** 2026-11-14 20:11
+- **Last Updated:** 2026-11-14 20:17
 
 ## 1. Key Decisions & Locked Artifacts
 - **ADR-0016/0018 (multi-tenancy):** shared schema, header `X-Organization-ID` wajib di seluruh endpoint tenant-aware (missing/unknown -> 401), identitas tenant-scoped `UNIQUE(tenant_id, username|email)` (V10), refresh di-anchor ke tenant token tersimpan. Committed `638c1d3`/`f88f6fa`/`d16d692`.
@@ -19,7 +19,7 @@
 ## 2. Open Items / Residual Debt (A- path, `07-DEPLOYMENT.md` §12.4)
 | Debt | Owner | Fix |
 |------|-------|-----|
-| Dependabot PRs #1-#4: rebased (bump-only) & pushed; CI ran 2026-11-14: Build SUCCESS + restore drill SUCCESS; **dependency-review RED** (annotation: "Dependency review is not supported on this repository — enable Dependency graph", repo-settings infra failure, not a dependency problem) | Boss/sec | Boss ruling: enable Dependency graph (then checks re-run) OR accept infra-red exception; merge needs Boss go-ahead |
+| Dependabot PRs #1-#4: CI Build/Drill GREEN; dependency-review RED (`Dependency graph not enabled`, repo-settings). Boss ruling Option A: enable graph + re-run checks | Boss/sec | after toggle: rebase 4 PRs onto origin/main (fresh SHAs, re-triggers CI), merge when all green |
 | Sentinel tests not all mutation-proven | QA | discipline note |
 | No live deploy/rollback executed | Boss/ops | go-live |
 | Path to A-: API-SPEC DONE, dead code DONE, cspell DONE, BUG-TENANT-005 DONE; dependabot merge + go-live §6 + re-audit remain | team | A- |
@@ -32,9 +32,9 @@
 - [2026-11-14 19:43 | Stage 7/A-] sec -> solution-architect: API-SPEC completed (all /v1: users, roles, audit) in `23e7052`. Gap found & logged: BUG-TENANT-005 (missing header on /v1/audit-logs). NOT fixed (role lock + Boss decision). — Reason: A- item 1.
 - [2026-11-14 19:52 | Stage 4->7/A-] sec -> backend -> sec: `WebMapper.tenantId` + 5 dead-code tests deleted (`d28f832`); `mvn clean verify` BUILD SUCCESS 300/300 (exit 0; earlier exit=1 was the stderr-wrap artifact — re-verified). — Reason: A- item 2.
 - [2026-11-14 20:11 | Stage 7/A-] skill registry typo fixed (Boss-approved): `senior-backend-develeloper` renamed to `senior-backend-developer` (alias `be` now resolves). — Reason: Boss item 4.
-- [2026-11-14 20:11 | Stage 7/A-] sec -> senior-backend-developer: BUG-TENANT-005 FIXED (`c18f14a`): `/v1/audit-logs[/verify]` added to TENANT_REQUIRED_PATHS (missing header -> 401; unknown org -> 401 already); silent org-default fallback in `AuditService.currentTenantId()` now logs WARN; +3 regression tests; 303/303 BUILD SUCCESS; main pushed. API-SPEC synced (gap note removed). — Reason: Boss "Gas fixing".
+- [2026-11-14 20:17 | Stage 7/A-] Re-audit v2 (Boss asked): verify 303/303, cspell 0, tag v1.0.0 unchanged, Dockerfile/CI/migrations/prod-config/scripts untouched since tag; API-SPEC = 16 paths/20 ops (mechanical match with controllers); secret scan clean; §12.7 updated; grade honestly stays B+. A- unreachable without go-live first. — Reason: Boss asked for re-audit.
+- [2026-11-14 20:11 | Stage 7/A-] sec -> senior-backend-developer: BUG-TENANT-005 FIXED (`c18f14a`): `/v1/audit-logs[/verify]` added to TENANT_REQUIRED_PATHS (missing header -> 401); silent org-default fallback in `AuditService.currentTenantId()` now logs WARN; +3 regression tests; 303/303 BUILD SUCCESS; main pushed. — Reason: Boss "Gas fixing".
 - [2026-11-14 19:55 | Stage 7/A-] Dependabot #1-#4 rebased onto origin/main (bump-only diffs) & force-pushed (`15d282b` checkout-7, `ed9a52b` setup-java-6, `32587e0` upload-artifact-7, `7d1ed14` jacoco-0.8.16); all 4 target versions + existence verified (tags/releases/Central). CI re-running; merge NOT done (needs Boss + green CI). — Reason: A- item 3.
 - [2026-11-14 19:57 | Stage 7/A-] cspell repo-wide GREEN: 225 files, 0 issues. Root cause: repo bilingual (en + id prose); en-only config flagged 24,536 issues. No npm id dictionary exists; created `cspell-id.json` (2,666 tokens, suspect-misspelling scan clean) imported by `cspell.json`. Whitelists Indonesian vocab; new typos still caught. — Reason: A- item 4.
-- [2026-11-14 19:37 | Stage 7] Release grading rubric added (`07-DEPLOYMENT.md` §12): project-internal; grade = lowest unmet mandatory criterion; evidence required; §9 residuals block A/A+; regression drops grade; current grade stays B+. — Reason: Boss approved rubric-first.
-- [2026-11-14 | Stage 7] RESTORE DRILL GREEN #13/#14/#15 after CI #16 order-dependent UserServiceTest fix (`4d7a344`); CI #20/#23 green; v1.0.0 TAGGED on `577187f`; restore drill #14/#15 green; §6 honestly scoped. — Reason: Stage 7 gate/close-out.
+- [2026-11-14 19:37 | Stage 7] Release grading rubric added (`07-DEPLOYMENT.md` §12): grade = lowest unmet mandatory criterion; §9 residuals block A/A+; regression drops grade; grade stays B+. Restore drill green #13-#15 after CI #16 fix (`4d7a344`); v1.0.0 tagged `577187f`. — Reason: Boss rubric-first + Stage 7 gate/close-out.
 - [2026-11-14 | Stage 4] ADR-0018 implemented: V10 tenant-scoped uniques (Option A), login/refresh require X-Organization-ID (401), refresh anchored to stored token, BUG-TENANT-001/004 + SEC-STATS-001 + SEC-USERS-001 IDOR closed (V11 upsert). — Reason: Boss decisions, 2026-11-14.

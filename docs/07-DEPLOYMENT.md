@@ -275,6 +275,8 @@ All A criteria, plus explicit closure of the Section 9 accepted residuals:
 5. Secrets sourced from a secret manager at runtime; no credentials on server disk.
 6. Multi-instance behavior verified (rate limiter, cleanup jobs, session consistency).
 
-### 12.7 Honest position (2026-11-14)
+### 12.7 Honest position (2026-11-14, re-audit v2)
 
-Current grade: **B+**. A- is achievable with the listed work and no new decisions. A and A+ each require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks) before any claim can be made. Until this file's criteria are met with evidence, any higher grade is invalid.
+Current grade: **B+**. Re-audit 2026-11-14 (verified): `mvn clean verify` BUILD SUCCESS 303/303; cspell repo-wide 0 issues (225 files); Git tag `v1.0.0` = `577187f` unchanged; Dockerfile, CI workflows, migrations, prod/dev config, and `scripts/` unchanged since the tag; secret scan clean; API-SPEC covers all 16 paths / 20 operations (matches controllers); dead code `WebMapper.tenantId` removed (`d28f832`); BUG-TENANT-005 fixed (`c18f14a`). Dependabot PRs #1-#4 rebased (bump-only) but NOT merged: CI Build/Drill green, dependency-review RED — annotated "Dependency graph not enabled" (repo settings, not a dependency problem); merge pending Boss ruling (Option A: enable graph + re-run).
+
+A- is NOT claimable yet. Remaining: (1) dependency-review green or a documented Boss exception, (2) go-live executed per Section 6, (3) deploy AND rollback exercised, (4) Section 6 fully checked + this file re-audited post-deploy. A and A+ each require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks). Any higher grade claim without this file's criteria met with evidence is invalid. Note: A- is unreachable WITHOUT going live first (Section 12.4 item 5+), so deferring go-live "until A-" is circular.
