@@ -4,10 +4,10 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** Stage 6 - QA Retest (PASS with 1 escalation QA-GATE-001: JaCoCo per-class gate red on RejectionStatRow; 301/301 green, committed)
-- **Next Active Stage:** Stage 7 - Release Prep (blocked on QA-GATE-001 backend fix; version bump 1.1.0 vs 2.0.0 pending Boss)
-- **Active Skill to Load:** `senior-backend-developer` (QA-GATE-001) -> `senior-security-engineer` (Stage 7)
-- **Last Updated:** 2026-11-14 15:35
+- **Last Completed Stage:** Stage 4 fix of Stage 6 escalation (QA-GATE-001 closed; verify BUILD SUCCESS 299/299)
+- **Next Active Stage:** Stage 7 - Release Prep (blocked only on SEC-STATS-001 ruling + version bump 1.1.0 vs 2.0.0)
+- **Active Skill to Load:** `solution-architect` (SEC-STATS-001 ruling) or `senior-security-engineer` (Stage 7)
+- **Last Updated:** 2026-11-14 15:50
 
 ## 1. Key Decisions & Locked Artifacts
 - **Stage 7 (Security & Release):** `docs/07-DEPLOYMENT.md` and `CHANGELOG.md` v1.0.0 completed (committed); Package A conditional GO pending BUG-TENANT-001/004 resolution.
@@ -20,18 +20,19 @@
 1. **RESOLVED (2026-11-14):** missing `X-Organization-ID` on login/refresh stays **401** (Boss: "sesuai informasi yang udah pernah gue pilih untuk BUG TENANT-001 ... reject 401"). Sessions/logout missing also unified to **401** on 2026-11-14 (Boss: "disatukan saja 401"); unknown org is 401 everywhere. `03-ARCHITECTURE.md`, `ADR-0016`, `ADR-0018`, API-SPEC, and code all synced; missing-vs-unknown cause is carried by the error body.
 2. **BUG-TENANT-001:** FIXED + QA-verified 2026-11-14 (401 on every path).
 3. **BUG-TENANT-004:** FIXED + QA-verified 2026-11-14 (V10 composite unique + explicit tenant predicate; two-tenant same-identity login passes).
-4. **QA-GATE-001 (new):** `mvn clean verify` fails per-class JaCoCo gate on `SecurityRejectionStatPersistenceAdapter.RejectionStatRow` (0.66 < 0.80; dead getters). Backend fix required before Stage 7; gate had been red since `63814ac`.
-5. **LogMessage.send() (minor, new):** `LogMessage.send()` always calls `LoggingService.general(...)` regardless of `category` — the record's `category` field is never used. Suspected dead/misleading API in the ADR-0017 logging path; candidate cleanup during QA-GATE-001 work. Not a blocker.
+4. **QA-GATE-001:** FIXED 2026-11-14 — `mvn clean verify` BUILD SUCCESS (299/299, JaCoCo per-class met, Checkstyle 0, SpotBugs 0). Backend removed dead `RejectionStatRow`; `LogMessage.category` removed too (ADR-0017: LogMessage is Generals-only). Gate history: red since `63814ac`.
+5. **SEC-STATS-001 (new, Medium, escalated):** `security_rejection_stats` still has V8's GLOBAL `uq_security_rejection_stats UNIQUE (window_start, http_method, reason)` without `tenant_id`; a second tenant's same-minute rejection violates it and the recorder swallows it (`persistRejectionStat`) → that tenant's 401 aggregate silently lost. Fix = V11 migration (composite tenant-scoped unique) — schema change to a core table, needs Boss/solution-architect approval, NOT done. Related: `08-CODEBASE-MAP.md` claims adapter uses `ON CONFLICT upsert`; implementation is SELECT-then-INSERT/UPDATE (docs drift, minor).
 6. **JWT Claim:** `tenant_id` claim present; resolution stays header-based per ADR-0018 point 6. Stage 6/7: verify nothing reads the claim for authorization decisions.
 7. **Release version for breaking contract:** `1.1.0` or `2.0.0`? Decision needed at release time (see PRD §6).
 8. **On-premise default:** Confirm single `org-default` tenant per on-premise install; cloud shares schema (ADR-0016 Alternative A).
 
 ## 3. Exact Next Action (Start Here in New Session)
-1. Fix QA-GATE-001 first: `SecurityRejectionStatPersistenceAdapter.increment()` uses `RejectionStatRow` only as an exists-vs-not carrier and never reads `getRejectionCount()`/`getLastSeenAt()`; both getter bodies are dead code and fail the JaCoCo per-CLASS LINE 0.80 gate (0.66). Backend: simplify the row mapper (e.g., map to a scalar/existence record without getters) or justify and request a gate exclusion. Then `mvn clean verify` must be green before Stage 7.
-2. BUG-TENANT-001/004: both FIXED and QA-verified 2026-11-14 (see `06-TEST-PLAN.md` §10).
-3. Stage 7 release prep: version bump decision (open question 5), CHANGELOG, deployment checklist (V10 rollback path); ensure gate green in CI first.
+1. Boss ruling needed on SEC-STATS-001 (V11 migration for tenant-scoped unique on `security_rejection_stats`, or accepted as known limitation for on-premise-only). If approved, that is a solution-architect + backend task.
+2. Stage 7 release prep: version bump decision (open question 7), CHANGELOG, deployment checklist (V10 rollback path); `mvn clean verify` is green as of 2026-11-14 (299/299).
+3. BUG-TENANT-001/004: both FIXED and QA-verified 2026-11-14 (see `06-TEST-PLAN.md` §10).
 
 ## 4. Decision & Switch Log
+- [2026-11-14 | Stage 6 -> 4] Backend verified and closed QA-GATE-001: dead `RejectionStatRow` removed (existence-only `SELECT 1` -> Integer), `LogMessage.category` removed per ADR-0017, Checkstyle 14 -> 0 (13 pre-existing violations from 63814ac finally visible once JaCoCo stopped failing first), SpotBugs Medium clean (LoggingServiceImpl excluded via sanctioned `config/spotbugs/exclude.xml` Group-1 pattern + LogMessage defensive copies), `mvn clean verify` BUILD SUCCESS 299/299. NEW finding SEC-STATS-001 (V8 global unique on security_rejection_stats drops non-default tenants' 401 aggregates) escalated to Boss — schema change to core table, not done unilaterally. — Reason: Stage 6 retest required verify green before release.
 - [2026-11-14 | Stage 6] QA retest: BUG-TENANT-001/004 FIXED and verified (see 06-TEST-PLAN §10); missing-header unification to 401 re-verified; 44 tests added (257 -> 301); `mvn clean verify` red ONLY on JaCoCo per-class gate, QA-GATE-001 (RejectionStatRow dead getters), escalated to backend; gate had been red since 63814ac. Honesty note: sentinel tests proven failable only via pre-fix/post-fix history, NOT via formal per-test mutation runs. — QA evidence, not waiver.
 - [2026-11-14 | Stage 3 doc sync] Boss ruling (BUG-TENANT-001): reject 401 — unknown organization is 401 on all paths; missing/unknown org unified to 401 on all tenant-aware paths (Boss: "disatukan saja 401"); error body carries missing-vs-unknown cause. `03-ARCHITECTURE.md`, `ADR-0016`, `ADR-0018` rationale, API-SPEC, TenantHeaderFilter, and tests synced. — Reason: Boss ruling, 2026-11-14.
 - [2026-11-14 | Stage 4] ADR-0018 implemented: V10 migration, required header on login/refresh (401), refresh anchored to stored token tenant, BUG-TENANT-001 (unknown org -> 401 everywhere) and BUG-TENANT-004 (query predicate) fixed; login lookup was leaking across tenants pre-fix. CORS preflight allows X-Organization-ID. — Reason: Boss decision Option (a), 2026-11-14.

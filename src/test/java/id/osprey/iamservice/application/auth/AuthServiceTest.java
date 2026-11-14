@@ -151,7 +151,8 @@ class AuthServiceTest {
 
     @Test
     void login_validCredentials_returnsTokenPair() {
-        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L)))
+                .thenReturn(Optional.of(user(true, false)));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(true);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         stubSessionSave();
@@ -173,7 +174,8 @@ class AuthServiceTest {
 
     @Test
     void login_withoutDeviceLabel_storesSessionWithoutLabel() {
-        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L)))
+                .thenReturn(Optional.of(user(true, false)));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(true);
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         stubSessionSave();
@@ -199,7 +201,8 @@ class AuthServiceTest {
 
     @Test
     void login_wrongPassword_recordsFailureAndThrowsUnauthorized() {
-        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L)))
+                .thenReturn(Optional.of(user(true, false)));
         when(passwordEncoder.matches(PASSWORD, HASH)).thenReturn(false);
 
         DomainException ex = assertThrows(DomainException.class,
@@ -211,7 +214,8 @@ class AuthServiceTest {
 
     @Test
     void login_lockedAccount_throwsLocked() {
-        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(true, true)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L)))
+                .thenReturn(Optional.of(user(true, true)));
 
         DomainException ex = assertThrows(DomainException.class,
                 () -> authService.login("budi", PASSWORD, null));
@@ -222,7 +226,8 @@ class AuthServiceTest {
 
     @Test
     void login_inactiveAccount_throwsForbidden() {
-        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L))).thenReturn(Optional.of(user(false, false)));
+        when(userRepository.findByUsernameOrEmail(eq("budi"), eq("budi"), eq(1L)))
+                .thenReturn(Optional.of(user(false, false)));
 
         DomainException ex = assertThrows(DomainException.class,
                 () -> authService.login("budi", PASSWORD, null));

@@ -1,7 +1,6 @@
 package id.osprey.iamservice.application.logging;
 
 import id.osprey.iamservice.domain.logging.LogEntry;
-import id.osprey.iamservice.domain.logging.LoggingService;
 import id.osprey.iamservice.infrastructure.logging.LoggingAdapter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

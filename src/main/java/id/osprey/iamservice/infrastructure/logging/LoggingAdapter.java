@@ -1,12 +1,9 @@
 package id.osprey.iamservice.infrastructure.logging;
 
 import id.osprey.iamservice.domain.logging.LogEntry;
-import id.osprey.iamservice.domain.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * Adaptor SLF4J/Logback untuk penulisan log terstruktur. Menginject tenantId
@@ -16,7 +13,7 @@ import java.util.Map;
  * key=value), bukan di kode ini.
  */
 @Component
-public class LoggingAdapter {
+public final class LoggingAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(LoggingAdapter.class);
 

@@ -135,7 +135,8 @@ class AuditControllerIntegrationTest {
 
     private Long insertLog(String action, Instant createdAt) {
         return jdbcTemplate.queryForObject(
-                "insert into audit_logs (actor_user_id, action, created_at, tenant_id) values (?, ?, ?, ?) returning id",
+                "insert into audit_logs (actor_user_id, action, created_at, tenant_id) "
+                        + "values (?, ?, ?, ?) returning id",
                 Long.class, adminId, action, Timestamp.from(createdAt), TENANT_ID);
     }
 

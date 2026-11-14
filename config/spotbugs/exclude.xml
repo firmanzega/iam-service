@@ -25,6 +25,10 @@
 
     <!-- Kelompok 1: injeksi dependensi pada komponen Spring. -->
     <Match>
+        <Class name="id.osprey.iamservice.application.logging.LoggingServiceImpl"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="id.osprey.iamservice.adapter.rest.RoleController"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>

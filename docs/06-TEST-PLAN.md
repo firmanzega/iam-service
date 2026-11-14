@@ -115,8 +115,9 @@
 
 ## 6. Open Bugs
 
-- **QA-GATE-001** (escalated, severity: Medium, priority: release-blocking): `mvn clean verify` fails the JaCoCo per-class gate on `SecurityRejectionStatPersistenceAdapter.RejectionStatRow` (0.66 < 0.80). Root cause is dead getter code in production; see §10.3. Not introduced by Stage 4; the gate had been red since `63814ac`.
-- BUG-TENANT-001 and BUG-TENANT-004: fixed and verified in Stage 4 + Phase 6 retest (see §10.2); previously tracked here as open.
+- **QA-GATE-001: FIXED 2026-11-14** — `mvn clean verify` is now BUILD SUCCESS (299/299, JaCoCo per-class met, Checkstyle 0, SpotBugs 0). Backend removed the dead `RejectionStatRow` (existence-only `SELECT 1` → `Integer`).
+- **SEC-STATS-001 (new, escalated, severity Medium):** `security_rejection_stats` keeps V8's global `uq_security_rejection_stats UNIQUE (window_start, http_method, reason)` without `tenant_id`; a second tenant's same-minute rejection violates it and the recorder swallows the failure, so that tenant's 401 aggregate is silently lost. Needs a V11 migration (composite tenant-scoped unique) — decision belongs to `solution-architect`/Boss.
+- **BUG-TENANT-001 and BUG-TENANT-004:** fixed and verified in Stage 4 + Phase 6 retest (see §10.2).
 
 ---
 
@@ -202,7 +203,20 @@ Additional Stage 4 coverage added by QA this phase (44 tests, 257 → 301 total)
 
 | ID | Defect | Evidence |
 |----|--------|----------|
-| QA-GATE-001 | `mvn clean verify` **fails the JaCoCo per-CLASS LINE 0.80 gate** on `infrastructure.persistence.SecurityRejectionStatPersistenceAdapter.RejectionStatRow` (ratio 0.66). Root cause is production code: `increment()` only checks whether a row exists and never reads `getRejectionCount()` / `getLastSeenAt()`, so both getter bodies are dead code unreachable from public behavior; they cannot be covered without either deleting/simplifying them (backend change) or reflection-hacked tests (rejected as gate-gaming). | `jacoco.csv`: class 4/6 lines; full log shows this is the ONLY rule violation; all other classes pass |
+| QA-GATE-001 | ~~FIXED 2026-11-14~~ `mvn clean verify` failed the JaCoCo per-CLASS LINE 0.80 gate on `infrastructure.persistence.SecurityRejectionStatPersistenceAdapter.RejectionStatRow` (ratio 0.66). Root cause was production code: `increment()` only checked row existence and never read the row's values. | `jacoco.csv` before fix; fixed by mapping `SELECT 1` to `Integer` (class deleted entirely). `mvn clean verify` is now **BUILD SUCCESS** (299/299, Checkstyle 0, SpotBugs 0). The class of failure could not have been introduced by test changes. |
+
+Adjacent defect found during the fix (escalated, NOT fixed here): the
+`security_rejection_stats` table still carries V8's global
+`uq_security_rejection_stats UNIQUE (window_start, http_method, reason)` with no
+`tenant_id`. Two tenants hitting 401 in the same minute with the same method and
+reason → the second tenant's INSERT violates the global unique → the recorder swallows
+it (`persistRejectionStat` swallows the exception and only writes an ERROR log) →
+that tenant's 401 aggregate is silently lost. Fix would be a V11 migration
+(drop global unique, add `UNIQUE(tenant_id, window_start, http_method, reason)`) —
+schema change to a core table, escalated per `team-workflow` Role Lock to
+`solution-architect`/Boss; not done unilaterally. Related: `docs/08-CODEBASE-MAP.md`
+claims the adapter uses `ON CONFLICT upsert`; the implementation is SELECT-then-
+INSERT/UPDATE (docs drift, minor).
 
 Note: `mvn clean verify` had already been red since `63814ac` (the multi-tenancy backend
 commit) for the logging/tenant/WebMapper/AuditLog/SecurityRejectionStatsService classes;
@@ -217,18 +231,18 @@ header (`org-default` is the bootstrap tenant). The two
 `*_withoutOrganizationHeader_returns400` tests were renamed to `*_returns401` when
 Boss unified missing-header rejection to 401 on 2026-11-14.
 
-**Latest run:** `Tests run: 301, Failures: 0, Errors: 0, Skipped: 0` — `mvn clean verify`
-**BUILD FAILURE** only at the JaCoCo gate (QA-GATE-001); all tests pass, jar builds.
+**Latest run:** `Tests run: 299, Failures: 0, Errors: 0, Skipped: 0` — `mvn clean verify`
+**BUILD SUCCESS** (JaCoCo per-class gate met, Checkstyle 0 violations, SpotBugs 0;
+two mapper-specific tests were removed with the deleted row mapper, one test class
+added earlier keeps logging coverage).
 
 ### 10.4 Updated release readiness
 
 **Recommendation: GO with conditions.**
 
 Conditions:
-1. QA-GATE-001 resolved by backend (delete/simplify `RejectionStatRow`, or an accepted
-   gate exclusion with rationale) so `mvn clean verify` is green before release.
-2. BUG-TENANT-001 and BUG-TENANT-004 are fixed and verified; Package A must not onboard a
-   second organization until they stay green in CI.
+1. ~~QA-GATE-001~~ resolved 2026-11-14 (`mvn clean verify` BUILD SUCCESS). Remaining condition: BUG-TENANT-001 and BUG-TENANT-004 are fixed and verified; Package A must not onboard a second organization until they stay green in CI.
+2. SEC-STATS-001 (tenant-unscoped unique on `security_rejection_stats`) decided and, if approved, migrated (V11) before multi-tenant production use — 401 aggregates for non-default tenants are silently dropped otherwise. Severity Medium; observability defect, not an authorization defect.
 3. Release version for the breaking contract (`1.1.0` vs `2.0.0`) — Boss decision pending.
 
 BUG-TENANT-002/003 and both multi-tenancy defects are fixed and verified. The remaining
