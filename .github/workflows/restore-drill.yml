@@ -98,7 +98,7 @@ jobs:
           test "$rows" = "3"
 
           labels=$(run_sql "select string_agg(label, ',' order by label) from restore_probe;")
-          test "$labels" = "one,two,three"
+          test "$labels" = "one,three,two"
 
           index_count=$(run_sql \
             "select count(*) from pg_indexes where indexname = 'restore_probe_created_at_idx';")
