@@ -97,6 +97,10 @@
 
 ## 5. Execution Results (terminal evidence)
 
+> Historical baseline from Package A phases. See §10 for the 2026-11-14 retest,
+> which records `mvn clean verify` failing the per-class JaCoCo gate (QA-GATE-001)
+> for the multi-tenancy increment; the "BUILD SUCCESS" rows above predate `63814ac`.
+
 | Command | Result | Evidence |
 |----------|-------|-------|
 | `mvn clean verify` | **BUILD SUCCESS** | `f6-verify.log`: All coverage checks met, 0 Checkstyle violations, SpotBugs passed |
@@ -111,7 +115,8 @@
 
 ## 6. Open Bugs
 
-No open bugs from Phase 6 execution.
+- **QA-GATE-001** (escalated, severity: Medium, priority: release-blocking): `mvn clean verify` fails the JaCoCo per-class gate on `SecurityRejectionStatPersistenceAdapter.RejectionStatRow` (0.66 < 0.80). Root cause is dead getter code in production; see §10.3. Not introduced by Stage 4; the gate had been red since `63814ac`.
+- BUG-TENANT-001 and BUG-TENANT-004: fixed and verified in Stage 4 + Phase 6 retest (see §10.2); previously tracked here as open.
 
 ---
 
@@ -168,36 +173,65 @@ defects; both fixed in `8f125e8` and covered by new tests.
 | BUG-TENANT-002 | `TenantHeaderFilter` matched `request.getServletPath()`, which is empty under MockMvc and fragile in general, so tenant-required endpoints never rejected requests without `X-Organization-ID` | probe test printed `servletPath=[] pathInfo=[/v1/auth/sessions]`; `/v1/auth/sessions` and `/v1/auth/logout` returned 200/204 without header (contract: 400) | filter now resolves a path via requestURI/pathInfo fallback and strips context path |
 | BUG-TENANT-003 | `Session`/`RefreshToken` rows created at login were attributed to the request-context tenant (org-default fallback), not the owning user's tenant; tenant-B sessions never listed/usable | `TenantIsolationIntegrationTest.sessions_listsOnlyCallerTenantOwnSessions` failed with B seeing 0 sessions | session and refresh-token attribution uses `user.getTenantId()` |
 
-### 10.2 Known issues NOT fixed (awaiting Boss decision)
+### 10.2 Retest of BUG-TENANT-001 and BUG-TENANT-004 (2026-11-14, after Stage 4 commits `d16d692`, `f57ca24`)
+
+Both defects were fixed in Stage 4; retested here against the locked contract
+(ADR-0018; Boss rulings 2026-11-14: unknown organization is rejected with 401 on
+every path, and missing `X-Organization-ID` is 401 on every tenant-aware path —
+unified on 2026-11-14; error body carries missing-vs-unknown cause).
+
+| ID | Retest result | Evidence |
+|----|---------------|----------|
+| BUG-TENANT-001 | **FIXED — verified** | `sessions_withUnknownOrganization_isRejectedWith401_notFallbackToDefaultTenant` (previously `@Disabled`) now runs and passes; new tests `login_withoutOrganizationHeader_returns401`, `login_withUnknownOrganization_returns401`, `refresh_withoutOrganizationHeader_returns401`, `refresh_withUnknownOrganization_returns401` all pass; `TenantIsolationIntegrationTest` (11/11) |
+| BUG-TENANT-004 | **FIXED — verified** | Root cause in the derived query `findByUsernameOrEmail` (tenant parameter ignored entirely; `WHERE username=? OR email=?`) gone: explicit `@Query` with mandatory tenant predicate (ADR-0018 §3); `login_sameIdentityInTwoTenants_bothSucceed` registers+logs in the same identity in `org-default` and `org-qa-isolation`; `V10__tenant_scoped_identity.sql` adds `UNIQUE(tenant_id, username)` / `UNIQUE(tenant_id, email)` |
+
+Additional Stage 4 coverage added by QA this phase (44 tests, 257 → 301 total):
+
+- `LoggingServiceImplTest`, `LogMessageTest`, `LogEntryTest`, `LoggingAdapterTest` — the
+  ADR-0017 structured-logging slice was previously at 0–19% per class; now covered,
+  including MDC leak checks (no cross-request tenant/trace leak).
+- `TenantTest`, `TenantPersistenceAdapterTest`, `PersistenceEntityTest.tenantJpaEntity_*`,
+  `SecurityRejectionStatPersistenceAdapterTest`, `SecurityRejectionStatsServiceTest`
+  (default-tenant fallback paths), `AuditLogTest`, `WebMapperTest.tenantId_*` —
+  closes the per-class 80% gate gap that had been red since `63814ac`.
+- `AuthServiceTest.refresh_prefersStoredTokenTenant_overCurrentContext` and
+  `AuthServiceTest.login_withoutTenantContext_throwsIllegalState` pin ADR-0018 point 6
+  and the fail-closed filter contract.
+
+### 10.3 Known issues NOT fixed (escalated to `senior-backend-developer`, 2026-11-14)
 
 | ID | Defect | Evidence |
 |----|--------|----------|
-| BUG-TENANT-001 | Unknown/invalid organization header silently falls back to org-default instead of being rejected | ADR-0016 Verification says invalid organization returns 401/404; `TenantResolver.resolve()` returns void with empty context, services fall back to org-default; `/v1/audit-logs` returns default-tenant logs to a client presenting an unknown org |
-| BUG-TENANT-004 | Login user lookup does not enforce tenant isolation despite documentation claiming it does; generated SQL is `where username=? or email=?` with no tenant clause | `SpringDataUserRepository.findByUsernameOrEmail` comment claims tenant filter; log shows no tenant predicate; identity ambiguous across tenants (two users named `admin` in different tenants are indistinguishable at login) |
+| QA-GATE-001 | `mvn clean verify` **fails the JaCoCo per-CLASS LINE 0.80 gate** on `infrastructure.persistence.SecurityRejectionStatPersistenceAdapter.RejectionStatRow` (ratio 0.66). Root cause is production code: `increment()` only checks whether a row exists and never reads `getRejectionCount()` / `getLastSeenAt()`, so both getter bodies are dead code unreachable from public behavior; they cannot be covered without either deleting/simplifying them (backend change) or reflection-hacked tests (rejected as gate-gaming). | `jacoco.csv`: class 4/6 lines; full log shows this is the ONLY rule violation; all other classes pass |
 
-### 10.3 New / updated tests
-
-| Test | Result | Proves |
-|------|--------|--------|
-| `TenantResolverTest` (5 cases) | LULUS | Context cleared on blank/null header, missing organization, inactive tenant; set when organization active |
-| `TenantIsolationIntegrationTest.sessions_withoutOrganizationHeader_returns400` | LULUS | Mandatory header gate (after BUG-TENANT-002 fix) |
-| `TenantIsolationIntegrationTest.logout_withoutOrganizationHeader_returns400` | LULUS | Same for `/v1/auth/logout` |
-| `TenantIsolationIntegrationTest.sessions_listsOnlyCallerTenantOwnSessions` | LULUS | Tenant A cannot see tenant B's sessions, and vice versa (IDOR) |
-| `TenantIsolationIntegrationTest.revokeSession_fromOtherTenant_isNotFound_andOriginalStaysAlive` | LULUS | Cross-tenant revoke is 404; victim's refresh token still works |
-| `TenantIsolationIntegrationTest.sessions_withUnknownOrganization_isRejected_notFallbackToDefaultTenant` | DISABLED (`BUG-TENANT-001`) | Expected contract test for known issue; activated once Boss decides correct status code |
+Note: `mvn clean verify` had already been red since `63814ac` (the multi-tenancy backend
+commit) for the logging/tenant/WebMapper/AuditLog/SecurityRejectionStatsService classes;
+this stage brought every other class above the gate. The Package A "verify passed" claim in
+§5 below refers to pre-multi-tenancy history and is stale for the current HEAD.
 
 Two legacy tests were updated to satisfy the new mandatory header contract
 (`AuthSecurityIntegrationTest.logout_revokesTheRefreshToken`,
 `SessionManagementIntegrationTest.listSessions_withoutToken_isUnauthorized`).
 No assertions were weakened; both now send the now-mandatory `X-Organization-ID`
-header (`org-default` is the bootstrap tenant).
+header (`org-default` is the bootstrap tenant). The two
+`*_withoutOrganizationHeader_returns400` tests were renamed to `*_returns401` when
+Boss unified missing-header rejection to 401 on 2026-11-14.
 
-**Latest run:** `Tests run: 249, Failures: 0, Errors: 0, Skipped: 1` — BUILD SUCCESS.
+**Latest run:** `Tests run: 301, Failures: 0, Errors: 0, Skipped: 0` — `mvn clean verify`
+**BUILD FAILURE** only at the JaCoCo gate (QA-GATE-001); all tests pass, jar builds.
 
 ### 10.4 Updated release readiness
 
-**Recommendation: GO with conditions.** Package A scope unchanged; for any
-multi-tenant production use, BUG-TENANT-001 and BUG-TENANT-004 must be resolved
-(contract decision) before onboarding a second organization. BUG-TENANT-002/003
-are fixed and verified.
+**Recommendation: GO with conditions.**
+
+Conditions:
+1. QA-GATE-001 resolved by backend (delete/simplify `RejectionStatRow`, or an accepted
+   gate exclusion with rationale) so `mvn clean verify` is green before release.
+2. BUG-TENANT-001 and BUG-TENANT-004 are fixed and verified; Package A must not onboard a
+   second organization until they stay green in CI.
+3. Release version for the breaking contract (`1.1.0` vs `2.0.0`) — Boss decision pending.
+
+BUG-TENANT-002/003 and both multi-tenancy defects are fixed and verified. The remaining
+known risk is process-level: the multi-tenancy increment (`63814ac`) was merged without a
+green `mvn clean verify`; gates should run on the full matrix before merge in Stage 7.
 

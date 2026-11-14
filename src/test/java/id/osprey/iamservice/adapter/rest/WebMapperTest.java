@@ -84,6 +84,46 @@ class WebMapperTest {
     }
 
     @Test
+    void tenantId_withoutToken_isNull() {
+        assertNull(WebMapper.tenantId(null));
+    }
+
+    @Test
+    void tenantId_withoutClaim_isNull() {
+        assertNull(WebMapper.tenantId(token("42")));
+    }
+
+    @Test
+    void tenantId_withBlankClaim_isNull() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "HS256")
+                .claim(TokenClaims.TENANT_ID, "   ")
+                .build();
+
+        assertNull(WebMapper.tenantId(jwt));
+    }
+
+    @Test
+    void tenantId_withMalformedValue_isNull() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "HS256")
+                .claim(TokenClaims.TENANT_ID, "bukan-angka")
+                .build();
+
+        assertNull(WebMapper.tenantId(jwt));
+    }
+
+    @Test
+    void tenantId_withValidValue_isParsed() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "HS256")
+                .claim(TokenClaims.TENANT_ID, "7")
+                .build();
+
+        assertEquals(7L, WebMapper.tenantId(jwt));
+    }
+
+    @Test
     void toRequest_mapsPageSizeAndSort() {
         PaginationRequest request = WebMapper.toRequest(
                 PageRequest.of(2, 25, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.asc("username"))));

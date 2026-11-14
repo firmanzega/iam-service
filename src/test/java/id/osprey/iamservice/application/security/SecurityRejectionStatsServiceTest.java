@@ -12,8 +12,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,5 +68,75 @@ class SecurityRejectionStatsServiceTest {
 
         assertEquals(5L, deleted);
         verify(repository).deleteOlderThan(1L, now.minus(retention));
+    }
+
+    @Test
+    void record_withoutTenantContext_fallsBackToDefaultTenant() {
+        TenantContext.clear();
+        id.osprey.iamservice.domain.tenant.Tenant defaultTenant =
+                new id.osprey.iamservice.domain.tenant.Tenant(7L, "Default Tenant", "org-default", true,
+                        Instant.parse("2026-01-01T00:00:00Z"));
+        when(tenantRepository.findByOrganizationId("org-default"))
+                .thenReturn(Optional.of(defaultTenant));
+
+        SecurityRejectionStatsService service = new SecurityRejectionStatsService(repository, tenantRepository);
+        Instant seenAt = Instant.parse("2026-01-01T10:07:42Z");
+
+        service.record(seenAt, "GET", "invalid_token");
+
+        verify(repository).increment(
+                7L, Instant.parse("2026-01-01T10:07:00Z"), "GET", "invalid_token", seenAt);
+    }
+
+    @Test
+    void record_withoutTenantContext_andMissingDefault_createsIt() {
+        TenantContext.clear();
+        when(tenantRepository.findByOrganizationId("org-default"))
+                .thenReturn(Optional.empty());
+        id.osprey.iamservice.domain.tenant.Tenant created =
+                new id.osprey.iamservice.domain.tenant.Tenant(11L, "Default Tenant", "org-default", true,
+                        Instant.parse("2026-01-01T00:00:00Z"));
+        when(tenantRepository.save(any())).thenReturn(created);
+
+        SecurityRejectionStatsService service = new SecurityRejectionStatsService(repository, tenantRepository);
+        Instant seenAt = Instant.parse("2026-01-01T10:07:42Z");
+
+        service.record(seenAt, "POST", "missing_credentials");
+
+        verify(repository).increment(
+                11L, Instant.parse("2026-01-01T10:07:00Z"), "POST", "missing_credentials", seenAt);
+    }
+
+    @Test
+    void record_withoutTenantContext_andSaveRace_rereadsDefaultTenant() {
+        TenantContext.clear();
+        id.osprey.iamservice.domain.tenant.Tenant defaultTenant =
+                new id.osprey.iamservice.domain.tenant.Tenant(7L, "Default Tenant", "org-default", true,
+                        Instant.parse("2026-01-01T00:00:00Z"));
+        when(tenantRepository.findByOrganizationId("org-default"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(defaultTenant));
+        when(tenantRepository.save(any())).thenThrow(new IllegalStateException("duplicate key"));
+
+        SecurityRejectionStatsService service = new SecurityRejectionStatsService(repository, tenantRepository);
+        Instant seenAt = Instant.parse("2026-01-01T10:07:42Z");
+
+        service.record(seenAt, "PUT", "invalid_token");
+
+        verify(repository).increment(
+                7L, Instant.parse("2026-01-01T10:07:00Z"), "PUT", "invalid_token", seenAt);
+    }
+
+    @Test
+    void record_withoutTenantContext_andDefaultStillMissing_throws() {
+        TenantContext.clear();
+        when(tenantRepository.findByOrganizationId("org-default"))
+                .thenReturn(Optional.empty());
+        when(tenantRepository.save(any())).thenThrow(new IllegalStateException("duplicate key"));
+
+        SecurityRejectionStatsService service = new SecurityRejectionStatsService(repository, tenantRepository);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.record(Instant.parse("2026-01-01T10:07:42Z"), "GET", "invalid_token"));
     }
 }

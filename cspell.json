@@ -18,6 +18,7 @@
     "attname",
     "hikaricp",
     "HikariCP",
+    "jacoco",
     "iamservice",
     "springdoc",
     "HSTS",

@@ -4,6 +4,7 @@ import id.osprey.iamservice.domain.audit.AuditLog;
 import id.osprey.iamservice.domain.auth.RefreshToken;
 import id.osprey.iamservice.domain.auth.Session;
 import id.osprey.iamservice.domain.user.Role;
+import id.osprey.iamservice.domain.tenant.Tenant;
 import id.osprey.iamservice.domain.user.User;
 import org.junit.jupiter.api.Test;
 
@@ -138,6 +139,31 @@ class PersistenceEntityTest {
         assertTrue(domain.getRoles().contains(new Role("ADMIN")));
         assertEquals(0L, domain.getVersion());
         assertNull(entity.getVersion());
+    }
+
+    @Test
+    void tenantJpaEntity_mapsToDomainAndBack() {
+        Instant createdAt = Instant.parse("2026-01-01T00:00:00Z");
+        TenantJpaEntity entity = new TenantJpaEntity("QA Tenant", "org-qa");
+        entity.setCreatedAt(createdAt);
+        entity.setActive(false);
+
+        assertEquals("QA Tenant", entity.getName());
+        assertEquals("org-qa", entity.getOrganizationId());
+        assertFalse(entity.isActive());
+        assertEquals(createdAt, entity.getCreatedAt());
+
+        entity.setName("QA Tenant Baru");
+        entity.setOrganizationId("org-qa-baru");
+        entity.setActive(true);
+
+        Tenant domain = entity.toDomain();
+
+        assertEquals("QA Tenant Baru", domain.getName());
+        assertEquals("org-qa-baru", domain.getOrganizationId());
+        assertTrue(domain.isActive());
+        assertEquals(createdAt, domain.getCreatedAt());
+        assertNull(domain.getId(), "entitas yang belum disimpan tidak boleh mengarang id");
     }
 
     @Test
