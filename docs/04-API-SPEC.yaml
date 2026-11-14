@@ -1,0 +1,181 @@
+openapi: 3.0.1
+info:
+  title: IAM Service API
+  version: 0.0.1-SNAPSHOT
+  description: Identity and Access Management service with JWT authentication, RBAC, audit trail, per-device sessions, and 401 rejection aggregate.
+servers:
+  - url: http://localhost:8080/v1
+    description: Development (dev profile)
+  - url: http://localhost:9090/v1
+    description: Production (prod profile)
+tags:
+  - name: auth
+    description: Authentication, token refresh, logout, and device session management
+  - name: users
+    description: User management (ADMIN, AUDITOR)
+  - name: roles
+    description: Role management (ADMIN)
+  - name: audit
+    description: Audit logs and hash chain verification (ADMIN, AUDITOR)
+  - name: operational
+    description: Actuator health and metrics
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Login and receive access + refresh token pair
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid request body
+        '401':
+          description: Invalid credentials
+        '423':
+          description: Account locked
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Exchange refresh token for new token pair
+      operationId: refresh
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token exchange successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: Invalid request body
+        '401':
+          description: Refresh token unknown, revoked, or expired
+        '423':
+          description: Account locked
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke caller's refresh token
+      operationId: logout
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204':
+          description: Refresh token revoked
+        '401':
+          description: Not authenticated
+        '403':
+          description: Refresh token does not belong to caller
+  /auth/sessions:
+    get:
+      tags: [auth]
+      summary: List caller's active device sessions
+      operationId: listSessions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: Not authenticated
+  /auth/sessions/{sessionId}:
+    delete:
+      tags: [auth]
+      summary: Revoke one device session
+      operationId: revokeSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Session revoked
+        '401':
+          description: Not authenticated
+        '404':
+          description: Session not found or not owned by caller
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+          description: Username or email
+        password:
+          type: string
+          format: password
+        deviceLabel:
+          type: string
+          maxLength: 100
+          description: Optional caller-supplied device label hint
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          description: Refresh token value
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+    SessionResponse:
+      type: object
+      required: [id, deviceLabel, current, revoked]
+      properties:
+        id:
+          type: string
+          format: uuid
+        deviceLabel:
+          type: string
+          nullable: true
+        current:
+          type: boolean
+        revoked:
+          type: boolean

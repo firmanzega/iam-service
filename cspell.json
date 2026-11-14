@@ -13,6 +13,9 @@
     "contype",
     "hikaricp",
     "HikariCP",
+    "iamservice",
+    "springdoc",
+    "HSTS",
     "PGPASSWORD"
   ],
   "ignorePaths": [
@@ -22,6 +25,7 @@
     "build/**",
     "vendor/**",
     "target/**",
-    ".next/**"
+    ".next/**",
+    "docs/WORKLOG.md"
   ]
 }
