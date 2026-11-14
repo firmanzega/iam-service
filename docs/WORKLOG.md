@@ -27,6 +27,16 @@ Kartu memori status lintas sesi untuk alur `team-workflow` linear.
 ## Tahap Berikutnya
 - Tidak ada tahap berikutnya dalam team-workflow (Tahap 7 adalah final)
 
+## Keputusan: Skenario D (Self-Service Pengguna Akhir) Ditunda
+
+| Pertanyaan | Jawaban Boss | Keputusan |
+|------------|--------------|-----------|
+| Lupa kata sandi via email dibutuhkan segera? | Boleh ditunda dulu | Ditunda |
+| MFA/2FA dibutuhkan untuk self-service? | Kedepannya perlu, tidak untuk saat ini | Ditunda |
+| Self-registration diizinkan? | Tidak, dibuat admin dulu | Tidak diizinkan Paket A |
+
+**Kesimpulan:** Skenario D ditunda. Endpoint self-service dasar yang sudah ada (ganti kata sandi, daftar perangkat, cabut perangkat) cukup untuk sekarang. Portal self-service terpisah dapat dibangun nanti tanpa mengubah backend.
+
 ## Pertanyaan Terbuka
 - Dokumen lama di docs/ (security.md, deployment.md, manual-testing.md, dll.) akan disinkronisasi atau diarsipkan?
 
