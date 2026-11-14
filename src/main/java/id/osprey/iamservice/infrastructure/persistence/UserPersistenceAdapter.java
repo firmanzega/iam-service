@@ -36,8 +36,8 @@ public class UserPersistenceAdapter implements UserRepository {
     }
 
     @Override
-    public Optional<User> findById(Long id) {
-        return repository.findById(id).map(UserJpaEntity::toDomain);
+    public Optional<User> findById(Long id, Long tenantId) {
+        return repository.findById(id, tenantId).map(UserJpaEntity::toDomain);
     }
 
     @Override
@@ -50,7 +50,7 @@ public class UserPersistenceAdapter implements UserRepository {
     public User save(User user) {
         UserJpaEntity entity = user.getId() == null
                 ? new UserJpaEntity(user.getUsername(), user.getEmail(), user.getPasswordHash())
-                : repository.findById(user.getId()).orElseThrow();
+                : repository.findById(user.getId(), user.getTenantId()).orElseThrow();
 
         entity.applyFrom(user);
 

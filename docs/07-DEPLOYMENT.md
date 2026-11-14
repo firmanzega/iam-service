@@ -197,7 +197,7 @@ Audit performed across the entire repository (OWASP Top 10, IDOR, secret leakage
 Multi-tenancy ships in the first release (Option B, Boss ruling 2026-11-14): v1.0.0 was never tagged, published, or deployed anywhere, so the breaking changes are folded into the initial release instead of forcing a v2.0.0 or an unshipped v1.1.0.
 
 Client migration steps before deploying:
-1. **Send `X-Organization-ID` on every tenant-aware request** — required by `POST /v1/auth/login` and `POST /v1/auth/refresh`; missing/unknown organization → 401 (unknown-org rejection was extended to all tenant-aware endpoints).
+1. **Send `X-Organization-ID` on every tenant-aware request** — required by `POST /v1/auth/login`, `POST /v1/auth/refresh`, and every `/v1/users/*` operation (list, detail, create, update, patch, password changes incl. self-service, roles, activate/deactivate, reset-password); missing/unknown organization → 401 (unknown-org rejection was extended to all tenant-aware endpoints).
 2. **On-premise (single-tenant) clients** set the header to `org-default` (or the operator-provided organization id); **cloud clients** use their own `organization_id`.
 3. **Account migration:** identities are now per-tenant unique. Existing single-tenant deployments are unaffected; multi-tenant operators must verify no global-unique assumptions in their data tooling (e.g., ETL upserts by username).
 4. Unknown/missing organization rejects with 401 uniformly (no silent `org-default` fallback anywhere).

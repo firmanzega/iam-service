@@ -29,9 +29,9 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
     @Query("select u from UserJpaEntity u where u.tenantId = :tenantId")
     Page<UserJpaEntity> findAllByTenantId(@Param("tenantId") Long tenantId, Pageable pageable);
 
-    @Override
     @EntityGraph(attributePaths = "roles")
-    Optional<UserJpaEntity> findById(Long id);
+    @Query("select u from UserJpaEntity u where u.id = :id and u.tenantId = :tenantId")
+    Optional<UserJpaEntity> findById(@Param("id") Long id, @Param("tenantId") Long tenantId);
 
     /**
      * Mencari pengguna berdasarkan username atau email dalam satu tenant.

@@ -14,7 +14,12 @@ import java.util.Optional;
  */
 public interface UserRepository {
 
-    Optional<User> findById(Long id);
+    /**
+     * Mengambil pengguna berdasarkan id dalam satu tenant. Tanpa predikat
+     * tenant, pemanggil dapat membaca pengguna milik tenant lain hanya
+     * dengan menebak id (integer berurutan).
+     */
+    Optional<User> findById(Long id, Long tenantId);
 
     /**
      * Mencari pengguna berdasarkan username atau email dalam satu tenant.

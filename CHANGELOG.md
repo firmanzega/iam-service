@@ -35,6 +35,7 @@ Rilis pertama stabil: Package A selesai (Fase 1–6) dan seluruh perluasan multi
 
 ### Breaking Contract
 - Klien wajib mengirim `X-Organization-ID` pada `POST /v1/auth/login` dan `POST /v1/auth/refresh`; tanpa header → 401 Unauthorized
+- Klien wajib mengirim `X-Organization-ID` pada seluruh endpoint `/v1/users/*` (GET/POST/PUT/PATCH termasuk self-service password); tanpa header atau organisasi tidak dikenal → 401 Unauthorized
 - Identitas pengguna tidak lagi global unik: `username` dan `email` unik per tenant; aplikasi yang mengandalkan keunikan global harus migrasi data sebelum upgrade
 - Organisasi tidak dikenal ditolak 401 di seluruh endpoint tenant-aware (sebelumnya organisasi tidak dikenal dapat jatuh ke `org-default` pada jalur tertentu)
 - Deployment on-premise: klien mengirim `X-Organization-ID: org-default` sesuai konfigurasi deploy; cloud: klien mengirim organization id-nya

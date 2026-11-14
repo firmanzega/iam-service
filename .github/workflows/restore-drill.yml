@@ -82,17 +82,19 @@ jobs:
 
       - name: Assert rows, values, and indexes came back
         run: |
-          rows=$(psql -tAc "select count(*) from restore_probe;")
+          PSQL=(psql -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1)
+
+          rows=$("${PSQL[@]}" -tAc "select count(*) from restore_probe;")
           test "$rows" = "3"
 
-          labels=$(psql -tAc "select string_agg(label, ',' order by label) from restore_probe;")
+          labels=$("${PSQL[@]}" -tAc "select string_agg(label, ',' order by label) from restore_probe;")
           test "$labels" = "one,two,three"
 
-          index_count=$(psql -tAc \
+          index_count=$("${PSQL[@]}" -tAc \
             "select count(*) from pg_indexes where indexname = 'restore_probe_created_at_idx';")
           test "$index_count" = "1"
 
-          unique_count=$(psql -tAc \
+          unique_count=$("${PSQL[@]}" -tAc \
             "select count(*) from pg_constraint c join pg_class t on t.oid = c.conrelid
               where t.relname = 'restore_probe' and c.contype = 'u';")
           test "$unique_count" = "1"

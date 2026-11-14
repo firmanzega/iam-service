@@ -6,9 +6,7 @@ import id.osprey.iamservice.domain.auth.TokenRevocationService;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
-import id.osprey.iamservice.domain.tenant.Tenant;
 import id.osprey.iamservice.domain.tenant.TenantContext;
-import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
 import id.osprey.iamservice.domain.shared.SortSpec;
 import id.osprey.iamservice.domain.user.Role;
@@ -60,9 +58,6 @@ class UserServiceTest {
 
     @Mock
     TokenRevocationService tokenRevocationService;
-
-    @Mock
-    TenantRepository tenantRepository;
 
     @InjectMocks
     UserService userService;
@@ -126,7 +121,7 @@ class UserServiceTest {
 
     @Test
     void findById_userNotFound_throwsDomainException() {
-        when(userRepository.findById(99L)).thenReturn(Optional.empty());
+        when(userRepository.findById(eq(99L), eq(TENANT_ID))).thenReturn(Optional.empty());
 
         DomainException ex = assertThrows(DomainException.class, () -> userService.findById(99L));
 
@@ -146,21 +141,16 @@ class UserServiceTest {
     }
 
     @Test
-    void create_withoutTenantContext_fallsBackToDefaultTenant() {
-        // Pins the current production behavior: context empty -> resolve org-default.
-        // If Boss rules that this must fail-closed instead, change production code
-        // and this test together.
+    void create_withoutTenantContext_throwsIllegalState() {
+        // Fail-closed, konsisten dengan AuthService: tanpa konteks tenant,
+        // use case tidak boleh menebak tenant. HTTP path selalu punya
+        // konteks karena filter menolak permintaan tanpa header.
         TenantContext.clear();
-        Tenant defaultTenant = new Tenant(7L, "Default Tenant", "org-default", true,
-                java.time.Instant.parse("2026-01-01T00:00:00Z"));
-        when(tenantRepository.findByOrganizationId("org-default"))
-                .thenReturn(Optional.of(defaultTenant));
-        when(passwordEncoder.encode("password123")).thenReturn("HASHED");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        User created = userService.create("budi", "budi@mail.com", "password123", ACTOR_ID);
+        assertThrows(IllegalStateException.class,
+                () -> userService.create("budi", "budi@mail.com", "password123", ACTOR_ID));
 
-        assertEquals(7L, created.getTenantId());
+        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -178,7 +168,7 @@ class UserServiceTest {
     @Test
     void update_staleVersion_throwsConflictAndSavesNothing() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
 
         DomainException ex = assertThrows(DomainException.class,
                 () -> userService.update(1L, "budi1", "budi1@mail.com", 5L, ACTOR_ID));
@@ -190,7 +180,7 @@ class UserServiceTest {
     @Test
     void patch_nullUsername_leavesUsernameUnchanged() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userService.patch(1L, null, "baru@mail.com", 0L, ACTOR_ID);
@@ -203,7 +193,7 @@ class UserServiceTest {
     @Test
     void patch_nullEmail_leavesEmailUnchanged() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userService.patch(1L, "baru", null, 0L, ACTOR_ID);
@@ -215,7 +205,7 @@ class UserServiceTest {
     @Test
     void deactivate_marksInactiveAndRevokesTokens() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(2L);
 
@@ -232,7 +222,7 @@ class UserServiceTest {
     void activate_marksActiveAndClearsFailedLogins() {
         User user = new User(USER_ID, TENANT_ID, "budi", "budi@mail.com", "HASH", false, 3,
                 java.time.Instant.now(), null, null, 0L, Set.of());
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userService.activate(1L, ACTOR_ID);
@@ -244,7 +234,7 @@ class UserServiceTest {
     @Test
     void changePassword_wrongCurrentPassword_throwsUnauthorized() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("salah", "HASH")).thenReturn(false);
 
         DomainException ex = assertThrows(DomainException.class,
@@ -257,7 +247,7 @@ class UserServiceTest {
     @Test
     void changePassword_sameAsCurrent_isRejected() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("sama", "HASH")).thenReturn(true);
 
         DomainException ex = assertThrows(DomainException.class,
@@ -269,7 +259,7 @@ class UserServiceTest {
     @Test
     void changePassword_valid_revokesTokensAndAudits() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("lama", "HASH")).thenReturn(true);
         when(passwordEncoder.matches("baru", "HASH")).thenReturn(false);
         when(passwordEncoder.encode("baru")).thenReturn("HASH_BARU");
@@ -288,7 +278,7 @@ class UserServiceTest {
     @Test
     void resetPassword_setsNewPasswordWithoutCurrentOne() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("baru")).thenReturn("HASH_BARU");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(3L);
@@ -306,7 +296,7 @@ class UserServiceTest {
     @Test
     void replaceRoles_unknownRole_throwsBadRequest() {
         User user = user();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(roleRepository.findByNameIn(Set.of("USER", "NGAWUR"))).thenReturn(Set.of());
 
         DomainException ex = assertThrows(DomainException.class,
@@ -320,7 +310,7 @@ class UserServiceTest {
     void replaceRoles_success_replacesRolesAndRevokesTokens() {
         User user = user();
         Role role = new Role(7L, "USER");
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(eq(1L), eq(TENANT_ID))).thenReturn(Optional.of(user));
         when(roleRepository.findByNameIn(Set.of("USER"))).thenReturn(Set.of(role));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(1L);

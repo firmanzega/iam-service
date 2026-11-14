@@ -7,8 +7,6 @@ import id.osprey.iamservice.domain.security.PasswordEncoder;
 import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
-import id.osprey.iamservice.domain.tenant.Tenant;
-import id.osprey.iamservice.domain.tenant.TenantRepository;
 import id.osprey.iamservice.domain.user.Role;
 import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
@@ -40,40 +38,37 @@ public class UserService {
     private static final String AUDIT_PASSWORD_RESET = "PASSWORD_RESET";
     private static final String AUDIT_TOKENS_REVOKED = "TOKENS_REVOKED";
 
-    private static final String DEFAULT_ORGANIZATION_ID = "org-default";
-
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordPolicy passwordPolicy;
     private final AuditService auditService;
     private final TokenRevocationService tokenRevocationService;
     private final PasswordEncoder passwordEncoder;
-    private final TenantRepository tenantRepository;
 
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
                        PasswordPolicy passwordPolicy,
                        AuditService auditService,
                        TokenRevocationService tokenRevocationService,
-                       PasswordEncoder passwordEncoder,
-                       TenantRepository tenantRepository) {
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordPolicy = passwordPolicy;
         this.auditService = auditService;
         this.tokenRevocationService = tokenRevocationService;
         this.passwordEncoder = passwordEncoder;
-        this.tenantRepository = tenantRepository;
     }
 
     private Long currentTenantId() {
         Long tenantId = TenantContext.getTenantId();
-        if (tenantId != null) {
-            return tenantId;
+        if (tenantId == null) {
+            // Fail-closed, konsisten dengan AuthService: tanpa konteks, use
+            // case tidak boleh menebak tenant. HTTP path selalu memiliki
+            // konteks karena filter menolak permintaan tanpa header.
+            throw new IllegalStateException(
+                    "TenantContext kosong di UserService; TenantHeaderFilter harus menolak permintaan lebih dulu");
         }
-        return tenantRepository.findByOrganizationId(DEFAULT_ORGANIZATION_ID)
-                .map(Tenant::getId)
-                .orElse(null);
+        return tenantId;
     }
 
     /**
@@ -286,7 +281,12 @@ public class UserService {
     }
 
     private User findOrThrow(Long id) {
-        return userRepository.findById(id)
+        // Tenant-scoped read: /v1/users/* requires X-Organization-ID (401 bila
+        // hilang), sehingga konteks selalu terisi di jalur HTTP. Pemanggil
+        // non-HTTP tanpa konteks mendapat himpunan kosong, bukan data tenant
+        // lain — gagal tertutup, bukan gagal terbuka.
+        Long tenantId = TenantContext.getTenantId();
+        return userRepository.findById(id, tenantId)
                 .orElseThrow(() -> new DomainException(DomainException.Reason.USER_NOT_FOUND, "User not found"));
     }
 

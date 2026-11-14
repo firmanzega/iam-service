@@ -140,14 +140,14 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void listUsers_withoutToken_isUnauthorized() throws Exception {
-        mockMvc.perform(get("/v1/users"))
+        mockMvc.perform(get("/v1/users").header("X-Organization-ID", "org-default"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Authentication required"));
     }
 
     @Test
     void createUser_withoutToken_isUnauthorized() throws Exception {
-        mockMvc.perform(post("/v1/users")
+        mockMvc.perform(post("/v1/users").header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"x\",\"email\":\"x@mail.com\",\"password\":\"Password1\"}"))
                 .andExpect(status().isUnauthorized());
@@ -155,14 +155,16 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void listUsers_withToken_isAllowed() throws Exception {
-        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }
 
     @Test
     void listUsers_asRegularMember_isForbidden() throws Exception {
-        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + memberToken))
+        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + memberToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Access denied"));
     }
@@ -172,7 +174,8 @@ class AuthSecurityIntegrationTest {
         double metricBefore = rejectedCount("access_denied", "GET");
         int auditBefore = countAccessDenied();
 
-        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + memberToken))
+        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + memberToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isForbidden());
 
         assertEquals(metricBefore + 1, rejectedCount("access_denied", "GET"), 0.0001);
@@ -192,7 +195,7 @@ class AuthSecurityIntegrationTest {
         double metricBefore = rejectedCount("unauthorized", "GET");
         int auditBefore = countAccessDenied();
 
-        mockMvc.perform(get("/v1/users"))
+        mockMvc.perform(get("/v1/users").header("X-Organization-ID", "org-default"))
                 .andExpect(status().isUnauthorized());
 
         assertEquals(metricBefore + 1, rejectedCount("unauthorized", "GET"), 0.0001);
@@ -204,7 +207,7 @@ class AuthSecurityIntegrationTest {
     void unauthorized_isAggregatedPerMinuteAndMethod() throws Exception {
         long before = rejectionStatCount("GET", "missing_credentials");
 
-        mockMvc.perform(get("/v1/users"))
+        mockMvc.perform(get("/v1/users").header("X-Organization-ID", "org-default"))
                 .andExpect(status().isUnauthorized());
 
         assertEquals(before + 1, rejectionStatCount("GET", "missing_credentials"));
@@ -214,7 +217,8 @@ class AuthSecurityIntegrationTest {
     void invalidToken_isAggregatedWithItsOwnReason() throws Exception {
         long before = rejectionStatCount("GET", "invalid_token");
 
-        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer bukan-token-jwt"))
+        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer bukan-token-jwt")
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isUnauthorized());
 
         assertEquals(before + 1, rejectionStatCount("GET", "invalid_token"));
@@ -246,34 +250,38 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void listUsers_asAuditor_isAllowed() throws Exception {
-        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + auditorToken))
+        mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + auditorToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isArray());
     }
 
     @Test
     void findUser_ownAccount_asRegularMember_isAllowed() throws Exception {
-        mockMvc.perform(get("/v1/users/{id}", memberId).header("Authorization", "Bearer " + memberToken))
+        mockMvc.perform(get("/v1/users/{id}", memberId).header("Authorization", "Bearer " + memberToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(memberId));
     }
 
     @Test
     void findUser_otherAccount_asRegularMember_isForbidden() throws Exception {
-        mockMvc.perform(get("/v1/users/{id}", adminId).header("Authorization", "Bearer " + memberToken))
+        mockMvc.perform(get("/v1/users/{id}", adminId).header("Authorization", "Bearer " + memberToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void findUser_anyAccount_asAuditor_isAllowed() throws Exception {
-        mockMvc.perform(get("/v1/users/{id}", memberId).header("Authorization", "Bearer " + auditorToken))
+        mockMvc.perform(get("/v1/users/{id}", memberId).header("Authorization", "Bearer " + auditorToken)
+                        .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(memberId));
     }
 
     @Test
     void createUser_asAdmin_isAllowed() throws Exception {
-        mockMvc.perform(post("/v1/users")
+        mockMvc.perform(post("/v1/users").header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"" + USERNAME_PREFIX + "baru\",\"email\":\""
@@ -284,7 +292,7 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void createUser_asRegularMember_isForbidden() throws Exception {
-        mockMvc.perform(post("/v1/users")
+        mockMvc.perform(post("/v1/users").header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + memberToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"" + USERNAME_PREFIX + "dilewati\",\"email\":\""
@@ -308,7 +316,7 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void changePassword_forAnotherUser_isForbidden() throws Exception {
-        mockMvc.perform(put("/v1/users/{id}/password", adminId)
+        mockMvc.perform(put("/v1/users/{id}/password", adminId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + memberToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"currentPassword\":\"" + PASSWORD + "\",\"newPassword\":\"BaruBanget1\"}"))
@@ -317,7 +325,7 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void changePassword_forOwnAccount_isAllowed() throws Exception {
-        mockMvc.perform(put("/v1/users/{id}/password", memberId)
+        mockMvc.perform(put("/v1/users/{id}/password", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + memberToken)
                         .header("X-Organization-ID", "org-default")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -335,7 +343,7 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void changePassword_withWrongCurrentPassword_isUnauthorized() throws Exception {
-        mockMvc.perform(put("/v1/users/{id}/password", memberId)
+        mockMvc.perform(put("/v1/users/{id}/password", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + memberToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"currentPassword\":\"SalahSekali1\",\"newPassword\":\"BaruBanget1\"}"))
@@ -410,7 +418,7 @@ class AuthSecurityIntegrationTest {
         long roleId = ((Number) com.jayway.jsonpath.JsonPath
                 .read(created.getResponse().getContentAsString(), "$.id")).longValue();
 
-        MvcResult user = mockMvc.perform(get("/v1/users/{id}", memberId)
+        MvcResult user = mockMvc.perform(get("/v1/users/{id}", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -418,7 +426,7 @@ class AuthSecurityIntegrationTest {
         long version = ((Number) com.jayway.jsonpath.JsonPath
                 .read(user.getResponse().getContentAsString(), "$.version")).longValue();
 
-        mockMvc.perform(put("/v1/users/{id}/roles", memberId)
+        mockMvc.perform(put("/v1/users/{id}/roles", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"roleNames\":[\"" + roleName + "\"],\"version\":" + version + "}"))
@@ -432,7 +440,7 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void deactivateUser_thenLogin_isForbidden() throws Exception {
-        mockMvc.perform(post("/v1/users/{id}/deactivate", memberId)
+        mockMvc.perform(post("/v1/users/{id}/deactivate", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 
@@ -446,11 +454,11 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void activateUser_afterDeactivate_allowsLoginAgain() throws Exception {
-        mockMvc.perform(post("/v1/users/{id}/deactivate", memberId)
+        mockMvc.perform(post("/v1/users/{id}/deactivate", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(post("/v1/users/{id}/activate", memberId)
+        mockMvc.perform(post("/v1/users/{id}/activate", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
 
@@ -464,7 +472,7 @@ class AuthSecurityIntegrationTest {
 
     @Test
     void updateUser_asAdmin_isUpdated() throws Exception {
-        MvcResult user = mockMvc.perform(get("/v1/users/{id}", memberId)
+        MvcResult user = mockMvc.perform(get("/v1/users/{id}", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -473,7 +481,7 @@ class AuthSecurityIntegrationTest {
                 .read(user.getResponse().getContentAsString(), "$.version")).longValue();
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .patch("/v1/users/{id}", memberId)
+                        .patch("/v1/users/{id}", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + USERNAME_PREFIX + "baru@mail.com\",\"version\":" + version + "}"))

@@ -175,7 +175,9 @@ class JwtKeyRotationIntegrationTest {
     }
 
     private ResultActions callProtectedEndpoint(String token) throws Exception {
-        return mockMvc.perform(get("/v1/users").header("Authorization", "Bearer " + token));
+        return mockMvc.perform(get("/v1/users")
+                .header("Authorization", "Bearer " + token)
+                .header("X-Organization-ID", "org-default"));
     }
 
     private void createUser(String username) {

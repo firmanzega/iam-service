@@ -3,6 +3,8 @@ package id.osprey.iamservice.adapter.rest;
 import com.jayway.jsonpath.JsonPath;
 import id.osprey.iamservice.TestcontainersConfiguration;
 import id.osprey.iamservice.domain.security.PasswordEncoder;
+import id.osprey.iamservice.domain.user.Role;
+import id.osprey.iamservice.domain.user.RoleRepository;
 import id.osprey.iamservice.domain.user.User;
 import id.osprey.iamservice.domain.user.UserRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -19,6 +21,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * tenant A melihat atau mencabut sesi tenant B. Uji ini mengeksekusi alur
  * nyata (login dua pengguna di dua tenant, list, revoke lintas-tenant).
  *
- * Prasyarat testcontainers: database dan skema V1-V10 dibangun ulang setiap
+ * Prasyarat testcontainers: database dan skema V1-V11 dibangun ulang setiap
  * run, sehingga tenant uji dimasukkan ulang di setiap metode.
  */
 @SpringBootTest(properties = "iam.rate-limit.max-requests=10000")
@@ -65,6 +68,9 @@ class TenantIsolationIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private RoleRepository roleRepository;
 
     private Long qaTenantId;
 
@@ -151,6 +157,70 @@ class TenantIsolationIntegrationTest {
                 "agregat 401 org-default harus naik satu");
         assertEquals(beforeQa + 2, rejectionStatCount(qaTenantId),
                 "agregat 401 tenant QA harus naik dua, bukan tertelan constraint global");
+    }
+
+    @Test
+    void users_withoutOrganizationHeader_returns401() throws Exception {
+        String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
+
+        mockMvc.perform(get("/v1/users")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void users_withUnknownOrganization_returns401() throws Exception {
+        String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
+
+        mockMvc.perform(get("/v1/users")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", "org-does-not-exist"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void findUserById_fromOtherTenant_isNotFound_notLeaked() throws Exception {
+        String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
+        Long qaUserId = userIdByUsername(PREFIX + "b");
+
+        mockMvc.perform(get("/v1/users/{id}", qaUserId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", DEFAULT_ORG_ID))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void resetPassword_fromOtherTenant_isNotFound_targetKeepsOldPassword() throws Exception {
+        String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
+        Long qaUserId = userIdByUsername(PREFIX + "b");
+        login(PREFIX + "b", "telepon", QA_ORG_ID); // bukti awal: akun QA bisa login
+
+        mockMvc.perform(post("/v1/users/{id}/reset-password", qaUserId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .header("X-Organization-ID", DEFAULT_ORG_ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"MemaksaMasuk1\"}"))
+                .andExpect(status().isNotFound());
+
+        // Akun QA tetap bisa login dengan password lama: reset lintas-tenant
+        // tidak boleh mengubah kredensial.
+        login(PREFIX + "b", "telepon", QA_ORG_ID);
+    }
+
+    @Test
+    void listUsers_scopedToCallerTenant_onlyShowsOwnTenant() throws Exception {
+        String defaultAdminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
+        String qaAdminToken = loginAdmin(QA_ORG_ID, PREFIX + "qa-admin");
+
+        List<String> draft = readUsernames(defaultAdminToken, DEFAULT_ORG_ID);
+        assertTrue(draft.contains(PREFIX + "a"), "admin tenant default harus melihat pengguna tenant-nya");
+        assertFalse(draft.contains(PREFIX + "b"), "admin tenant default TIDAK boleh melihat pengguna tenant QA");
+        assertFalse(draft.contains(PREFIX + "qa-admin"), "admin tenant default TIDAK boleh melihat admin tenant QA");
+
+        List<String> qaView = readUsernames(qaAdminToken, QA_ORG_ID);
+        assertTrue(qaView.contains(PREFIX + "b"), "admin tenant QA harus melihat pengguna tenant-nya");
+        assertTrue(qaView.contains(PREFIX + "qa-admin"));
+        assertFalse(qaView.contains(PREFIX + "a"), "admin tenant QA TIDAK boleh melihat pengguna tenant default");
     }
 
     @Test
@@ -259,6 +329,37 @@ class TenantIsolationIntegrationTest {
         List<Map<String, Object>> sessions = listSessions(tokensB.accessToken(), QA_ORG_ID);
         assertEquals(1, sessions.size(),
                 "penukaran refresh harus melanjutkan sesi tenant tersimpan, bukan membuat sesi baru");
+    }
+
+    private String loginAdmin(String organizationId, String username) throws Exception {
+        Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
+        User admin = new User(tenantIdOf(organizationId), username, username + "@mail.com", passwordEncoder.encode(PASSWORD));
+        admin.replaceRoles(Set.of(adminRole));
+        userRepository.save(admin);
+
+        return login(username, "audit", organizationId).accessToken();
+    }
+
+    private Long tenantIdOf(String organizationId) {
+        return jdbcTemplate.queryForObject(
+                "select id from tenants where organization_id = ?", Long.class, organizationId);
+    }
+
+    private Long userIdByUsername(String username) {
+        return jdbcTemplate.queryForObject(
+                "select id from users where username = ?", Long.class, username);
+    }
+
+    private List<String> readUsernames(String accessToken, String organizationId) throws Exception {
+        MvcResult result = mockMvc.perform(get("/v1/users")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .header("X-Organization-ID", organizationId))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        List<Map<String, Object>> content = JsonPath.read(
+                result.getResponse().getContentAsString(), "$.content");
+        return content.stream().map(row -> row.get("username").toString()).toList();
     }
 
     private Tokens login(String username, String deviceLabel, String organizationId) throws Exception {

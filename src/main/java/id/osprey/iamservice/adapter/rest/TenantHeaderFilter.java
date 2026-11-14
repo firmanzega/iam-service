@@ -15,10 +15,10 @@ import java.io.IOException;
  * TenantContext sebelum request diproses. Konteks dibersihkan setelah
  * response selesai agar tidak bocor antar request yang share thread.
  *
- * Perilaku sesuai ADR-0018 dan ruling Boss 2026-11-14 (BUG-TENANT-001) —
- * satu aturan seragam untuk seluruh endpoint tenant-aware:
+ * Perilaku (ADR-0018, BUG-TENANT-001, SEC-USERS-001) — satu aturan
+ * seragam untuk seluruh endpoint tenant-aware:
  *      - Header yang hilang maupun organisasi yang tidak dikenal sama-sama
- *        dijawab 401 Unauthorized, di path mana pun.
+ *        dijawab 401 Unauthorized, di path mana pun, termasuk /v1/users/*.
  *      - Header yang dikirim tetapi tidak dikenal juga 401: diam-diam
  *        mengabaikannya sama dengan fallback ke tenant default, yang
  *        merupakan BUG-TENANT-001.
@@ -34,7 +34,9 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
             "/v1/auth/refresh",
             "/v1/auth/logout",
             "/v1/auth/sessions",
-            "/v1/auth/sessions/"
+            "/v1/auth/sessions/",
+            "/v1/users",
+            "/v1/users/"
     };
 
     private final TenantResolver tenantResolver;

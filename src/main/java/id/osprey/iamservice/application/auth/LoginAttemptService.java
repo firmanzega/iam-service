@@ -1,7 +1,9 @@
 package id.osprey.iamservice.application.auth;
 
 import id.osprey.iamservice.domain.auth.LoginPolicy;
+import id.osprey.iamservice.domain.tenant.TenantContext;
 import id.osprey.iamservice.domain.user.UserRepository;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +33,17 @@ public class LoginAttemptService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailedLogin(Long userId) {
-        userRepository.findById(userId).ifPresent(user -> {
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId == null) {
+            // Fail-closed: tanpa konteks tenant, akun yang dicurigai tidak
+            // boleh dibiarkan tidak terlacak. Jalur login selalu punya
+            // konteks karena filter menolak permintaan tanpa header.
+            throw new IllegalStateException(
+                    "TenantContext kosong di LoginAttemptService;"
+                            + " TenantHeaderFilter harus menolak permintaan lebih dulu");
+        }
+
+        userRepository.findById(userId, tenantId).ifPresent(user -> {
             user.registerFailedLogin(loginPolicy.maxFailedAttempts(), loginPolicy.lockDuration(), Instant.now());
             userRepository.save(user);
         });
