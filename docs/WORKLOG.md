@@ -26,10 +26,22 @@
 8. **On-premise default:** CONFIRMED by Boss 2026-11-14 (Option A of ADR-0016: on-premise = single org-default; cloud = shared schema).
 
 ## 3. Exact Next Action (Start Here in New Session)
-1. Stage 7 sign-off: Boss to confirm tag `v1.0.0` / deploy decision; then close Stage 7. `mvn clean verify` green (299/299) as of 2026-11-14.
-2. BUG-TENANT-001/004 and SEC-STATS-001: all FIXED and QA-verified 2026-11-14 (see `06-TEST-PLAN.md` §6/§10).
+1. Go-live execution: Boss deploys per `07-DEPLOYMENT.md` §6 (prod environment items unchecked intentionally — HTTPS cert, prod password, prod DB w/o dev admin, prometheus internal, CORS domain, clients send `X-Organization-ID`). Release SHA `577187f` fully green; tag `v1.0.0` pushed.
+2. After deploy: tick §6 prod items; smoke `/actuator/health` + login; close Stage 7.
+
+## 5. Technical Debt Register (honest B+ baseline, 2026-11-14)
+| Debt | Owner | Closes to |
+|------|-------|-----------|
+| `04-API-SPEC.yaml` documents only `/auth/*`; `/users`, `/roles`, `/audit-logs` undocumented | BA/architect | - |
+| `WebMapper.tenantId` dead code, zero callers | backend | trivial |
+| Dependabot PRs #1–#4 CI red (pre-fix branches) | dependabot/merge | after bad-merge judgement |
+| Sentinel tests proven failable only for a sample, not all 300+ | QA | discipline |
+| Security audit static-only; no dynamic pentest, no live deploy | Boss/ops | deploy |
+| Deploy/rollback untested against any live environment | Boss/ops | go-live |
+| Path back to A-: close API-SPEC + dead code + dependabot + deploy & verify §6 honestly | team | A- |
 
 ## 4. Decision & Switch Log
+- [2026-11-14 | Stage 7] TEK-DEBT B+ recorded as honest baseline (was A-, premature): every "fixed" gate since 63814ac exposed deeper hygiene gaps (verify never green, drill never green, SEC-USERS-001 IDOR). Path to A- explicitly enumerated in section 5. — Reason: Boss asked why B+ was touched.
 - [2026-11-14 | Stage 7] RELEASE VERIFIED for tag v1.0.0 (annotated, SHA 577187f, pushed): CI #29 (f156757) + CI #30 (577187f) SUCCESS; restore drill #14 + #15 SUCCESS (exactly the release SHA); tag pushed to origin (no workflow triggered by tags); go-live checklist §6 honestly scoped (repo-verifiable items checked; prod-environment items left unchecked with labels). Tag v1.0.0 exists but NOT deployed per Boss order. — Reason: Stage 7 close-out, Option B ruling, 2026-11-14.
 - [2026-11-14 | Stage 7] Release readiness VERIFIED: CI #26 SUCCESS on f156757 (CI #24 was CANCELLED by push concurrency, #25 SUCCESS — both mysteries resolved via public Actions embed data); restore drill #13 SUCCESS; go-live checklist §6 updated honestly (only repo-verifiable items checked; prod-environment items left unchecked with labels); v1.0.0 tagged on the green SHA (tag has no workflow trigger; NOT deployed per Boss order). Deploy NOT executed — awaiting Boss go-live. — Reason: Stage 7 close-out, Option B ruling.
 - [2026-11-14 | Stage 7] SEC-USERS-001 shipped: CI #23 GREEN (initial CI #22 failed only on a Checkstyle line-length rule, fixed in 9f48493). RESTORE DRILL RESOLVED — GREEN #13: two layered bugs (seed heredoc without docker exec -i; string_agg expectation 'one,two,three' vs actual 'one,three,two'); fixed in 1e2a862/8ebbb5b; drill green for the first time since it was added. — Reason: Stage 7 release gate.
