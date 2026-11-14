@@ -214,3 +214,67 @@ Client migration steps before deploying:
 3. **Check the audit log** (`ACCESS_DENIED`, `TOKENS_REVOKED`, `SESSION_REVOKED`) and the 401 aggregate for suspicious activity.
 4. **Rotate the database password** if database credentials are suspected leaked.
 5. **Record the incident** in `CHANGELOG.md` according to the reporting policy.
+
+---
+
+## 12. Release Grading Rubric (project-internal)
+
+> Status: project-internal and ad-hoc. This is NOT an industry standard and implies no external certification. It exists so release grades (B+, A-, A, A+) are traceable to evidence instead of sentiment. If this rubric and reality disagree, reality wins and this file must be corrected.
+
+### 12.1 Grading rules
+
+1. **Grade = lowest unmet mandatory criterion.** No averaging, no rounding up, no partial credit.
+2. **Evidence or it did not happen.** Every criterion must name objective evidence (CI run id, drill id, doc section, command output). Claims without evidence are not graded.
+3. **Accepted residual risks (Section 9) block A and A+** until actually closed or explicitly re-negotiated with Boss and re-documented in this file.
+4. **Regression drops the grade immediately.** If a previously met criterion goes red (e.g., `mvn clean verify` fails, drill red), the grade falls and the change is recorded in `docs/WORKLOG.md`.
+5. **Claims live in WORKLOG** with pointers to this section. Outsiders should read the grades as internal shorthand, not as certification.
+
+### 12.2 Baseline gates (required for any release grade)
+
+- `mvn clean verify` BUILD SUCCESS; coverage >= 80% per class; Checkstyle 0; SpotBugs 0 (evidence: `06-TEST-PLAN.md` QA-001..QA-013, CI runs).
+- CI green on the release SHA, including Trivy (no unfixed HIGH/CRITICAL) and dependency-review.
+- Restore drill green (`.github/workflows/restore-drill.yml`).
+- No secrets in repo or history; `.env.example` placeholders only; Docker image non-root.
+- `docs/WORKLOG.md` reflects the true state at the time of the claim.
+
+### 12.3 B+ (current honest baseline, 2026-11-14)
+
+Baseline gates are green, but the known debt register is open: `04-API-SPEC.yaml` documents only `/auth/*`; `WebMapper.tenantId` dead code; Dependabot PRs #1-#4 red (pre-fix branches); cspell red repo-wide (Indonesian docs not in `ignorePaths`); no live deploy or rollback exercised; Section 6 prod items unchecked; sentinel mutation tests are a subset.
+
+### 12.4 A- (release-ready; close the known register)
+
+Mandatory, all with evidence:
+
+1. `04-API-SPEC.yaml` documents ALL exposed `/v1` endpoints (auth, users, roles, audit).
+2. Dead public code flagged by audit removed (`WebMapper.tenantId`); `mvn clean verify` green.
+3. Zero open Dependabot PRs on the default branch; each merged only after a rebase onto `main` and a green CI run.
+4. cspell (repo `cspell.json`) reports 0 issues repo-wide; Indonesian docs handled via `ignorePaths` or an `id` locale, never a mass rewrite.
+5. Go-live executed per Section 6 with prod-only items checked against the real production environment; smoke (`/actuator/health` + login) passed; evidence recorded in WORKLOG.
+6. Deploy AND rollback both exercised at least once against the real environment.
+7. `docs/07-DEPLOYMENT.md` Section 6 fully checked; WORKLOG re-audited honestly post-deploy.
+
+### 12.5 A (proven in operation, not just on paper)
+
+All A- criteria, plus:
+
+1. Contract tests enforce API-SPEC vs implementation in CI; drift fails the build.
+2. Mutation testing covers all sentinel/security test classes (not a subset); threshold documented.
+3. Penetration test executed (Stage 7B); all Critical/High findings closed and re-tested.
+4. Tracing exported to a real OTLP collector (sampling > 0 in prod); at least one alert fired and observed end-to-end.
+5. Backup/restore tested against a prod-like data volume; measured RPO/RTO documented in Section 8.
+6. SBOM published as a release artifact.
+
+### 12.6 A+ (risk closure; requires new decisions and infrastructure)
+
+All A criteria, plus explicit closure of the Section 9 accepted residuals:
+
+1. Access tokens revocable in near-real-time (central revocation list or introspection) — closes residual A-1 (Section 9).
+2. Distributed rate limiting (gateway or shared store) — closes residual A-3 (Section 9).
+3. 401 rejection traceability implemented with a documented privacy trade-off — closes residual A-2 (Section 9).
+4. Audit hash chain anchored to append-only/WORM external storage.
+5. Secrets sourced from a secret manager at runtime; no credentials on server disk.
+6. Multi-instance behavior verified (rate limiter, cleanup jobs, session consistency).
+
+### 12.7 Honest position (2026-11-14)
+
+Current grade: **B+**. A- is achievable with the listed work and no new decisions. A and A+ each require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks) before any claim can be made. Until this file's criteria are met with evidence, any higher grade is invalid.
