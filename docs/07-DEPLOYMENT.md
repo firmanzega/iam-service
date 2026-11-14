@@ -84,24 +84,24 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 
 ## 6. Checklist Before Going Public
 
-- [ ] `SPRING_PROFILES_ACTIVE=prod` set
-- [ ] `JWT_SECRET` replaced with random value, minimum 32 bytes, not in any file on server
+- [ ] `SPRING_PROFILES_ACTIVE=prod` set (prod environment)
+- [ ] `JWT_SECRET` replaced with random value, minimum 32 bytes, not in any file on server (prod environment)
 - [ ] `JWT_SECRET_PREVIOUS` empty, except during key rotation transition
-- [ ] `POSTGRES_PASSWORD` changed, not in any file
-- [ ] Database port not open to internet
-- [ ] HTTPS active, certificate valid
-- [ ] Production database does not contain default `admin` account from dev profile
-- [ ] `CORS_ALLOWED_ORIGINS` filled with correct domain, and browser clients send `X-Organization-ID` (CORS policy allows the header)
-- [ ] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401)
-- [ ] Flyway migrations V9–V11 applied and validated (`spring.flyway.validate-on-migrate`)
-- [ ] `/actuator/prometheus` only available on internal network, not via public gateway
-- [ ] GitHub Actions green on last commit (mvn verify + Trivy + restore drill)
-- [ ] Container image successfully built and run as non-root
-- [ ] Scheduled database backup has been tested for recovery
-- [ ] `iam.jwt.refresh-token-ttl` reviewed (also device session inactive threshold)
-- [ ] `iam.security-rejection-stats.retention` matches local retention policy
-- [ ] Session and 401 aggregate cleanup enabled, or scheduled outside the application
-- [ ] Tracing collector endpoint filled if tracing enabled, or sampling `0.0`
+- [ ] `POSTGRES_PASSWORD` changed, not in any file (prod environment)
+- [ ] Database port not open to internet (prod environment)
+- [ ] HTTPS active, certificate valid (prod environment)
+- [ ] Production database does not contain default `admin` account from dev profile (verify after first boot on prod DB)
+- [ ] `CORS_ALLOWED_ORIGINS` filled with correct domain, and browser clients send `X-Organization-ID` (CORS policy allows the header) (prod environment + client config)
+- [ ] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401) (client migration task)
+- [x] Flyway migrations V9–V11 applied and validated — applied automatically at first boot (`validate-on-migrate: true`), verified on dev DB (schema now at v11) and on CI's Testcontainers
+- [ ] `/actuator/prometheus` only available on internal network, not via public gateway (prod environment)
+- [x] GitHub Actions green on `f156757` (CI #26 SUCCESS; verify + Trivy + SBOM) and restore drill #13 SUCCESS
+- [x] Container image successfully built and run as non-root (multi-stage Dockerfile, `USER 10001:10001`; CI builds the image)
+- [x] Scheduled database backup has been tested for recovery — proven by the restore drill (`.github/workflows/restore-drill.yml`, green #13): seed → dump → destroy → restore → assert rows/indexes/constraints
+- [x] `iam.jwt.refresh-token-ttl` reviewed (7 days; consistent with docs; change only with documented reason)
+- [x] `iam.security-rejection-stats.retention` matches local retention policy (30d default, documented in `application.yaml`)
+- [x] Session and 401 aggregate cleanup enabled, or scheduled outside the application (`SessionCleanupJob`, `RefreshTokenCleanupJob`, `SecurityRejectionStatsCleanupJob` enabled, 1h interval)
+- [x] Tracing collector endpoint filled if tracing enabled, or sampling `0.0` (sampling default `0.0`; OTEL endpoint documented in `application.yaml`)
 
 ---
 

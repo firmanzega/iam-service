@@ -4,10 +4,10 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** Stage 7 - Security & Release docs (re-audit done; 07-DEPLOYMENT V10/V11 + breaking contract + re-audit tables; CHANGELOG v1.0.0 re-scoped per Boss Option B; verify green)
-- **Next Active Stage:** Stage 7 - Release verification (CI #20 green; SEC-USERS-001 fixed; expect CI #22/restore drill #6 green)
-- **Active Skill to Load:** `senior-security-engineer` (Stage 7 close-out)
-- **Last Updated:** 2026-11-14 18:20
+- **Last Completed Stage:** Stage 7 - Release readiness VERIFIED (CI green #26 on f156757, restore drill green #13, go-live checklist updated honestly, v1.0.0 tagged, NOT deployed)
+- **Next Active Stage:** Stage 7 - Go-live execution (Boss: deploy + prod checklist items)
+- **Active Skill to Load:** `senior-security-engineer`
+- **Last Updated:** 2026-11-14 18:55
 
 ## 1. Key Decisions & Locked Artifacts
 - **Stage 7 (Security & Release):** `07-DEPLOYMENT.md` + `CHANGELOG.md` v1.0.0 done (committed); Package A GO pending SEC-STATS-001 + BUG-TENANT-001/004 — all three FIXED and QA-verified 2026-11-14; verify green 299/299.
@@ -30,7 +30,8 @@
 2. BUG-TENANT-001/004 and SEC-STATS-001: all FIXED and QA-verified 2026-11-14 (see `06-TEST-PLAN.md` §6/§10).
 
 ## 4. Decision & Switch Log
-- [2026-11-14 | Stage 7] RESTORE DRILL RESOLVED — GREEN #13: two layered bugs, both proven by reading the run log via Opera CDP (Boss-authorized): (1) seed step piped heredoc into `docker exec` WITHOUT `-i` → psql read EOF, executed nothing, exit 0 (silent no-op) — my fault from the docker-exec rewrite, fixed; (2) the Assert compared `string_agg(label,',' order by label)` to 'one,two,three' while alphabetical order yields 'one,three,two' — pre-existing since the workflow was added; every restore-drill run was red because of it, layered under (1). Both fixed (8ebbb5b, 1e2a862); restore-drill #13 COMPLETED SUCCESSFULLY. — Reason: Stage 7 release gate.
+- [2026-11-14 | Stage 7] Release readiness VERIFIED: CI #26 SUCCESS on f156757 (CI #24 was CANCELLED by push concurrency, #25 SUCCESS — both mysteries resolved via public Actions embed data); restore drill #13 SUCCESS; go-live checklist §6 updated honestly (only repo-verifiable items checked; prod-environment items left unchecked with labels); v1.0.0 tagged on the green SHA (tag has no workflow trigger; NOT deployed per Boss order). Deploy NOT executed — awaiting Boss go-live. — Reason: Stage 7 close-out, Option B ruling.
+- [2026-11-14 | Stage 7] SEC-USERS-001 shipped: CI #23 GREEN (initial CI #22 failed only on a Checkstyle line-length rule, fixed in 9f48493). RESTORE DRILL RESOLVED — GREEN #13: two layered bugs (seed heredoc without docker exec -i; string_agg expectation 'one,two,three' vs actual 'one,three,two'); fixed in 1e2a862/8ebbb5b; drill green for the first time since it was added. — Reason: Stage 7 release gate.
 - [2026-11-14 | Stage 7] CI #16 root cause found & fixed (`4d7a344`): UserServiceTest never established TenantContext (NPE on the org-default fallback), masked locally by AuthServiceTest's context leak into the shared fork; not infra. Fixed test isolation in 5 classes; added `create_withoutTenantContext_fallsBackToDefaultTenant` pin; CI #20 GREEN (3m12s, 300/300, Trivy OK). ALSO: `Restore drill` failing on every run since 20ad507 (fast fail) — root cause fixed 2026-11-14 (missing psql connection params in Assert step). — Reason: CI re-verification after push.
 - [2026-11-14 | Stage 7] Re-audit (Phase 7 redo) for the breaking contract: secrets none (repo+history), CORS no wildcard (+X-Organization-ID allowed), prod profile locked (springdoc off, ddl-auto validate, dev-only seed/admin), JWT min-length + no claim reads for authz, CI gates Trivy HIGH/CRITICAL + dependency-review + restore drill. 07-DEPLOYMENT.md updated (V9-V11 migration table, deploy order, Breaking Contract §10, rollback constraints). CHANGELOG [1.0.0] re-scoped per Boss Option B: multi-tenancy + breaking contract folded into the first release (never tagged/published/deployed). Boss also confirmed on-premise org-default model. — Reason: Stage 7 + Boss rulings, 2026-11-14.
 - [2026-11-14 | Stage 6] SEC-STATS-001 QA re-verified and CLOSED: cross-tenant same-minute 401 aggregate test added (`TenantIsolationIntegrationTest.unauthorized_aggregatesPerTenant_sameMinuteSameMethodAndReason`); fixture gained `security_rejection_stats` cleanup before tenant delete (FK enforced); test proven failable by temporarily reverting the upsert to a plain INSERT (`expected <2> but was <1>`), restored via git checkout. `mvn clean verify` BUILD SUCCESS 299/299. NOTE (role-lock honesty): the mutation step edited production code under the QA role; reverted exactly afterwards — future mutations must switch to the backend role explicitly. — Reason: 4.4 proof of failure.
