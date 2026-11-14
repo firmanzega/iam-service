@@ -105,7 +105,7 @@ Dependency direction is enforced by `ArchitectureLayerTest`. No framework import
 | Docker | Multi-stage, JRE 21, user 10001:10001, prod profile |
 | Scheduling pool | 4 threads (4 cleanup tasks) |
 
-## 6. Multi-tenancy (Package B)
+## 6. Multi-tenancy
 
 ### 6.1 Design
 
@@ -117,6 +117,11 @@ an internal `tenantId` via `TenantRepository`, and stores it in request-scoped
 `TenantContext`. All repository queries for core tables (`users`, `roles`,
 `sessions`, `refresh_tokens`, `audit_logs`, `security_rejection_stats`) are filtered
 by `WHERE tenant_id = :currentTenantId`.
+
+**Identity is tenant-scoped (ADR-0018, 2026-11-14):** `users.username` and
+`users.email` are unique **per tenant** — `UNIQUE(tenant_id, username)` and
+`UNIQUE(tenant_id, email)`. Login lookups match within the resolved tenant; a
+request without a known organization cannot authenticate.
 
 Role master rows (`ADMIN`, `AUDITOR`, `USER`) remain global (no `tenant_id`) to avoid
 replication. Tenant-specific roles can be added later if required.
@@ -145,11 +150,14 @@ C4Container
 
 ### 6.3 Security implications
 
-- Missing `X-Organization-ID` on tenant-isolated endpoints → `400 Bad Request`
-- Invalid organization ID → `401 Unauthorized` or `404 Not Found` (indistinguishable from non-existent, to prevent ID guessing)
+- `X-Organization-ID` **required** on every tenant-aware endpoint, **including**
+  `/v1/auth/login` and `/v1/auth/refresh` (ADR-0018). Missing header → `400 Bad Request`
+  (TenantHeaderFilter). Unknown organization → `401 Unauthorized`.
+- Tenant-scoped identity means `admin` in `org-a` and `admin` in `org-b` are distinct
+  accounts with distinct credential sets; a shared global username is not permitted.
 - Tenant A cannot access Tenant B data; enforced at repository layer, tested via integration tests
 
-## 7. Structured Logging (Package B)
+## 7. Structured Logging
 
 ### 7.1 Design
 
@@ -197,9 +205,10 @@ C4Container
 | SBOM | CycloneDX 1.6 JSON on `verify` | Existing |
 | Docker | Multi-stage, JRE 21, user 10001:10001, prod profile | Existing |
 | Scheduling pool | 4 threads (4 cleanup tasks) | Existing |
-| Tenant isolation | Repository-enforced `tenant_id` filter | New (Package B) |
-| Logging categories | 5 categories: errors, generals, integrations, timers, emails | New (Package B) |
-| Logging output | Self-managed stdout/file, structured | New (Package B) |
+| Tenant isolation | Repository-enforced `tenant_id` filter | Adopted (ADR-0016) |
+| Logging categories | 5 categories: errors, generals, integrations, timers, emails | Adopted (ADR-0017) |
+| Logging output | Self-managed stdout/file, structured | Adopted |
+| Tenant-scoped identity | `UNIQUE(tenant_id, username)` and `UNIQUE(tenant_id, email)`; required `X-Organization-ID` on `/v1/auth/login` + `/v1/auth/refresh` | Adopted (ADR-0018) |
 
 ## 9. Known Limits
 

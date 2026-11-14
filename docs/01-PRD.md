@@ -14,9 +14,12 @@ IAM Service adalah layanan identitas dan akses berbasis token JWT untuk mengelol
 (RBAC), dan akses ke sistem lain. Layanan ini menyediakan autentikasi, kontrol akses berbasis peran,
 jejak audit berkeamanan, sesi per perangkat, rotasi kunci JWT, serta agregat penolakan 401.
 
-Paket A (Fase 1–6) adalah cakupan fitur yang telah disetujui dan diimplementasikan. Paket A **tidak
-termasuk** rate limit terdistribusi, pencabutan access token, WORM eksternal, SAML/OIDC,
-multi-tenancy, atau pendaftaran mandiri.
+Paket A (Fase 1–6) adalah cakupan fitur yang telah disetujui dan diimplementasikan, termasuk
+multi-tenancy (isolasi logis per organisasi, header `X-Organization-ID`) dan structured logging
+(logging terstruktur dengan kategori) yang diadopsi pada 2026-11-14 melalui ADR-0016 dan ADR-0017.
+
+Paket A **tidak termasuk** rate limit terdistribusi, pencabutan access token, WORM eksternal,
+SAML/OIDC, atau pendaftaran mandiri.
 
 ---
 
@@ -99,7 +102,29 @@ multi-tenancy, atau pendaftaran mandiri.
 | Aturan alert | `ops/prometheus/alerts.yml` (down, 5xx, 401 spike, 403 spike, heap, pool) |
 | Tes integrasi | `PrometheusEndpointIntegrationTest` mengunci nama metrik |
 
-### 3.7 Operasional & Deployment
+### 3.7 Multi-Tenancy (ADR-0016)
+
+| Fitur | Detail |
+|-------|--------|
+| Isolasi data | Shared database/schema, kolom `tenant_id` di tabel inti (`users`, `sessions`, `refresh_tokens`, `audit_logs`, `security_rejection_stats`) |
+| Organisasi | Setiap tenant memiliki `tenant_id` internal dan `organization_id` eksternal (header `X-Organization-ID`) |
+| Header organisasi | `X-Organization-ID` diekspos ke klien; `TenantHeaderFilter` me-resolve ke `tenant_id` internal |
+| Identitas tenant-scoped | Username dan email unik per tenant: `UNIQUE(tenant_id, username)` dan `UNIQUE(tenant_id, email)` (diputuskan 2026-11-14, menggantikan constraint unik global) |
+| Kontrak login | `POST /v1/auth/login` dan `POST /v1/auth/refresh` **wajib** `X-Organization-ID` setelah opsi A diterapkan (breaking contract) |
+| Peran | Tabel `roles` tetap global (`ADMIN`, `AUDITOR`, `USER`) |
+| On-premise | Satu tenant `org-default`; header boleh default ke sana |
+| Cloud | Banyak tenant dalam satu deployment bersama |
+
+### 3.8 Structured Logging (ADR-0017)
+
+| Fitur | Detail |
+|-------|--------|
+| Lima kategori | `errors` (galat/kegagalan), `generals` (peristiwa umum), `integrations` (integrasi eksternal), `timers` (durasi operasi), `emails` (pengiriman email — belum aktif, tetap dispesifikasikan) |
+| Format | Structured logging ke stdout, satu event per baris; trace/span id diset via MDC |
+| Tenant | Setiap entry membawa `tenant_id` bila tersedia |
+| Retensi | Dikelola oleh platform log (mis. Loki/ELK), bukan di aplikasi |
+
+### 3.9 Operasional & Deployment
 
 | Fitur | Detail |
 |-------|--------|
@@ -117,8 +142,9 @@ multi-tenancy, atau pendaftaran mandiri.
 - Pencabutan access token secara langsung (access token berlaku hingga kadaluwarsa)
 - WORM / penyimpanan append-only eksternal untuk jejak audit
 - Integrasi SAML atau OIDC
-- Multi-tenancy
 - Pendaftaran mandiri (self-registration)
+
+Multi-tenancy dan structured logging **sudah masuk ruang lingkup** pada 2026-11-14 (diimplementasikan lewat ADR-0016 dan ADR-0017).
 
 ---
 
@@ -133,9 +159,23 @@ multi-tenancy, atau pendaftaran mandiri.
 - [ ] Docker image build berhasil dan berjalan sebagai non-root
 - [ ] Uji restore otomatis di CI lolos
 - [ ] Prometheus scrape mengembalikan metrik yang diharapkan
-
----
+- [ ] Identitas tenant-scoped: `UNIQUE(tenant_id, username)` dan `UNIQUE(tenant_id, email)` pada database target
+- [ ] `POST /v1/auth/login` dan `POST /v1/auth/refresh` menolak permintaan tanpa `X-Organization-ID` (400/401)
+- [ ] Isolasi lintas tenant terverifikasi otomatis (pengguna tenant A tidak melihat data tenant B)
 
 ## 6. Rilis
 
-Versi saat ini: `0.0.1-SNAPSHOT`. Rilis pertama `0.1.0` sudah dibuat pada 2026-11-12. Paket A (Fase 1–6) berada di bawah `[Belum Dirilis]` dalam `CHANGELOG.md`.
+Versi saat ini: `1.0.0` (2026-11-14, Paket A — Fase 1–6, lihat `CHANGELOG.md`).
+
+PRD ini sebelumnya tertinggal (masih menyebut `0.1.0` dan `[Belum Dirilis]`) — diperbarui pada 2026-11-14
+agar sinkron dengan `CHANGELOG.md`.
+
+Perubahan breaking contract berikutnya (login wajib `X-Organization-ID`) akan dikeluarkan pada rilis setelah
+paket fitur ini diterapkan; nomor versi diputuskan saat rilis (lihat `CHANGELOG.md` dan `07-DEPLOYMENT.md`).
+
+## 7. Pertanyaan Terbuka
+
+- [PERLU KONFIRMASI] Deployment: "on-premise" dan "cloud" keduanya menjadi target — apakah pada mode on-premise
+  satu instansi hanya punya satu tenant `org-default`?
+- [PERLU KONFIRMASI] Versi rilis untuk breaking contract ini: `1.1.0` (fitur + breaking) atau `2.0.0` major?
+- [PERLU KONFIRMASI] Self-registration tetap di luar scope atau masuk roadmap (butuh keputusan tertulis)?

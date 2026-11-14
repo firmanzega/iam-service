@@ -28,7 +28,8 @@
     "SLF4J",
     "MDC",
     "tenantId",
-    "X-Organization-ID"
+    "X-Organization-ID",
+    "WORKLOG"
   ],
   "ignorePaths": [
     "node_modules/**",

@@ -1,8 +1,8 @@
 openapi: 3.0.1
 info:
   title: IAM Service API
-  version: 0.0.1-SNAPSHOT
-  description: Identity and Access Management service with JWT authentication, RBAC, audit trail, per-device sessions, and 401 rejection aggregate.
+  version: 1.0.0
+  description: Identity and Access Management service with JWT authentication, RBAC, audit trail, per-device sessions, 401 rejection aggregate, tenant isolation (X-Organization-ID), and structured logging (ADR-0016, ADR-0017, ADR-0018).
 servers:
   - url: http://localhost:8080/v1
     description: Development (dev profile)
@@ -26,6 +26,13 @@ paths:
       summary: Login and receive access + refresh token pair
       operationId: login
       security: []
+      parameters:
+        - in: header
+          name: X-Organization-ID
+          required: true
+          schema:
+            type: string
+          description: Organization identifier for multi-tenancy isolation (required; unknown or missing organization is rejected with 401)
       requestBody:
         required: true
         content:
@@ -40,9 +47,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
-          description: Invalid request body
+          description: Missing X-Organization-ID header or invalid request body
         '401':
-          description: Invalid credentials
+          description: Invalid credentials or invalid organization
         '423':
           description: Account locked
   /auth/refresh:
@@ -51,6 +58,13 @@ paths:
       summary: Exchange refresh token for new token pair
       operationId: refresh
       security: []
+      parameters:
+        - in: header
+          name: X-Organization-ID
+          required: true
+          schema:
+            type: string
+          description: Organization identifier for multi-tenancy isolation (required; unknown or missing organization is rejected with 401)
       requestBody:
         required: true
         content:
@@ -65,9 +79,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
         '400':
-          description: Invalid request body
+          description: Missing X-Organization-ID header or invalid request body
         '401':
-          description: Refresh token unknown, revoked, or expired
+          description: Refresh token unknown, revoked, expired, or invalid organization
         '423':
           description: Account locked
   /auth/logout:
