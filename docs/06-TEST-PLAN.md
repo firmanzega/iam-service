@@ -116,7 +116,7 @@
 ## 6. Open Bugs
 
 - **QA-GATE-001: FIXED 2026-11-14** — `mvn clean verify` is now BUILD SUCCESS (299/299, JaCoCo per-class met, Checkstyle 0, SpotBugs 0). Backend removed the dead `RejectionStatRow` (existence-only `SELECT 1` → `Integer`).
-- **SEC-STATS-001 (new, escalated, severity Medium):** `security_rejection_stats` keeps V8's global `uq_security_rejection_stats UNIQUE (window_start, http_method, reason)` without `tenant_id`; a second tenant's same-minute rejection violates it and the recorder swallows the failure, so that tenant's 401 aggregate is silently lost. Needs a V11 migration (composite tenant-scoped unique) — decision belongs to `solution-architect`/Boss.
+- **SEC-STATS-001 (severity Medium): FIXED by backend 2026-11-14 (Option A, Boss-approved):** `V11__tenant_scoped_rejection_stats_unique.sql` drops V8's global unique and adds composite `uq_security_rejection_stats_tenant UNIQUE (tenant_id, window_start, http_method, reason)`; `increment()` is a single-statement `INSERT ... ON CONFLICT DO UPDATE`. QA re-verification pending (cross-tenant same-minute 401 in `AuthSecurityIntegrationTest`) before this is closed.
 - **BUG-TENANT-001 and BUG-TENANT-004:** fixed and verified in Stage 4 + Phase 6 retest (see §10.2).
 
 ---
@@ -231,10 +231,11 @@ header (`org-default` is the bootstrap tenant). The two
 `*_withoutOrganizationHeader_returns400` tests were renamed to `*_returns401` when
 Boss unified missing-header rejection to 401 on 2026-11-14.
 
-**Latest run:** `Tests run: 299, Failures: 0, Errors: 0, Skipped: 0` — `mvn clean verify`
-**BUILD SUCCESS** (JaCoCo per-class gate met, Checkstyle 0 violations, SpotBugs 0;
-two mapper-specific tests were removed with the deleted row mapper, one test class
-added earlier keeps logging coverage).
+**Latest run:** `Tests run: 298, Failures: 0, Errors: 0, Skipped: 0` — `mvn clean verify`
+**BUILD SUCCESS** (JaCoCo per-class gate met, Checkstyle 0 violations, SpotBugs 0).
+Flyway applies V11 on the Testcontainers PostgreSQL 16 on every IT run, so the
+migration is proven to apply cleanly; SEC-STATS-001 row-level behavior is pending
+QA re-verification (see §10.3 conditions).
 
 ### 10.4 Updated release readiness
 
@@ -242,7 +243,7 @@ added earlier keeps logging coverage).
 
 Conditions:
 1. ~~QA-GATE-001~~ resolved 2026-11-14 (`mvn clean verify` BUILD SUCCESS). Remaining condition: BUG-TENANT-001 and BUG-TENANT-004 are fixed and verified; Package A must not onboard a second organization until they stay green in CI.
-2. SEC-STATS-001 (tenant-unscoped unique on `security_rejection_stats`) decided and, if approved, migrated (V11) before multi-tenant production use — 401 aggregates for non-default tenants are silently dropped otherwise. Severity Medium; observability defect, not an authorization defect.
+2. SEC-STATS-001 — backend fix merged (V11 + upsert). Remaining: QA re-verifies cross-tenant same-minute 401 counting (two tenants, same minute, same method+reason) in `AuthSecurityIntegrationTest` and closes the item here. Severity Medium; observability defect, not an authorization defect.
 3. Release version for the breaking contract (`1.1.0` vs `2.0.0`) — Boss decision pending.
 
 BUG-TENANT-002/003 and both multi-tenancy defects are fixed and verified. The remaining

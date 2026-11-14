@@ -67,7 +67,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `infrastructure/persistence/RolePersistenceAdapter.java` | Implements `RoleRepository` |
 | `infrastructure/persistence/RefreshTokenPersistenceAdapter.java` | Implements `RefreshTokenRepository` |
 | `infrastructure/persistence/SessionPersistenceAdapter.java` | Implements `SessionRepository` |
-| `infrastructure/persistence/SecurityRejectionStatPersistenceAdapter.java` | Implements `SecurityRejectionStatRepository` via `JdbcTemplate` and `ON CONFLICT` upsert |
+| `infrastructure/persistence/SecurityRejectionStatPersistenceAdapter.java` | Implements `SecurityRejectionStatRepository` via `JdbcTemplate` and a single-statement `ON CONFLICT` upsert (arbiter: `UNIQUE(tenant_id, window_start, http_method, reason)`, V11) |
 | `infrastructure/persistence/AuditLogPersistenceAdapter.java` | Implements `AuditLogRepository`, including full read for hash chain verification |
 
 ## 5. REST Adapter Layer
@@ -105,6 +105,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `src/main/resources/db/migration/V8__add_sessions_and_rejection_stats.sql` | `sessions` table and `security_rejection_stats` table |
 | `src/main/resources/db/migration/V9__add_tenant_id.sql` | `tenant_id` on core tables, `tenants` registry, backfill to `org-default` |
 | `src/main/resources/db/migration/V10__tenant_scoped_identity.sql` | Drops global `UNIQUE` on `users.username`/`users.email`, adds `UNIQUE(tenant_id, username)` and `UNIQUE(tenant_id, email)` (ADR-0018) |
+| `src/main/resources/db/migration/V11__tenant_scoped_rejection_stats_unique.sql` | Drops the V8 global `uq_security_rejection_stats` (window_start, http_method, reason); adds `UNIQUE(tenant_id, window_start, http_method, reason)` (SEC-STATS-001) |
 
 ## 8. Tests
 

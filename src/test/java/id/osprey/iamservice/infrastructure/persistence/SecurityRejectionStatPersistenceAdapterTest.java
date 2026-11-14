@@ -5,7 +5,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.Instant;
@@ -14,15 +13,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 /**
- * Menguji jalur increment agregat penolakan dengan JdbcTemplate palsu.
+ * Menguji increment agregat penolakan dengan JdbcTemplate palsu.
  *
- * Dua cabang yang relevan: baris sudah ada (UPDATE) vs belum ada (INSERT).
- * Pencarian memakai SELECT 1 dengan pemetaan Integer, sehingga query tidak
- * bergantung pada isi baris agregat.
+ * Sejak V11, increment adalah satu statement upsert (INSERT ... ON CONFLICT
+ * ... DO UPDATE) dengan arbiter UNIQUE(tenant_id, window_start, http_method,
+ * reason). Test memastikan statement tunggal itu dipakai — tidak ada
+ * SELECT-then-INSERT — dan bahwa baris global-DELETE per tenant tetap
+ * terpisah dari pembersihan global.
  */
 @ExtendWith(MockitoExtension.class)
 class SecurityRejectionStatPersistenceAdapterTest {
@@ -34,29 +35,23 @@ class SecurityRejectionStatPersistenceAdapterTest {
     private final Instant windowStart = Instant.parse("2026-01-01T10:07:00Z");
 
     @Test
-    void increment_existingRow_issuesUpdateNotInsert() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class),
-                any(Object.class), any(Object.class), any(Object.class), any(Object.class)))
-                .thenReturn(1);
-
+    void increment_emitsSingleUpsertWithTenantScopedArbiter() {
         adapter().increment(7L, windowStart, "GET", "invalid_token", seenAt);
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).update(sql.capture(), any(), any(), any(), any(), any());
-        assertTrue(sql.getValue().startsWith("UPDATE"), "baris yang ada harus di-update");
-    }
+        verify(jdbcTemplate).update(sql.capture(), any(Object.class), any(Object.class),
+                any(Object.class), any(Object.class), any(Object.class));
 
-    @Test
-    void increment_missingRow_issuesInsert() {
-        when(jdbcTemplate.queryForObject(anyString(), eq(Integer.class),
-                any(Object.class), any(Object.class), any(Object.class), any(Object.class)))
-                .thenThrow(new EmptyResultDataAccessException(1));
-
-        adapter().increment(7L, windowStart, "GET", "invalid_token", seenAt);
-
-        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).update(sql.capture(), any(), any(), any(), any(), any());
-        assertTrue(sql.getValue().startsWith("INSERT"), "baris baru harus di-insert");
+        String captured = sql.getValue();
+        assertTrue(captured.startsWith("INSERT"), "harus satu statement INSERT ... ON CONFLICT");
+        assertTrue(captured.contains("VALUES (?, ?, ?, ?, 1, ?)"),
+                "kejadian pertama harus tertanam rejection_count = 1 di statement");
+        assertTrue(captured.contains("ON CONFLICT (tenant_id, window_start, http_method, reason)"),
+                "arbiter harus composite tenant-scoped (V11)");
+        assertTrue(captured.contains("DO UPDATE"), "cabang konflik harus meng-increment count");
+        assertTrue(captured.contains("rejection_count + 1"), "increment berarti +1 per kejadian");
+        verify(jdbcTemplate, never()).queryForObject(
+                anyString(), eq(Integer.class), any(), any(), any(), any());
     }
 
     @Test
