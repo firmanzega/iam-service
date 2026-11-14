@@ -1,5 +1,8 @@
 {
   "language": "en",
+  "import": [
+    "./cspell-id.json"
+  ],
   "words": [
     "firmanzega",
     "promtool",
@@ -48,6 +51,7 @@
     "vendor/**",
     "target/**",
     ".next/**",
-    "docs/WORKLOG.md"
+    "docs/WORKLOG.md",
+    "cspell-id.json"
   ]
 }
