@@ -333,7 +333,8 @@ class TenantIsolationIntegrationTest {
 
     private String loginAdmin(String organizationId, String username) throws Exception {
         Role adminRole = roleRepository.findByName("ADMIN").orElseThrow();
-        User admin = new User(tenantIdOf(organizationId), username, username + "@mail.com", passwordEncoder.encode(PASSWORD));
+        User admin = new User(tenantIdOf(organizationId), username, username + "@mail.com",
+                passwordEncoder.encode(PASSWORD));
         admin.replaceRoles(Set.of(adminRole));
         userRepository.save(admin);
 
