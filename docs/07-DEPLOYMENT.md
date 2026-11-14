@@ -95,9 +95,9 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 - [ ] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401) (client migration task)
 - [x] Flyway migrations V9–V11 applied and validated — applied automatically at first boot (`validate-on-migrate: true`), verified on dev DB (schema now at v11) and on CI's Testcontainers
 - [ ] `/actuator/prometheus` only available on internal network, not via public gateway (prod environment)
-- [x] GitHub Actions green on `f156757` (CI #26 SUCCESS; verify + Trivy + SBOM) and restore drill #13 SUCCESS
+- [x] GitHub Actions green on tag `v1.0.1` HEAD `4ebec1e` (CI + restore drill SUCCESS on push events, verified 2026-11-14; also green on `ed35cb1`) and restore drill #13-#15 SUCCESS
 - [x] Container image successfully built and run as non-root (multi-stage Dockerfile, `USER 10001:10001`; CI builds the image)
-- [x] Scheduled database backup has been tested for recovery — proven by the restore drill (`.github/workflows/restore-drill.yml`, green #13): seed → dump → destroy → restore → assert rows/indexes/constraints
+- [x] Scheduled database backup has been tested for recovery — proven by the restore drill (`.github/workflows/restore-drill.yml`): seed → dump → destroy → restore → assert rows/indexes/constraints; also green on tag `v1.0.1` HEAD `4ebec1e` (run 43600698525)
 - [x] `iam.jwt.refresh-token-ttl` reviewed (7 days; consistent with docs; change only with documented reason)
 - [x] `iam.security-rejection-stats.retention` matches local retention policy (30d default, documented in `application.yaml`)
 - [x] Session and 401 aggregate cleanup enabled, or scheduled outside the application (`SessionCleanupJob`, `RefreshTokenCleanupJob`, `SecurityRejectionStatsCleanupJob` enabled, 1h interval)
