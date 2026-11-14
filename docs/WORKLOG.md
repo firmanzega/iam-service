@@ -4,10 +4,10 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** Stage 7 - A- items 1/2/3/4 DONE + BUG-TENANT-005 FIXED; dependabot zero-open; go-live NOT executed (Boss gate: §6)
-- **Next Active Stage:** Stage 7 - Go-live execution (Boss deploys v1.0.0 + prod checklist; then re-audit vs §12.4)
+- **Last Completed Stage:** Stage 7 - v1.0.1 release prepared & tagged (see tag); go-live NOT executed (Boss gate: §6); A- items 1-4 DONE + BUG-TENANT-005 FIXED
+- **Next Active Stage:** Stage 7 - Go-live execution (Boss deploys v1.0.1 + prod checklist; then re-audit vs §12.4)
 - **Active Skill to Load:** `senior-security-engineer`
-- **Last Updated:** 2026-11-14 20:28
+- **Last Updated:** 2026-11-14 20:38
 
 ## 1. Key Decisions & Locked Artifacts
 - **ADR-0016/0018 (multi-tenancy):** shared schema, header `X-Organization-ID` wajib di seluruh endpoint tenant-aware (missing/unknown -> 401), identitas tenant-scoped `UNIQUE(tenant_id, username|email)` (V10), refresh di-anchor ke tenant token tersimpan. Committed `638c1d3`/`f88f6fa`/`d16d692`.
@@ -32,9 +32,9 @@
 - [2026-11-14 19:43 | Stage 7/A-] sec -> solution-architect: API-SPEC completed (all /v1: users, roles, audit) in `23e7052`. Gap found & logged: BUG-TENANT-005 (missing header on /v1/audit-logs). NOT fixed (role lock + Boss decision). — Reason: A- item 1.
 - [2026-11-14 19:52 | Stage 4->7/A-] sec -> backend -> sec: `WebMapper.tenantId` + 5 dead-code tests deleted (`d28f832`); `mvn clean verify` BUILD SUCCESS 300/300 (exit 0; earlier exit=1 was the stderr-wrap artifact — re-verified). — Reason: A- item 2.
 - [2026-11-14 20:17 | Stage 7/A-] Re-audit v2 (Boss asked): verify 303/303, cspell 0, Dockerfile/CI/migrations/prod-config/scripts untouched since tag; API-SPEC = 16 paths/20 ops (mechanical match with controllers); secret scan clean; grade honestly stays B+. — Reason: Boss asked for re-audit.
-- [2026-11-14 20:28 | Stage 7/A-] Dependabot #1-#4 MERGED: Boss enabled Dependency graph (Option A); 4 PRs rebased onto origin/main (fresh SHAs) -> CI all green (Build+Drill+dependency-review SUCCESS) -> merged sequentially (1 ff + 3 ort merges) -> `2e599f3`; verify on merged main BUILD SUCCESS 303/303 (incl. JaCoCo 0.8.16); PRs closed/merged verified via API. — Reason: A- item 3 closed.
+- [2026-11-14 20:36 | Stage 7] v1.0.1 release prepared: CHANGELOG [1.0.1] added (BUG-TENANT-005 fix, CI bumps, API-SPEC completion, dead-code removal; non-breaking). CI on `ed35cb1` green (CI + restore drill, push events). Tag v1.0.1 on HEAD after this commit. — Reason: Boss approved v1.0.1.
+- [2026-11-14 20:28 | Stage 7/A-] Dependabot #1-#4 MERGED: Boss enabled Dependency graph (Option A); CI all green; merged -> `2e599f3`; verify on merged main BUILD SUCCESS 303/303; PRs closed/merged verified via API. — Reason: A- item 3 closed.
 - [2026-11-14 20:11 | Stage 7/A-] sec -> senior-backend-developer: BUG-TENANT-005 FIXED (`c18f14a`): `/v1/audit-logs[/verify]` added to TENANT_REQUIRED_PATHS (missing header -> 401); silent org-default fallback in `AuditService.currentTenantId()` now logs WARN; +3 regression tests; 303/303 BUILD SUCCESS; main pushed. — Reason: Boss "Gas fixing".
-- [2026-11-14 19:55 | Stage 7/A-] Dependabot #1-#4 rebased onto origin/main (bump-only diffs) & force-pushed; target versions/artifacts verified (tags/Central). Superseded by 20:28 merge. — Reason: A- item 3.
 - [2026-11-14 19:57 | Stage 7/A-] cspell repo-wide GREEN: 225 files, 0 issues. Root cause: repo bilingual (en + id prose); en-only config flagged 24,536 issues. No npm id dictionary exists; created `cspell-id.json` (2,666 tokens, suspect-misspelling scan clean) imported by `cspell.json`. Whitelists Indonesian vocab; new typos still caught. — Reason: A- item 4.
 - [2026-11-14 19:37 | Stage 7] Release grading rubric added (`07-DEPLOYMENT.md` §12): grade = lowest unmet mandatory criterion; §9 residuals block A/A+; regression drops grade; grade stays B+. Restore drill green #13-#15 after CI #16 fix (`4d7a344`); v1.0.0 tagged `577187f`. — Reason: Boss rubric-first + Stage 7 gate/close-out.
 - [2026-11-14 | Stage 4] ADR-0018 implemented: V10 tenant-scoped uniques (Option A), login/refresh require X-Organization-ID (401), refresh anchored to stored token, BUG-TENANT-001/004 + SEC-STATS-001 + SEC-USERS-001 IDOR closed (V11 upsert). — Reason: Boss decisions, 2026-11-14.

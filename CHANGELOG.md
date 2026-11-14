@@ -7,6 +7,27 @@ dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
 
 ---
 
+## [1.0.1] - 2026-11-14
+
+Rilis pemeliharaan: **tidak ada perubahan kontrak** (non-breaking). Memuat perbaikan keamanan BUG-TENANT-005 dan pembaruan dependensi CI.
+
+### Diperbaiki
+- `/v1/audit-logs` dan `/v1/audit-logs/verify` kini mewajibkan `X-Organization-ID`; header yang hilang ditolak **401 Unauthorized** (sebelumnya 200 dengan halaman kosong karena kueri dibatasi `tenant_id` null) — selaras ADR-0018 (BUG-TENANT-005)
+- Pencatatan audit tanpa konteks tenant (mis. endpoint global `/v1/roles`) kini tercatat WARN saat dikaitkan ke `org-default` (sebelumnya diam-diam)
+
+### Diperbarui — dependensi CI (tidak memengaruhi artefak runtime)
+- `actions/checkout` 4 -> 7, `actions/setup-java` 4 -> 6, `actions/upload-artifact` 4 -> 7
+- `org.jacoco:jacoco-maven-plugin` 0.8.13 -> 0.8.16
+
+### Dokumentasi
+- API-SPEC memetakan seluruh endpoint `/v1` (auth, users, roles, audit-logs, verify): 16 path, 20 operasi
+- Rubric grading rilis ditambahkan ke `docs/07-DEPLOYMENT.md` §12; grade pada rilis ini: **B+**
+
+### Kode
+- `WebMapper.tenantId` dihapus (dead code; otorisasi tenant berbasis header per ADR-0018)
+
+---
+
 ## [1.0.0] - 2026-11-14
 
 Rilis pertama stabil: Package A selesai (Fase 1–6) dan seluruh perluasan multi-tenancy, layanan identitas dan akses siap produksi dengan kontrol keamanan berlapis.
@@ -60,7 +81,7 @@ Rilis pertama stabil: Package A selesai (Fase 1–6) dan seluruh perluasan multi
 
 ## [Belum Dirilis]
 
-Perubahan yang sudah masuk ke branch `main` tapi belum ada rilis bertanda.
+Belum ada — seluruh perubahan sudah masuk ke rilis [1.0.1].
 
 ---
 
