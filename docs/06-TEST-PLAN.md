@@ -152,3 +152,52 @@ Requirements for production release:
 - [x] No placeholder, TODO, or empty test
 - [x] Facts separated from assumptions; residual risks stated explicitly
 - [x] No claims of "safe/tested/release-ready" without basis and coverage boundary
+
+---
+
+## 10. Multi-Tenancy Verification — Phase 6 Retest (2026-11-14)
+
+Phase 4 (commit `63814ac`) shipped V9 `tenant_id` migration and tenant-aware
+repositories. QA retest against ADR-0016 (`Verification`) found two product
+defects; both fixed in `8f125e8` and covered by new tests.
+
+### 10.1 Bugs found and fixed
+
+| ID | Defect | Evidence | Fix |
+|----|--------|----------|-----|
+| BUG-TENANT-002 | `TenantHeaderFilter` matched `request.getServletPath()`, which is empty under MockMvc and fragile in general, so tenant-required endpoints never rejected requests without `X-Organization-ID` | probe test printed `servletPath=[] pathInfo=[/v1/auth/sessions]`; `/v1/auth/sessions` and `/v1/auth/logout` returned 200/204 without header (contract: 400) | filter now resolves a path via requestURI/pathInfo fallback and strips context path |
+| BUG-TENANT-003 | `Session`/`RefreshToken` rows created at login were attributed to the request-context tenant (org-default fallback), not the owning user's tenant; tenant-B sessions never listed/usable | `TenantIsolationIntegrationTest.sessions_listsOnlyCallerTenantOwnSessions` failed with B seeing 0 sessions | session and refresh-token attribution uses `user.getTenantId()` |
+
+### 10.2 Known issues NOT fixed (awaiting Boss decision)
+
+| ID | Defect | Evidence |
+|----|--------|----------|
+| BUG-TENANT-001 | Unknown/invalid organization header silently falls back to org-default instead of being rejected | ADR-0016 Verification says invalid organization returns 401/404; `TenantResolver.resolve()` returns void with empty context, services fall back to org-default; `/v1/audit-logs` returns default-tenant logs to a client presenting an unknown org |
+| BUG-TENANT-004 | Login user lookup does not enforce tenant isolation despite documentation claiming it does; generated SQL is `where username=? or email=?` with no tenant clause | `SpringDataUserRepository.findByUsernameOrEmail` comment claims tenant filter; log shows no tenant predicate; identity ambiguous across tenants (two users named `admin` in different tenants are indistinguishable at login) |
+
+### 10.3 New / updated tests
+
+| Test | Result | Proves |
+|------|--------|--------|
+| `TenantResolverTest` (5 cases) | LULUS | Context cleared on blank/null header, missing organization, inactive tenant; set when organization active |
+| `TenantIsolationIntegrationTest.sessions_withoutOrganizationHeader_returns400` | LULUS | Mandatory header gate (after BUG-TENANT-002 fix) |
+| `TenantIsolationIntegrationTest.logout_withoutOrganizationHeader_returns400` | LULUS | Same for `/v1/auth/logout` |
+| `TenantIsolationIntegrationTest.sessions_listsOnlyCallerTenantOwnSessions` | LULUS | Tenant A cannot see tenant B's sessions, and vice versa (IDOR) |
+| `TenantIsolationIntegrationTest.revokeSession_fromOtherTenant_isNotFound_andOriginalStaysAlive` | LULUS | Cross-tenant revoke is 404; victim's refresh token still works |
+| `TenantIsolationIntegrationTest.sessions_withUnknownOrganization_isRejected_notFallbackToDefaultTenant` | DISABLED (`BUG-TENANT-001`) | Expected contract test for known issue; activated once Boss decides correct status code |
+
+Two legacy tests were updated to satisfy the new mandatory header contract
+(`AuthSecurityIntegrationTest.logout_revokesTheRefreshToken`,
+`SessionManagementIntegrationTest.listSessions_withoutToken_isUnauthorized`).
+No assertions were weakened; both now send the now-mandatory `X-Organization-ID`
+header (`org-default` is the bootstrap tenant).
+
+**Latest run:** `Tests run: 249, Failures: 0, Errors: 0, Skipped: 1` — BUILD SUCCESS.
+
+### 10.4 Updated release readiness
+
+**Recommendation: GO with conditions.** Package A scope unchanged; for any
+multi-tenant production use, BUG-TENANT-001 and BUG-TENANT-004 must be resolved
+(contract decision) before onboarding a second organization. BUG-TENANT-002/003
+are fixed and verified.
+
