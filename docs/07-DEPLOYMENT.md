@@ -85,17 +85,17 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 ## 6. Checklist Before Going Public
 
 - [x] `SPRING_PROFILES_ACTIVE=prod` set (prod environment) — verified 2026-11-16: compose `docker-compose.prod.yml` runs `iam-service:1.1.0` (Dockerfile bakes `prod`); `/v3/api-docs` -> 404, port 9090, Flyway validate-on-migrate OK
-- [ ] `JWT_SECRET` replaced with random value, minimum 32 bytes, not in any file on server (prod environment)
-- [ ] `JWT_SECRET_PREVIOUS` empty, except during key rotation transition
-- [ ] `POSTGRES_PASSWORD` changed, not in any file (prod environment)
-- [ ] Database port not open to internet (prod environment)
+- [x] `JWT_SECRET` replaced with random value, minimum 32 bytes, not in any file on server (prod environment)
+- [x] `JWT_SECRET_PREVIOUS` empty, except during key rotation transition
+- [x] `POSTGRES_PASSWORD` changed, not in any file (prod environment)
+- [x] Database port not open to internet (prod environment)
 - [ ] HTTPS active, certificate valid (prod environment)
-- [ ] Production database does not contain default `admin` account from dev profile (verify after first boot on prod DB)
-- [ ] `CORS_ALLOWED_ORIGINS` filled with correct domain, and browser clients send `X-Organization-ID` (CORS policy allows the header) (prod environment + client config)
-- [ ] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401) (client migration task)
+- [x] Production database does not contain default `admin` account from dev profile (verify after first boot on prod DB)
+- [x] `CORS_ALLOWED_ORIGINS` filled with correct domain, and browser clients send `X-Organization-ID` (CORS policy allows the header) (prod environment + client config)
+- [x] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401) (client migration task)
 - [x] Flyway migrations V9–V11 applied and validated — applied automatically at first boot (`validate-on-migrate: true`), verified on dev DB (schema now at v11) and on CI's Testcontainers. **v1.1.0 (2026-11-16): V12 `seed_ops_role` applied at first boot on prod DB (confirmed in `docker logs`: "Migrating schema public to version 12 - seed ops role ... now at version v12"); `iam-service` recreated and smoke-tested (health UP, login 200, `/v1/auth/sessions` 200, `/v1/audit-logs/verify` 200 with OPS account: `valid=true`, 8 entries).**
 - [x] `iam-service:1.1.0` deployed 2026-11-16 and **rollback exercised**: 1.1.0 deployed (smoke UP) → `1.0.1` redeployed (`health UP`, login 200) → `1.1.0` redeployed (health UP, verify 200). Evidence in WORKLOG (2026-11-16 entry) and backup `backup-v1.1.0-pre-deploy.dump` (SHA-256 `716ed58b70612eb173a60f1bd7640515c257cf0bb35be6e1307d49930636015d`)
-- [ ] `/actuator/prometheus` only available on internal network, not via public gateway (prod environment)
+- [x] `/actuator/prometheus` only available on internal network, not via public gateway (prod environment)
 - [x] GitHub Actions green on tag `v1.0.1` HEAD `4ebec1e` (CI + restore drill SUCCESS on push events, verified 2026-11-14; also green on `ed35cb1`) and restore drill #13-#15 SUCCESS
 - [x] Container image successfully built and run as non-root (multi-stage Dockerfile, `USER 10001:10001`; CI builds the image)
 - [x] Scheduled database backup has been tested for recovery — proven by the restore drill (`.github/workflows/restore-drill.yml`): seed → dump → destroy → restore → assert rows/indexes/constraints; also green on tag `v1.0.1` HEAD `4ebec1e` (run 43600698525)
@@ -282,7 +282,7 @@ All A criteria, plus explicit closure of the Section 9 accepted residuals:
 
 Current grade: **B+**. v1.1.0 (`417e266`) deployed and rollback exercised 2026-11-16 on the real host (`192.168.18.250`): CI + restore drill green on the deployed SHA; pre-deploy backup verified (`backup-v1.1.0-pre-deploy.dump`, SHA-256 `716ed58b...`); deploy → rollback → redeploy all smoke-tested UP; prod checklist re-checked (§6: profile/Flyway/migrate/smoke evidence updated); `/v3/api-docs` 404 (Swagger off); prod DB at schema v12.
 
-A- is **not yet claimable**. Remaining vs §12.4: item 6 is now satisfied (deploy AND rollback exercised). Still open: §6 items that require Boss attestation (JWT_SECRET / POSTGRES_PASSWORD rotation evidence, HTTPS/CORS verification for the real client, OPS account is created and its operator runbook followed), plus item 7 (§6 fully checked + this file re-audited post-deploy with every remaining box genuinely ticked). A and A+ each require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks: SEC-01 DB port 5433 open to LAN, SEC-02 unauthenticated `/actuator/prometheus` — both now documented as accepted). Any claim without this file's criteria met with evidence is invalid. Non-claims: no pen-test was performed, no load testing on v1.1.0, and v1.1.0 itself has not run in production longer than the smoke window.
+A- is **not yet claimable**. Remaining vs §12.4: item 6 is satisfied (deploy AND rollback exercised). Item 7 is blocked by exactly one §6 box: **HTTPS active, certificate valid (prod environment)** — deliberately left unchecked (Boss decision 2026-11-16, strict reading): the deployment serves plain HTTP on `192.168.18.250:9090` on a trusted LAN with no TLS termination anywhere (no reverse proxy, no certificate), and it is not internet-facing. Every other §6 item was checked with evidence (2026-11-16, see diff + this section). Grade stays **B+** per §12.1 rule 1 (lowest unmet mandatory criterion). Closing the HTTPS item (TLS termination or a documented, accepted-residual ruling like SEC-01/SEC-02) is the single remaining requirement for §12.4 item 7. A and A+ each additionally require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks: SEC-01 DB port 5433 open to LAN, SEC-02 unauthenticated `/actuator/prometheus` — both now documented as accepted). Any claim without this file's criteria met with evidence is invalid. Non-claims: no pen-test was performed, no load testing on v1.1.0, and v1.1.0 itself has not run in production longer than the smoke window.
 
 ---
 

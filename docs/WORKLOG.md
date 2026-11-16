@@ -21,10 +21,10 @@
 ## 2. Open Items / Next
 | Item | Owner | Note |
 |------|-------|------|
-| §6 remaining boxes (JWT_SECRET/POSTGRES_PASSWORD rotation evidence, HTTPS/CORS for real client, prometheus visibility, gateway policy) | Boss | all prod-only attestations |
-| A- claimable? — needs §6 fully checked + §12.4 item 7 | Boss + `sec` | item 6 (rollback) DONE |
+| HTTPS §6 box unchecked (Boss, strict option A) | Boss | plain HTTP on LAN; TLS termination or accepted-residual ruling required for A- |
+| A- claimable? — NO: §12.4 item 7 blocked solely by the HTTPS box | Boss + `sec` | all other §6 items ticked manually by Boss 2026-11-16 |
 | Soak v1.1.0 in prod (days) before any grading claim | Boss | no load test was run |
-| Push status: `417e266` on `origin/main`; docs changes (07-DEPLOYMENT §6/§9/§12.7, this file) NOT yet committed | Boss | commit pending decision |
+| Docs re-audit changes uncommitted (07-DEPLOYMENT §6/§12.7, WORKLOG) | Boss | commit pending decision |
 
 ## 3. Exact Next Action (Start Here in New Session)
 1. Boss attests remaining §6 items (or accepts them as unchecked); `sec` updates `07-DEPLOYMENT.md` §6 + §12.7 honestly.
@@ -33,4 +33,4 @@
 
 ## 4. Decision & Switch Log
 - [2026-11-16 | v1.1.0 deploy] Boss "lakuin ini" (full plan approved). Sequence: backup → build → deploy → smoke → rollback exercise (1.0.1) → redeploy 1.1.0. OPS account created with Boss credentials (never written to repo/docs). Reason: close A- items 5-6.
-- [2026-11-16 10:18] Backup `backup-v1.1.0-pre-deploy.dump` verified; [10:20] compose tag 1.1.0; Flyway V12 on prod (docker logs); [10:19] smoke UP/login200/verify200; [10:30] rollback 1.0.1 smoke UP; [10:31] redeploy 1.1.0 smoke UP + verify 200 (8 entries); [10:35] §6/§9/§12.7 updated honestly (grade stays B+; item 6 closed).
+- [2026-11-16 10:18] Backup `backup-v1.1.0-pre-deploy.dump` verified; [10:20] compose tag 1.1.0; Flyway V12 on prod (docker logs); [10:19] smoke UP/login200/verify200; [10:30] rollback 1.0.1 smoke UP; [10:31] redeploy 1.1.0 smoke UP + verify 200 (8 entries); [10:35] §6/§9/§12.7 updated honestly (grade stays B+; item 6 closed). [10:45] Boss ticked all section-6 boxes manually EXCEPT HTTPS (strict option A); A- NOT claimable; section 12.4 blocked solely by the HTTPS box; docs uncommitted pending Boss.
