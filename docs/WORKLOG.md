@@ -4,35 +4,33 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** v1.1.0 hardening code complete & verified (2026-11-16); docs synced (ADR-0019, API-SPEC 1.1.0, CHANGELOG [1.1.0], 07-DEPLOYMENT residuals+§13, 03-ARCHITECTURE)
-- **Next Active Stage:** v1.1.0 deploy + rollback exercise w/ Boss on host; then re-audit vs §12.4 (A- path); then commit & push pending Boss
-- **Active Skill to Load:** `senior-security-engineer` (deploy/rollback/re-audit)
-- **Last Updated:** 2026-11-16 10:30
+- **Last Completed Stage:** v1.1.0 deployed to LAN host + rollback exercised (2026-11-16); docs re-audited (07-DEPLOYMENT §6/§9/§12.7)
+- **Next Active Stage:** Stage 7 close-out — Boss attestation for remaining §6 items; then A- re-audit (§12.4); v1.1.0 soak in prod
+- **Active Skill to Load:** `senior-security-engineer`
+- **Last Updated:** 2026-11-16 11:00
 
 ## 1. Key Decisions & Locked Artifacts
-- **ADR-0019 (binding token↔tenant, option a):** every authenticated request (except `/v1/auth/login`, `/v1/auth/refresh`) requires JWT `tenant_id` claim == resolved header tenant else 401 `tenant_mismatch` (recorded by `SecurityEventRecorder`). Refresh stays anchored to stored token tenant (ADR-0018 pt 6). Multi-org membership (option b / `tenant_users`) rejected for v1.1.0.
-- **Audit verify = OPS role:** `GET /v1/audit-logs/verify` now `hasRole('OPS')` (was ADMIN). V12 seeds `OPS` role, assigned to nobody. Ops account must be created manually (see 07-DEPLOYMENT §13). Breaking for ADMIN callers of verify (documented in CHANGELOG [1.1.0] & API-SPEC).
-- **token_type enforced at decoder:** refresh token can no longer be used as Bearer (JwtKeyRing + `JwtValidators`/`JwtClaimValidator("token_type"="access")`).
-- **TenantHeaderFilter** records 401 missing/unknown-org (metric `iam.security.rejected`, aggregate `tenant_mismatch`-style reasons `missing_organization`/`unknown_organization`) + body now unified `ErrorResponse`; filter moved BEFORE `BearerTokenAuthenticationFilter`; new `TenantBindingFilter` AFTER it.
-- **Retention fix:** `security_rejection_stats` cleanup now uses global `deleteOlderThan(cutoff)` (was tenant-scoped to org-default only).
-- **TenantContext** `InheritableThreadLocal` → `ThreadLocal` (no child-thread leakage).
-- **SEC-01 accepted (Boss, internal LAN):** DB `5433` published `0.0.0.0` — documented as accepted residual in 07-DEPLOYMENT §9; closure plan = unify Docker networks when going public. **SEC-02:** `/actuator/prometheus` stays `permitAll` (Boss Option 1), documented §9.
-- **Go verify green:** `mvn clean verify` BUILD SUCCESS, **310/310** (incl. new `TenantBindingIntegrationTest`), cspell 0/229 files.
+- **417e266 pushed to main 2026-11-16; CI green** (CI + restore drill both success on the SHA).
+- **Deploy executed 2026-11-16 (Boss present):** `iam-service:1.1.0` built on host; prod compose tag 1.0.1→1.1.0; Flyway V12 auto-applied ("now at version v12"); app recreated; smoke 200 (health UP, login, /v1/auth/sessions, /v1/audit-logs/verify valid=true 8 entries).
+- **Rollback exercised:** 1.1.0 → `iam-service:1.0.1` redeploy (health UP, login 200) → back to `1.1.0` (health UP, verify 200). Compose currently at `1.1.0`.
+- **Pre-deploy backup:** `backup-v1.1.0-pre-deploy.dump` (SHA-256 `716ed58b70612eb173a60f1bd7640515c257cf0bb35be6e1307d49930636015d`), 102 TOC entries, custom format — verified listed.
+- **OPS account created** (username `ops`, password chosen by Boss out-of-band); V12 seeded role OPS; user assigned OPS (verified: `ops | OPS`). Verify endpoint now usable by operator only; ADMIN/AUDITOR → 403.
+- **v1.1.0 scope shipped:** ADR-0019 token↔tenant binding; `token_type=access` enforced; verify=OPS; rejection-stats retention global; ThreadLocal fix; unified ErrorResponse for header 401s; mvn verify 310/310; cspell 0.
+- **SEC-01 accepted by Boss (internal LAN):** DB `0.0.0.0:5433` stays published; closure = unify Docker networks when going public (B1). **SEC-02 verified live:** `/actuator/prometheus` anonymous 200 OK ~50KB; accepted (internal LAN); doc in §9.
 
 ## 2. Open Items / Next
 | Item | Owner | Note |
 |------|-------|------|
-| Commit v1.1.0 changes (feat + breaking verify-permission change) | Boss decides | repo dirty: src, tests, config/spotbugs, docs (ADR-0019, 03/04/07, 08 unchanged, CHANGELOG, WORKLOG), cspell-id.json |
-| Deploy v1.1.0 to host `192.168.18.250:9090` + rollback exercise (Item 9) | Boss + `sec` | rollback must be executed against real env for A- |
-| Re-audit vs §12.4 → claim A- (Item 10) | `sec` | after deploy |
-| Post-deploy §6 checklist fully checked; WORKLOG re-audit honestly | `sec` | |
+| §6 remaining boxes (JWT_SECRET/POSTGRES_PASSWORD rotation evidence, HTTPS/CORS for real client, prometheus visibility, gateway policy) | Boss | all prod-only attestations |
+| A- claimable? — needs §6 fully checked + §12.4 item 7 | Boss + `sec` | item 6 (rollback) DONE |
+| Soak v1.1.0 in prod (days) before any grading claim | Boss | no load test was run |
+| Push status: `417e266` on `origin/main`; docs changes (07-DEPLOYMENT §6/§9/§12.7, this file) NOT yet committed | Boss | commit pending decision |
 
 ## 3. Exact Next Action (Start Here in New Session)
-1. Ask Boss: commit plan for v1.1.0 (single feat commit vs split hardening/docs); then push & CI green.
-2. With Boss present: deploy v1.1.0 to LAN host; verify login + `/v1/auth/sessions` + `/v1/audit-logs/verify` (OPS); execute rollback exercise; log evidence in WORKLOG.
-3. Re-audit vs `07-DEPLOYMENT.md` §12.4; if green, A- claimable.
+1. Boss attests remaining §6 items (or accepts them as unchecked); `sec` updates `07-DEPLOYMENT.md` §6 + §12.7 honestly.
+2. Commit docs re-audit changes (CHANGELOG untouched; already covers v1.1.0).
+3. Re-audit vs §12.4 items 5-7; if green → A- claimable with evidence in WORKLOG.
 
 ## 4. Decision & Switch Log
-- [2026-11-16 | v1.1.0] sa → be → qa → (sa→sec→sa) execution complete for hardening items 1–8. ADR-0019 written; verify-run & cspell green; live host untouched (SEC-01 left as-is per Boss).
-- [2026-11-16 09:58] One test fixed by policy change (`SecurityRejectionStatsServiceTest` tenant-scoped→global); `JwtTestTokens` now carries `tenant_id=1` (required by binding filter); `UserConcurrencyTest` sets context in worker threads (no more inheritance); `AuditChainVerificationIntegrationTest` verify calls use new OPS user + ADMIN gets 403 test.
-- [2026-11-16 09:57] Binding path confirmed: `TenantHeaderFilter`(before bearer) → validate JWT → `TenantBindingFilter`(after bearer) enforces claim==context; login/refresh exempt.
+- [2026-11-16 | v1.1.0 deploy] Boss "lakuin ini" (full plan approved). Sequence: backup → build → deploy → smoke → rollback exercise (1.0.1) → redeploy 1.1.0. OPS account created with Boss credentials (never written to repo/docs). Reason: close A- items 5-6.
+- [2026-11-16 10:18] Backup `backup-v1.1.0-pre-deploy.dump` verified; [10:20] compose tag 1.1.0; Flyway V12 on prod (docker logs); [10:19] smoke UP/login200/verify200; [10:30] rollback 1.0.1 smoke UP; [10:31] redeploy 1.1.0 smoke UP + verify 200 (8 entries); [10:35] §6/§9/§12.7 updated honestly (grade stays B+; item 6 closed).

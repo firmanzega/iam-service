@@ -84,7 +84,7 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 
 ## 6. Checklist Before Going Public
 
-- [ ] `SPRING_PROFILES_ACTIVE=prod` set (prod environment)
+- [x] `SPRING_PROFILES_ACTIVE=prod` set (prod environment) — verified 2026-11-16: compose `docker-compose.prod.yml` runs `iam-service:1.1.0` (Dockerfile bakes `prod`); `/v3/api-docs` -> 404, port 9090, Flyway validate-on-migrate OK
 - [ ] `JWT_SECRET` replaced with random value, minimum 32 bytes, not in any file on server (prod environment)
 - [ ] `JWT_SECRET_PREVIOUS` empty, except during key rotation transition
 - [ ] `POSTGRES_PASSWORD` changed, not in any file (prod environment)
@@ -93,7 +93,8 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 - [ ] Production database does not contain default `admin` account from dev profile (verify after first boot on prod DB)
 - [ ] `CORS_ALLOWED_ORIGINS` filled with correct domain, and browser clients send `X-Organization-ID` (CORS policy allows the header) (prod environment + client config)
 - [ ] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401) (client migration task)
-- [x] Flyway migrations V9–V11 applied and validated — applied automatically at first boot (`validate-on-migrate: true`), verified on dev DB (schema now at v11) and on CI's Testcontainers
+- [x] Flyway migrations V9–V11 applied and validated — applied automatically at first boot (`validate-on-migrate: true`), verified on dev DB (schema now at v11) and on CI's Testcontainers. **v1.1.0 (2026-11-16): V12 `seed_ops_role` applied at first boot on prod DB (confirmed in `docker logs`: "Migrating schema public to version 12 - seed ops role ... now at version v12"); `iam-service` recreated and smoke-tested (health UP, login 200, `/v1/auth/sessions` 200, `/v1/audit-logs/verify` 200 with OPS account: `valid=true`, 8 entries).**
+- [x] `iam-service:1.1.0` deployed 2026-11-16 and **rollback exercised**: 1.1.0 deployed (smoke UP) → `1.0.1` redeployed (`health UP`, login 200) → `1.1.0` redeployed (health UP, verify 200). Evidence in WORKLOG (2026-11-16 entry) and backup `backup-v1.1.0-pre-deploy.dump` (SHA-256 `716ed58b70612eb173a60f1bd7640515c257cf0bb35be6e1307d49930636015d`)
 - [ ] `/actuator/prometheus` only available on internal network, not via public gateway (prod environment)
 - [x] GitHub Actions green on tag `v1.0.1` HEAD `4ebec1e` (CI + restore drill SUCCESS on push events, verified 2026-11-14; also green on `ed35cb1`) and restore drill #13-#15 SUCCESS
 - [x] Container image successfully built and run as non-root (multi-stage Dockerfile, `USER 10001:10001`; CI builds the image)
@@ -159,7 +160,7 @@ Full audit across the repository (OWASP Top 10, IDOR, secret leakage, dependenci
 | Risk | Acceptance reason |
 |--------|-----------------|
 | SEC-01: database port `5433` published on all host interfaces (`0.0.0.0:5433->5432`), reachable from the LAN; host firewall has no deny rule (Docker Desktop Backend rule allows Any/Any on Public profile). Postgres `pg_hba` offers password-only auth to the world on that port | Accepted 2026-11-16 by Boss: deployment is internal-only, not public; app and DB share the host. Closure plan when going public/cloud: unify app+db on one Docker network and stop publishing 5433 (see WORKLOG SEC-01). Minimum interim control: strong, unique `POSTGRES_PASSWORD` |
-| SEC-02: `/actuator/prometheus` exposed without token (`permitAll`) on `192.168.18.250:9090`, reachable on the LAN | Accepted 2026-11-16 by Boss (Option 1 of v1.1.0 scope): LAN-internal, must not be routed to public networks; OIDC/basic-auth options rejected as overkill for a single host. Closure plan: restrict scraper source IP via Windows Firewall rule or reverse proxy with auth |
+| SEC-02: `/actuator/prometheus` exposed without token (`permitAll`) on `192.168.18.250:9090`, reachable on the LAN (verified 2026-11-16: anonymous GET returns 200, ~50 KB body) | Accepted 2026-11-16 by Boss (Option 1 of v1.1.0 scope): LAN-internal, must not be routed to public networks; OIDC/basic-auth options rejected as overkill for a single host. Closure plan: restrict scraper source IP via Windows Firewall rule or reverse proxy with auth |
 | Access token cannot be revoked instantly | Maximum 15-minute window; direct access token revocation requires a central revocation list that does not exist yet |
 | Rate limiter per instance | Gateway mitigation; per-account account lock still works |
 | 401 does not trace the actor | Requests without credentials can be sent by anyone; flood to audit_logs is riskier |
@@ -277,11 +278,11 @@ All A criteria, plus explicit closure of the Section 9 accepted residuals:
 5. Secrets sourced from a secret manager at runtime; no credentials on server disk.
 6. Multi-instance behavior verified (rate limiter, cleanup jobs, session consistency).
 
-### 12.7 Honest position (2026-11-14, re-audit v2)
+### 12.7 Honest position (2026-11-16, v1.1.0 post-deploy re-audit)
 
-Current grade: **B+**. Re-audit 2026-11-14 (verified): `mvn clean verify` BUILD SUCCESS 303/303; cspell repo-wide 0 issues (225 files); Git tag `v1.0.0` = `577187f` unchanged; Dockerfile, CI workflows, migrations, prod/dev config, and `scripts/` unchanged since the tag; secret scan clean; API-SPEC covers all 16 paths / 20 operations (matches controllers); dead code `WebMapper.tenantId` removed (`d28f832`); BUG-TENANT-005 fixed (`c18f14a`). zero-open and merged after green CI (2026-11-14, `2e599f3`); Boss enabled Dependency graph (Option A); dependency-review green on all four PRs.
+Current grade: **B+**. v1.1.0 (`417e266`) deployed and rollback exercised 2026-11-16 on the real host (`192.168.18.250`): CI + restore drill green on the deployed SHA; pre-deploy backup verified (`backup-v1.1.0-pre-deploy.dump`, SHA-256 `716ed58b...`); deploy → rollback → redeploy all smoke-tested UP; prod checklist re-checked (§6: profile/Flyway/migrate/smoke evidence updated); `/v3/api-docs` 404 (Swagger off); prod DB at schema v12.
 
-A- is NOT claimable yet. Remaining: (1) go-live executed per Section 6, (2) deploy AND rollback exercised, (3) Section 6 fully checked + this file re-audited post-deploy; (4) verify on the deployed SHA. A and A+ each require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks). Any higher grade claim without this file's criteria met with evidence is invalid. Note: A- is unreachable WITHOUT going live first (Section 12.4 item 5+), so deferring go-live "until A-" is circular.
+A- is **not yet claimable**. Remaining vs §12.4: item 6 is now satisfied (deploy AND rollback exercised). Still open: §6 items that require Boss attestation (JWT_SECRET / POSTGRES_PASSWORD rotation evidence, HTTPS/CORS verification for the real client, OPS account is created and its operator runbook followed), plus item 7 (§6 fully checked + this file re-audited post-deploy with every remaining box genuinely ticked). A and A+ each require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks: SEC-01 DB port 5433 open to LAN, SEC-02 unauthenticated `/actuator/prometheus` — both now documented as accepted). Any claim without this file's criteria met with evidence is invalid. Non-claims: no pen-test was performed, no load testing on v1.1.0, and v1.1.0 itself has not run in production longer than the smoke window.
 
 ---
 
