@@ -89,7 +89,7 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 - [x] `JWT_SECRET_PREVIOUS` empty, except during key rotation transition
 - [x] `POSTGRES_PASSWORD` changed, not in any file (prod environment)
 - [x] Database port not open to internet (prod environment)
-- [ ] HTTPS active, certificate valid (prod environment)
+- [x] HTTPS active, certificate valid (prod environment) — 2026-11-16: TLS terminates in-app (no proxy); PKCS12 keystore issued by internal Osprey CA (`CN=Osprey Internal CA`); server cert SAN=DNS:`iam.osprey.service`, valid 2026-11-16 → 2029-02-18, chain verify OK (`openssl verify`); plain HTTP on 9090 no longer servable (Tomcat HTTPS connector only, HTTP request returns 400); smoke: login 200, `/v1/auth/sessions` 200, `/v1/audit-logs/verify` valid=true. See §14.
 - [x] Production database does not contain default `admin` account from dev profile (verify after first boot on prod DB)
 - [x] `CORS_ALLOWED_ORIGINS` filled with correct domain, and browser clients send `X-Organization-ID` (CORS policy allows the header) (prod environment + client config)
 - [x] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401) (client migration task)
@@ -278,11 +278,19 @@ All A criteria, plus explicit closure of the Section 9 accepted residuals:
 5. Secrets sourced from a secret manager at runtime; no credentials on server disk.
 6. Multi-instance behavior verified (rate limiter, cleanup jobs, session consistency).
 
-### 12.7 Honest position (2026-11-16, v1.1.0 post-deploy re-audit)
+### 12.7 Honest position (2026-11-16, v1.1.0 post-TLS re-audit)
 
-Current grade: **B+**. v1.1.0 (`417e266`) deployed and rollback exercised 2026-11-16 on the real host (`192.168.18.250`): CI + restore drill green on the deployed SHA; pre-deploy backup verified (`backup-v1.1.0-pre-deploy.dump`, SHA-256 `716ed58b...`); deploy → rollback → redeploy all smoke-tested UP; prod checklist re-checked (§6: profile/Flyway/migrate/smoke evidence updated); `/v3/api-docs` 404 (Swagger off); prod DB at schema v12.
+Current grade: **A-** (2026-11-16). All §12.4 mandatory criteria are met with evidence:
 
-A- is **not yet claimable**. Remaining vs §12.4: item 6 is satisfied (deploy AND rollback exercised). Item 7 is blocked by exactly one §6 box: **HTTPS active, certificate valid (prod environment)** — deliberately left unchecked (Boss decision 2026-11-16, strict reading): the deployment serves plain HTTP on `192.168.18.250:9090` on a trusted LAN with no TLS termination anywhere (no reverse proxy, no certificate), and it is not internet-facing. Every other §6 item was checked with evidence (2026-11-16, see diff + this section). Grade stays **B+** per §12.1 rule 1 (lowest unmet mandatory criterion). Closing the HTTPS item (TLS termination or a documented, accepted-residual ruling like SEC-01/SEC-02) is the single remaining requirement for §12.4 item 7. A and A+ each additionally require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks: SEC-01 DB port 5433 open to LAN, SEC-02 unauthenticated `/actuator/prometheus` — both now documented as accepted). Any claim without this file's criteria met with evidence is invalid. Non-claims: no pen-test was performed, no load testing on v1.1.0, and v1.1.0 itself has not run in production longer than the smoke window.
+1. API-SPEC documents all exposed `/v1` endpoints (auth, users, roles, audit; 16 paths / 20 operations; mechanical match against controllers) — DONE (2026-11-14, `23e7052`).
+2. Dead public code removed (`WebMapper.tenantId`, `d28f832`); `mvn clean verify` green (310/310 on `417e266`) — DONE.
+3. Zero open Dependabot PRs — DONE (2026-11-14).
+4. cspell 0 issues repo-wide (229 files, 0 issues, 2026-11-16) — DONE.
+5. Go-live per §6 with prod-only items checked against the real environment; smoke (`/actuator/health` UP + login) passed — DONE for v1.1.0 on 2026-11-16 (deploy + login + sessions + verify).
+6. Deploy AND rollback both exercised against the real environment — DONE 2026-11-16 (1.1.0 → 1.0.1 → 1.1.0, all smoke-tested UP).
+7. §6 fully checked (HTTPS closed 2026-11-16: TLS in-app, internal CA, SAN `iam.osprey.service`; plain HTTP no longer served) + this file re-audited honestly — DONE 2026-11-16.
+
+Grade rule §12.1 confirms A- (lowest unmet criterion = A- criteria all met; A/A+ deliberately not claimed). **A and A+ remain blocked** by accepted residuals in §9 (SEC-01: DB port 5433 open to LAN; SEC-02: unauthenticated `/actuator/prometheus`, now served over TLS but still anonymous) and by §12.5/A items (env-installs: pen-test, contract tests in CI, OTLP in prod with ≥ one fired alert, measured RPO/RTO, published SBOM) — none of which are in scope for this release. Also not claimed: no load/performance test was run; v1.1.0 has been in production only since 2026-11-16 (smoke window); no third-party security audit.
 
 ---
 
@@ -305,3 +313,27 @@ The dedicated account is the intended shape: OPS can read the cross-tenant audit
 **Break-glass note:** if nobody holds OPS, audit verification from outside the database is impossible — verify offline with direct SQL plus the verifier logic, and record it. Do not widen the endpoint back to ADMIN to make verification convenient.
 
 **Metrics for alerting (v1.1.0):** `iam.security.rejected{reason=unauthorized,method}` (401) with per-minute aggregate rows in `security_rejection_stats.reason`: `missing_credentials`, `invalid_token`, `tenant_mismatch`, `missing_organization`, `unknown_organization`; plus `access_denied` for 403 (audited as `ACCESS_DENIED`).
+
+---
+
+## 14. TLS Termination (v1.1.0, 2026-11-16)
+
+HTTPS for the LAN deployment, terminated in the application itself (no reverse proxy). All statements verified live on 2026-11-16.
+
+**Design**
+- PKCS12 keystore issued by the internal **Osprey Internal CA** (`CN=Osprey Internal CA, O=Osprey Internal, C=ID`, 10-year CA valid until 2036). Server certificate: `CN=iam.osprey.service`, `O=Osprey Internal, C=ID`, SAN=`DNS:iam.osprey.service`, 825 days (2026-11-16 → 2029-02-18). Chain verified with `openssl verify -CAfile osprey-ca.crt` → OK.
+- Key material lives in `E:\prod\iam-deploy\certs\` (ACL: Boss-only, mirroring `secrets\`): `osprey-ca.key`, `osprey-ca.crt`, `iam.osprey.service.key`, `iam.osprey.service.crt`, `iam.osprey.service.p12`. `osprey-ca.crt` (public certificate) is distributed to clients that need to trust the CA; the key files are never copied off the host.
+- Tomcat serves HTTPS only on 9090. Plain HTTP requests return 400 (not servable). There is no HTTP→HTTPS redirect (no plain connector exists).
+- TLS config is injected via env vars from `secrets\.env` (gitignored, host-only) — **Spring canonical env-var names** (dashes removed): `SERVER_SSL_ENABLED`, `SERVER_SSL_KEYSTORE`, `SERVER_SSL_KEYSTORETYPE`, `SERVER_SSL_KEYALIAS`, `SERVER_SSL_KEYSTOREPASSWORD`. The keystore is mounted read-only at `/certs/iam.osprey.service.p12` in the container.
+- Rollback: remove the five `SERVER_SSL_*` lines from `.env`, remove the `certs` volume mount from `docker-compose.prod.yml`, recreate the container → service returns to HTTP v1.1.0 behavior. Backups for both files: `secrets\.env.bak-2026-11-16-pre-tls`, `app\docker-compose.prod.yml.bak-2026-11-16-pre-tls`.
+
+**Client requirements**
+- DNS: `iam.osprey.service` must resolve to `192.168.18.250`. **Action (Boss): add a DNS override / host record on the LAN gateway or DNS server (`192.168.18.250 -> iam.osprey.service`).** Until then, every client needs a `hosts` entry (`192.168.18.250 iam.osprey.service`) or `--resolve`-style pinning.
+- Trust: `osprey-ca.crt` must be imported into the client trust store once (Windows: open the `.crt` → Install → Local Machine → Trusted Root Certification Authorities; Java: `keytool -importcert`; curl: `--cacert osprey-ca.crt`).
+- **Windows schannel revocation caveat:** the internal CA publishes no CRL/CDP, so Windows schannel clients (e.g. `curl.exe` on Windows) fail with `schannel: the revocation status is unknown` unless invoked with `--ssl-revoke-best-effort` (or revocation checking disabled for this host). Browsers (Chrome/Edge) and API-to-API stacks with non-enforcing defaults (Java, .NET) are unaffected. Mitigation if this becomes a real problem: publish an internal CRL (CDP in a reissued cert + a small HTTP host for the CRL), or move TLS material/config to a managed reverse proxy.
+- CORS: `CORS_ALLOWED_ORIGINS` in `secrets\.env` still reflects browser origins — updated client origins must use `https://iam.osprey.service:9090`; verify CORS after client migration.
+
+**Operational notes**
+- Cert expiry: server cert 2029-02-18, CA 2036. Calendar a renewal before expiry; renewal = issue CSR from existing key or new key, sign with CA, re-export PKCS12, update `SERVER_SSL_KEYSTOREPASSWORD`, recreate container (same procedure as 2026-11-16).
+- `/actuator/prometheus` is unchanged: served over HTTPS now, still `permitAll` (see §9 SEC-02).
+- `/v3/api-docs` remains 404 (Swagger disabled in prod).

@@ -6,8 +6,8 @@ info:
 servers:
   - url: http://localhost:8080/v1
     description: Development (dev profile)
-  - url: http://localhost:9090/v1
-    description: Production (prod profile)
+  - url: https://iam.osprey.service:9090/v1
+    description: Production (prod profile, TLS — internal Osprey CA, see docs/07-DEPLOYMENT.md)
 tags:
   - name: auth
     description: Authentication, token refresh, logout, and device session management

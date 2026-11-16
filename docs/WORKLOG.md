@@ -4,33 +4,34 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** v1.1.0 deployed to LAN host + rollback exercised (2026-11-16); docs re-audited (07-DEPLOYMENT §6/§9/§12.7)
-- **Next Active Stage:** Stage 7 close-out — Boss attestation for remaining §6 items; then A- re-audit (§12.4); v1.1.0 soak in prod
+- **Last Completed Stage:** v1.1.0 + TLS closed §6 HTTPS; grade **A-** claimed per §12.4 evidence (2026-11-16)
+- **Next Active Stage:** Stage 7 close-out Boss attestation; soak v1.1.0 in prod; A/A+ blocked by accepted residuals; router DNS override + client CA import pending Boss
 - **Active Skill to Load:** `senior-security-engineer`
-- **Last Updated:** 2026-11-16 11:00
+- **Last Updated:** 2026-11-16 11:45
 
 ## 1. Key Decisions & Locked Artifacts
-- **417e266 pushed to main 2026-11-16; CI green** (CI + restore drill both success on the SHA).
-- **Deploy executed 2026-11-16 (Boss present):** `iam-service:1.1.0` built on host; prod compose tag 1.0.1→1.1.0; Flyway V12 auto-applied ("now at version v12"); app recreated; smoke 200 (health UP, login, /v1/auth/sessions, /v1/audit-logs/verify valid=true 8 entries).
-- **Rollback exercised:** 1.1.0 → `iam-service:1.0.1` redeploy (health UP, login 200) → back to `1.1.0` (health UP, verify 200). Compose currently at `1.1.0`.
-- **Pre-deploy backup:** `backup-v1.1.0-pre-deploy.dump` (SHA-256 `716ed58b70612eb173a60f1bd7640515c257cf0bb35be6e1307d49930636015d`), 102 TOC entries, custom format — verified listed.
-- **OPS account created** (username `ops`, password chosen by Boss out-of-band); V12 seeded role OPS; user assigned OPS (verified: `ops | OPS`). Verify endpoint now usable by operator only; ADMIN/AUDITOR → 403.
-- **v1.1.0 scope shipped:** ADR-0019 token↔tenant binding; `token_type=access` enforced; verify=OPS; rejection-stats retention global; ThreadLocal fix; unified ErrorResponse for header 401s; mvn verify 310/310; cspell 0.
-- **SEC-01 accepted by Boss (internal LAN):** DB `0.0.0.0:5433` stays published; closure = unify Docker networks when going public (B1). **SEC-02 verified live:** `/actuator/prometheus` anonymous 200 OK ~50KB; accepted (internal LAN); doc in §9.
+- **v1.1.0 (`417e266`) deployed + rollback proven 2026-11-16.** CI+drill green; backup verified; Flyway V12 auto-applied; 1.1.0→1.0.1→1.1.0 smoke UP. OPS account `ops` created (Boss cred); verify OK.
+- **§6 fully checked 2026-11-16** — Boss ticked all boxes manually earlier; HTTPS box closed today with real TLS (in-app, internal CA "Osprey Internal CA", server cert CN `iam.osprey.service`, SAN DNS, 2026-11-16→2029-02-18, chain verify OK). Plain HTTP no longer served (400).
+- **§12.4 item 7 met → grade A-** (honest position §12.7). A/A+ still blocked by accepted residuals §9: SEC-01 (DB 5433 open to LAN), SEC-02 (anonymous /actuator/prometheus over TLS, accepted).
+- **HTTP(S) design:** no reverse proxy; Spring canonical env var names (dashes removed): `SERVER_SSL_ENABLED|KEYSTORE|KEYSTORETYPE|KEYALIAS|KEYSTOREPASSWORD`; keystore PKCS12 at host `E:\prod\iam-deploy\certs\` (ACL firma-only), mounted read-only `/certs`; env from `secrets\.env` (not in repo).
+- **Client requirements:** router DNS override `192.168.18.250 → iam.osprey.service` (Boss action, pending); import `osprey-ca.crt` once per client; Windows schannel needs `--ssl-revoke-best-effort` (internal CA has no CRL/CDP) — documented in §14.
+- Revocation caveat + alternatives (host CRL via reverse proxy) documented for future.
 
 ## 2. Open Items / Next
 | Item | Owner | Note |
 |------|-------|------|
-| HTTPS §6 box unchecked (Boss, strict option A) | Boss | plain HTTP on LAN; TLS termination or accepted-residual ruling required for A- |
-| A- claimable? — NO: §12.4 item 7 blocked solely by the HTTPS box | Boss + `sec` | all other §6 items ticked manually by Boss 2026-11-16 |
-| Soak v1.1.0 in prod (days) before any grading claim | Boss | no load test was run |
-| Docs re-audit changes uncommitted (07-DEPLOYMENT §6/§12.7, WORKLOG) | Boss | commit pending decision |
+| Router DNS override `iam.osprey.service` → 192.168.18.250 | Boss | gateway/DNS server; until set, clients need hosts entry |
+| Import `osprey-ca.crt` in all client trust stores (browser + API); verify CORS origin uses https | Boss/client | required before browser clients work |
+| Push docs commit (04-API-SPEC, .env.example, 07-DEPLOYMENT, WORKLOG, LL-011/012) | Boss | 3 commits pending decision |
+| Soak v1.1.0 days; no load test ever run | Boss | gates any A claim |
+| A/A+ closure paths (SEC-01 B1 unify networks; SEC-02 auth/firewall prometheus; CRL host; pen-test) | Boss | decisions, no date |
 
 ## 3. Exact Next Action (Start Here in New Session)
-1. Boss attests remaining §6 items (or accepts them as unchecked); `sec` updates `07-DEPLOYMENT.md` §6 + §12.7 honestly.
-2. Commit docs re-audit changes (CHANGELOG untouched; already covers v1.1.0).
-3. Re-audit vs §12.4 items 5-7; if green → A- claimable with evidence in WORKLOG.
+1. Boss adds DNS override + imports CA in client trust stores; smoke from a non-host client (browser JS login).
+2. Boss decides push of docs commits; if green re-audit needed, sec re-checks §12.
+3. Watch v1.1.0 prod stability (verify/409/401 metrics, Flyway v12 clean).
 
 ## 4. Decision & Switch Log
-- [2026-11-16 | v1.1.0 deploy] Boss "lakuin ini" (full plan approved). Sequence: backup → build → deploy → smoke → rollback exercise (1.0.1) → redeploy 1.1.0. OPS account created with Boss credentials (never written to repo/docs). Reason: close A- items 5-6.
-- [2026-11-16 10:18] Backup `backup-v1.1.0-pre-deploy.dump` verified; [10:20] compose tag 1.1.0; Flyway V12 on prod (docker logs); [10:19] smoke UP/login200/verify200; [10:30] rollback 1.0.1 smoke UP; [10:31] redeploy 1.1.0 smoke UP + verify 200 (8 entries); [10:35] §6/§9/§12.7 updated honestly (grade stays B+; item 6 closed). [10:45] Boss ticked all section-6 boxes manually EXCEPT HTTPS (strict option A); A- NOT claimable; section 12.4 blocked solely by the HTTPS box; docs uncommitted pending Boss.
+- [2026-11-16 | v1.1.0 + TLS] Boss "lanjut: tutup kotak HTTPS"; decisions: internal CA + hostname `iam.osprey.service` + TLS in-app; HTTP-only considered impossible later; HTTPS implemented env-var-driven (no rebuild); setup verified live (health UP over HTTPS, sessions/verify 200; plain HTTP → 400).
+- [2026-11-16 12:00] Boss finished pending: DNS override live (Resolve-DnsName OK -> 192.168.18.250), CA imported to Windows Machine Root store (Chrome/Edge/.NET-on-Windows covered); Firefox & Java need their own stores (B2/B-Firefox). Verified: HTTPS health UP without --resolve; CORS preflight+simple: same-origin = no ACAO (by design, Origin==Host), cross-origin allowed -> ACAO present, disallowed -> 403. Container recreated with new CORS_ALLOWED_ORIGINS (https origin). Docs uncommitted.
+- [2026-11-16 11:40] Spring env-var canonical mapping trap fixed (`KEY_STORE` → `KEYSTORE` after UnrecoverableKeyException); CSRF/cert chain verified; schannel revocation caveat recorded; grade B+ → **A-** with full §12.4 evidence.
