@@ -5,34 +5,34 @@
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
 - **Last Completed Stage:** Stage 7B pentest (2026-11-16, isolated throwaway env): 0 confirmed Medium+ findings; docs/10-PENTEST.md created; prod untouched
-- **Next Active Stage:** Stage 7 close-out Boss attestation; soak v1.1.0 in prod; A/A+ blocked by accepted residuals; router DNS override + client CA import pending Boss
+- **Next Active Stage:** Stage 7 close-out Boss attestation; soak v1.1.0 in prod; A/A+ blocked by accepted residuals (SEC-01 DB 5433 LAN, SEC-02 prometheus anon)
 - **Active Skill to Load:** `senior-security-engineer`
-- **Last Updated:** 2026-11-16 11:45
+- **Last Updated:** 2026-11-16 (cloud roadmap + OPS procedure)
 
 ## 1. Key Decisions & Locked Artifacts
-- **v1.1.0 (`417e266`) deployed + rollback proven 2026-11-16.** CI+drill green; backup verified; Flyway V12 auto-applied; 1.1.0→1.0.1→1.1.0 smoke UP. OPS account `ops` created (Boss cred); verify OK.
-- **§6 fully checked 2026-11-16** — Boss ticked all boxes manually earlier; HTTPS box closed today with real TLS (in-app, internal CA "Osprey Internal CA", server cert CN `iam.osprey.service`, SAN DNS, 2026-11-16→2029-02-18, chain verify OK). Plain HTTP no longer served (400).
-- **§12.4 item 7 met → grade A-** (honest position §12.7). A/A+ still blocked by accepted residuals §9: SEC-01 (DB 5433 open to LAN), SEC-02 (anonymous /actuator/prometheus over TLS, accepted).
-- **HTTP(S) design:** no reverse proxy; Spring canonical env var names (dashes removed): `SERVER_SSL_ENABLED|KEYSTORE|KEYSTORETYPE|KEYALIAS|KEYSTOREPASSWORD`; keystore PKCS12 at host `E:\prod\iam-deploy\certs\` (ACL firma-only), mounted read-only `/certs`; env from `secrets\.env` (not in repo).
-- **Client requirements:** router DNS override `192.168.18.250 → iam.osprey.service` (Boss action, pending); import `osprey-ca.crt` once per client; Windows schannel needs `--ssl-revoke-best-effort` (internal CA has no CRL/CDP) — documented in §14.
-- Revocation caveat + alternatives (host CRL via reverse proxy) documented for future.
+- **v1.1.0 (`417e266`) deployed + rollback proven 2026-11-16.** CI+drill green; Flyway V12 auto-applied; OPS account `ops` created (Boss cred). HTTPS live (internal CA, `iam.osprey.service`); plain HTTP → 400. Grade **A-** (§12.4 item 7). DNS override + CA import to Windows Machine Root done 2026-11-16 (verify/sessions/CORS OK).
+- **2026-11-16 cloud roadmap (ba+sa, documentation only, no code):** cloud = shared multi-tenant SaaS, still **exploration, no concrete tenant**. Locked: (1) one codebase, config-driven (on-prem+cloud, ADR-0018 artifact rule); (2) Phase 1 onboarding = **admin-provisioned by OPS team** (not one person, Tafsir A: OPS global per deployment, never per tenant; on-prem via DBA SQL); (3) first tenant ADMIN bootstrapped **via endpoint post-tenant-creation** — not manual SQL (ADR-0020, built only when trigger: concrete tenant/go decision); (4) roles stay **global** — NO per-tenant custom roles; tenant app permissions self-managed by tenant apps (ADR-0021); (5) self-registration = Phase 2, gated (≥1 real tenant/customer asks); (6) email absent → known limitation (password reset admin-only); (7) public cloud exposure **requires WAF** (plan: Cloudflare; final vendor at first real deployment); (8) CORS same-origin. Docs: `01-PRD.md` §1/§4/§7, `adr/0020`, `adr/0021`; check-id & check-bahasa PASS.
+- **Roles locked:** `ADMIN`, `AUDITOR`, `USER`, `MANAGER` (tenant-assignable, tenant-scoped), `OPS` (global, deployment-operator only).
+- **Uncommitted:** docs changes for cloud roadmap + earlier pending docs commits (Boss push decision).
 
 ## 2. Open Items / Next
 | Item | Owner | Note |
 |------|-------|------|
-| Router DNS override `iam.osprey.service` → 192.168.18.250 | Boss | gateway/DNS server; until set, clients need hosts entry |
-| Import `osprey-ca.crt` in all client trust stores (browser + API); verify CORS origin uses https | Boss/client | required before browser clients work |
-| Push docs commit (04-API-SPEC, .env.example, 07-DEPLOYMENT, WORKLOG, LL-011/012) | Boss | 3 commits pending decision |
+| Push docs: `01-PRD`, `adr/0020`, `adr/0021`, `WORKLOG` | Boss | git status; earlier pending commits too |
 | Soak v1.1.0 days; no load test ever run | Boss | gates any A claim |
-| A/A+ closure paths (SEC-01 B1 unify networks; SEC-02 auth/firewall prometheus; CRL host; pen-test) | Boss | decisions, no date |
+| A/A+ closure paths (SEC-01, SEC-02, CRL host, pen-test) | Boss | decisions, no date |
+| OPS handover procedure → `07-DEPLOYMENT.md` §13 (§13.1 added 2026-11-16, sec) | Boss | DONE; PRD §7 item answered — needs BA to close checkbox next BA session |
+| Cloud: build Phase 1 tooling (ADR-0020) only on concrete tenant/go | Boss | PRD §7 terbuka; WAF final at deployment |
 
 ## 3. Exact Next Action (Start Here in New Session)
-1. Boss adds DNS override + imports CA in client trust stores; smoke from a non-host client (browser JS login).
-2. Boss decides push of docs commits; if green re-audit needed, sec re-checks §12.
-3. Watch v1.1.0 prod stability (verify/409/401 metrics, Flyway v12 clean).
+1. Boss pushes docs commits (`git add docs/01-PRD.md docs/adr/0020-*.md docs/adr/0021-*.md docs/WORKLOG.md`).
+2. Boss answers: add OPS handover procedure to `07-DEPLOYMENT.md` §13? (PRD §7).
+3. Stage 7 close-out: Boss attestation; watch soak; re-audit only if sec needed.
+4. Cloud stays documentation-only until a concrete tenant appears.
 
 ## 4. Decision & Switch Log
-- [2026-11-16 | v1.1.0 + TLS] Boss "lanjut: tutup kotak HTTPS"; decisions: internal CA + hostname `iam.osprey.service` + TLS in-app; HTTP-only considered impossible later; HTTPS implemented env-var-driven (no rebuild); setup verified live (health UP over HTTPS, sessions/verify 200; plain HTTP → 400).
-- [2026-11-16 15:10] PRD synced to v1.1.0 (sa→ba): added §3.10 security hardening, v1.1.0 ACs, honest §6/§7; check-id & check-bahasa PASS; Boss directive: every future switch to senior-business-analyst requires explicit Boss confirmation first.
-- [2026-11-16 12:00] Boss finished pending: DNS override live (Resolve-DnsName OK -> 192.168.18.250), CA imported to Windows Machine Root store (Chrome/Edge/.NET-on-Windows covered); Firefox & Java need their own stores (B2/B-Firefox). Verified: HTTPS health UP without --resolve; CORS preflight+simple: same-origin = no ACAO (by design, Origin==Host), cross-origin allowed -> ACAO present, disallowed -> 403. Container recreated with new CORS_ALLOWED_ORIGINS (https origin). Docs uncommitted.
-- [2026-11-16 11:40] Spring env-var canonical mapping trap fixed (`KEY_STORE` → `KEYSTORE` after UnrecoverableKeyException); CSRF/cert chain verified; schannel revocation caveat recorded; grade B+ → **A-** with full §12.4 evidence.
+- [2026-11-16 OPS procedure] sec switch; `07-DEPLOYMENT.md` §13.1 added: personal accounts, four-eyes grant, immediate revoke triggers, quarterly review (default), logging rules; org-specific names deliberately left as Boss open items. PRD §7 "OPS handover → §13?" answered YES.
+- [2026-11-16 cloud] ba↔sa switches for dual analysis; Boss approved execution of "pencatatan (1–4)". Decisions (b) custom roles: understood B1 permission-catalog design, then ruled EXISTING model kept (tenant apps self-manage). Trigger-based build, not now.
+- [2026-11-16 12:00] DNS override live; CA imported Windows Machine Root; CORS verified (same-origin no ACAO by design; cross-origin allowlist OK; disallowed 403).
+- [2026-11-16 11:40] Spring env-var canonical mapping fix; grade B+ → A- with §12.4 evidence.
+- [2026-11-16 15:10 (prev)] PRD synced to v1.1.0 (sa→ba); Boss directive: BA switch needs explicit Boss confirmation.

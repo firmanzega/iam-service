@@ -312,6 +312,52 @@ The dedicated account is the intended shape: OPS can read the cross-tenant audit
 
 **Break-glass note:** if nobody holds OPS, audit verification from outside the database is impossible — verify offline with direct SQL plus the verifier logic, and record it. Do not widen the endpoint back to ADMIN to make verification convenient.
 
+### 13.1 OPS grant, revoke, and handover procedure (2026-11-16)
+
+Why this exists: OPS is the only role that can read the cross-tenant audit
+chain, so OPS membership must stay small, attributable, and reversible. These
+rules apply to every environment (on-premise and cloud); on-prem grants are
+executed by the DBA, cloud grants by the OPS operator team.
+
+**Principles**
+
+- One personal OPS account per operator. No shared accounts, no reuse of tenant ADMIN accounts.
+- OPS is break-glass, not a daily-driver: it is used for audit verification and emergency operations, not for routine work.
+- Every grant, revoke, and handover is an auditable event (see Logging).
+- Least privilege over convenience: when in doubt, do not grant.
+
+**Grant**
+
+1. Request in writing (deployment ticket or equivalent): who, which deployment, justification, expiry/review date.
+2. Approval by a second member of the operator team (four-eyes). The requestor must not approve their own grant.
+3. Verify the target account is dedicated to the operator and belongs to no organization (tenant `NULL`/unassigned per your bootstrap procedure; confirm with `SELECT tenant_id FROM users WHERE username = '<ops-username>'`).
+4. Execute the SQL in this section; then verify: login succeeds, and `GET /v1/audit-logs/verify` returns `200` with `valid=true`.
+5. Log the event (see Logging).
+
+**Revoke**
+
+Revoke immediately when any of these is true: the operator leaves the team or the company, the operator's role changes so OPS is no longer needed, or compromise/misuse is suspected (revocation never waits for investigation).
+
+1. `DELETE FROM user_roles WHERE user_id = (SELECT id FROM users WHERE username = '<ops-username>') AND role_id = (SELECT id FROM roles WHERE name = 'OPS');`
+2. Verify: the account now receives `403` on `GET /v1/audit-logs/verify`.
+3. Log the event (see Logging). Note the reason code: `offboarded`, `role_change`, `suspected_compromise`, or `no_longer_needed`.
+4. If `suspected_compromise`: also rotate any credential that operator held, and have another operator re-verify the audit chain for the exposure window.
+
+**Handover & periodic review**
+
+- On every operator departure: revoke the departing account (Revoke above) and grant the replacement before the departure is complete; never leave a deployment with zero OPS holders (see break-glass note).
+- Quarterly review (recommended default, adjust per org): list current holders with `SELECT u.username FROM users u JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.id = ur.role_id WHERE r.name = 'OPS';` and confirm each still needs access, still belongs to the operator team, and the account is still dedicated. Record the review result in the change log.
+- The review owner is the operator team lead; if unspecified, Boss holds this duty until delegated in writing.
+
+**Logging**
+
+Grant, revoke, and review events must record: date, environment, operator (subject), approver, action (`grant`/`revoke`/`review`), reason, and verification result. Where: the deployment change log (`CHANGELOG.md` entry or a deployment ticket) — not only verbal confirmation.
+
+**Open items for Boss**
+
+- Named members of the OPS operator team per deployment and the approver chain (four-eyes) — org-specific, not in this repo.
+- Whether the quarterly review cadence above is adopted as-is or adjusted.
+
 **Metrics for alerting (v1.1.0):** `iam.security.rejected{reason=unauthorized,method}` (401) with per-minute aggregate rows in `security_rejection_stats.reason`: `missing_credentials`, `invalid_token`, `tenant_mismatch`, `missing_organization`, `unknown_organization`; plus `access_denied` for 403 (audited as `ACCESS_DENIED`).
 
 ---
