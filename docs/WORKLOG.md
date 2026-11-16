@@ -4,7 +4,7 @@
 
 <!-- DO NOT REMOVE OR RENAME THESE 5 METADATA FIELDS -->
 - **Project Name:** iam-service
-- **Last Completed Stage:** v1.1.0 + TLS closed §6 HTTPS; grade **A-** claimed per §12.4 evidence (2026-11-16)
+- **Last Completed Stage:** Stage 7B pentest (2026-11-16, isolated throwaway env): 0 confirmed Medium+ findings; docs/10-PENTEST.md created; prod untouched
 - **Next Active Stage:** Stage 7 close-out Boss attestation; soak v1.1.0 in prod; A/A+ blocked by accepted residuals; router DNS override + client CA import pending Boss
 - **Active Skill to Load:** `senior-security-engineer`
 - **Last Updated:** 2026-11-16 11:45
