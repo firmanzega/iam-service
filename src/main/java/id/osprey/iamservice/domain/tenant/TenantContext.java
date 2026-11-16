@@ -11,7 +11,7 @@ package id.osprey.iamservice.domain.tenant;
  */
 public final class TenantContext {
 
-    private static final InheritableThreadLocal<Long> current = new InheritableThreadLocal<>();
+    private static final ThreadLocal<Long> current = new ThreadLocal<>();
 
     private TenantContext() {
     }

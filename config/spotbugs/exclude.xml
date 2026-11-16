@@ -73,6 +73,10 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
+        <Class name="id.osprey.iamservice.config.SecurityErrorWriter"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="id.osprey.iamservice.config.SecurityEventRecorder"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>

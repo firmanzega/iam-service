@@ -1,8 +1,8 @@
 openapi: 3.0.1
 info:
   title: IAM Service API
-  version: 1.0.0
-  description: Identity and Access Management service with JWT authentication, RBAC, audit trail, per-device sessions, 401 rejection aggregate, tenant isolation (X-Organization-ID), and structured logging (ADR-0016, ADR-0017, ADR-0018).
+  version: 1.1.0
+  description: Identity and Access Management service with JWT authentication, RBAC, audit trail, per-device sessions, 401 rejection aggregate, tenant isolation (X-Organization-ID), and structured logging (ADR-0016, ADR-0017, ADR-0018, ADR-0019). All authenticated tenant-aware endpoints reject a token whose tenant_id claim does not match the resolved X-Organization-ID tenant with 401 (ADR-0019).
 servers:
   - url: http://localhost:8080/v1
     description: Development (dev profile)
@@ -16,7 +16,7 @@ tags:
   - name: roles
     description: Role management (ADMIN)
   - name: audit
-    description: Audit logs and hash chain verification (ADMIN, AUDITOR)
+    description: Audit logs (ADMIN, AUDITOR) and hash chain verification (OPS only)
   - name: operational
     description: Actuator health and metrics
 paths:
@@ -830,11 +830,12 @@ paths:
       summary: Verify the audit hash chain
       operationId: verifyAuditChain
       description: |
-        ADMIN only. Recomputes the hash of every entry and checks the chain
+        OPS only. Recomputes the hash of every entry and checks the chain
         linkage. The chain itself is global by design (single chain across
         tenants), so verification covers all entries, not only the caller's
         tenant. Verifying broken entries reveals where tampering occurred;
-        therefore AUDITOR is not allowed.
+        therefore ADMIN and AUDITOR are not allowed — only deployments'
+        operational accounts holding the OPS role may call this endpoint.
       security:
         - bearerAuth: []
       parameters:
@@ -853,7 +854,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Role not sufficient (requires ADMIN)
+          description: Role not sufficient (requires OPS)
           content:
             application/json:
               schema:

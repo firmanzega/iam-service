@@ -71,7 +71,11 @@ public class SecurityRejectionStatsService {
     }
 
     /**
-     * Menghapus agregat yang sudah melewati masa retensi.
+     * Menghapus agregat yang sudah melewati masa retensi di seluruh tenant.
+     *
+     * Penjadwal berjalan tanpa konteks tenant, sehingga pemanggilan versi
+     * per-tenant akan selalu jatuh ke tenant default dan hanya membersihkan
+     * satu tenant. Pembersihan retensi harus menyeluruh.
      *
      * @param now       waktu acuan
      * @param retention lama agregat disimpan
@@ -79,6 +83,6 @@ public class SecurityRejectionStatsService {
      */
     @Transactional
     public long deleteOlderThan(Instant now, Duration retention) {
-        return repository.deleteOlderThan(currentTenantId(), now.minus(retention));
+        return repository.deleteOlderThan(now.minus(retention));
     }
 }

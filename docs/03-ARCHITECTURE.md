@@ -69,7 +69,8 @@ Dependency direction is enforced by `ArchitectureLayerTest`. No framework import
 
 - `adapter/rest/AuthController` — login, refresh, logout, sessions list, revoke session (requires `X-Organization-ID`)
 - `adapter/rest/WebMapper` — shared web-to-domain translator (actor ID, session ID, pagination, tenant ID)
-- `adapter/rest/TenantHeaderFilter` — extracts `X-Organization-ID`, delegates to `TenantResolver`
+- `adapter/rest/TenantHeaderFilter` - extracts `X-Organization-ID`, delegates to `TenantResolver`; runs BEFORE `BearerTokenAuthenticationFilter` (unified `ErrorResponse`; missing/unknown rejections recorded via `SecurityEventRecorder`)
+- `adapter/rest/TenantBindingFilter` - runs AFTER `BearerTokenAuthenticationFilter`; rejects an authenticated request with 401 when the JWT `tenant_id` claim differs from the resolved header tenant (ADR-0019). Exempt: `/v1/auth/login`, `/v1/auth/refresh`
 
 ### 3.5 Config
 
@@ -77,7 +78,7 @@ Dependency direction is enforced by `ArchitectureLayerTest`. No framework import
 - `config/RestAuthenticationEntryPoint` — 401 handling, reason classification, WARN log + metric
 - `config/RestAccessDeniedHandler` — 403 handling, audit `ACCESS_DENIED`, WARN log + metric
 - `config/SecurityEventRecorder` — records security events to log, metric, and audit
-- `config/JwtKeyRing` — key rotation with `kid`, current + previous key
+- `config/JwtKeyRing` - key rotation with `kid`, current + previous key; decoder enforces issuer, timestamps and `token_type=access` claim (rejects a refresh token used as Bearer)
 - `config/IamProperties` — all `iam.*` configuration properties
 - `config/SessionCleanupJob`, `config/RefreshTokenCleanupJob`, `config/SecurityRejectionStatsCleanupJob` — scheduled tasks (tenant-scoped)
 - `config/LoggingConfig` — Logback appenders, MDC pattern, structured output
@@ -123,7 +124,7 @@ by `WHERE tenant_id = :currentTenantId`.
 `UNIQUE(tenant_id, email)`. Login lookups match within the resolved tenant; a
 request without a known organization cannot authenticate.
 
-Role master rows (`ADMIN`, `AUDITOR`, `USER`) remain global (no `tenant_id`) to avoid
+Role master rows (`ADMIN`, `AUDITOR`, `USER`, `MANAGER`, `OPS`) remain global (no `tenant_id`) to avoid
 replication. Tenant-specific roles can be added later if required.
 
 ### 6.2 Diagram (C4 Level 2 — Container)
@@ -155,6 +156,7 @@ C4Container
   `401 Unauthorized` on every path (Boss ruling 2026-11-14, BUG-TENANT-001: reject,
   never fall back to `org-default`; unified to 401 on 2026-11-14). The missing-vs-unknown
   distinction is carried by the error body, not the status code.
+- **Token-vs-tenant binding (ADR-0019, 2026-11-16):** on every authenticated request except `/v1/auth/login` and `/v1/auth/refresh`, the JWT `tenant_id` claim must equal the resolved header tenant, otherwise 401 with `tenant_mismatch` recorded by `SecurityEventRecorder`. The claim has been issued since v1.0.x, so no token re-issue is required. Refresh remains anchored to the stored token tenant (ADR-0018 point 6) and is exempt from the binding.
 - Tenant-scoped identity means `admin` in `org-a` and `admin` in `org-b` are distinct
   accounts with distinct credential sets; a shared global username is not permitted.
 - Tenant A cannot access Tenant B data; enforced at repository layer, tested via integration tests
@@ -211,6 +213,8 @@ C4Container
 | Logging categories | 5 categories: errors, generals, integrations, timers, emails | Adopted (ADR-0017) |
 | Logging output | Self-managed stdout/file, structured | Adopted |
 | Tenant-scoped identity | `UNIQUE(tenant_id, username)` and `UNIQUE(tenant_id, email)`; required `X-Organization-ID` on `/v1/auth/login` + `/v1/auth/refresh` | Adopted (ADR-0018) |
+| Token-vs-tenant binding | JWT `tenant_id` claim must equal the resolved header tenant on all authenticated endpoints except login/refresh; 401 + `tenant_mismatch` on mismatch; `token_type=access` enforced by decoder | Adopted (ADR-0019, 2026-11-16) |
+| Audit verify role | `GET /v1/audit-logs/verify` restricted to the OPS role (V12 seeds it unassigned) | Adopted (2026-11-16) |
 
 ## 9. Known Limits
 

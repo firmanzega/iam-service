@@ -42,22 +42,22 @@ public class AuditController {
     }
 
     /**
-     * Memeriksa keutuhan rantai hash. Khusus ADMIN.
+     * Memeriksa keutuhan rantai hash. Khusus peran OPS.
      *
-     * Kenapa tidak dibuka untuk AUDITOR: hasil pemeriksaan memuat id entri
-     * yang rusak, dan itu adalah petunjuk langsung bagi siapa pun yang ingin
-     * menyembunyikan jejaknya. Cukup administrator yang melihat detail itu;
-     * pemantauan otomatis bisa memakai akun ADMIN khusus.
+     * Kenapa tidak dibuka untuk ADMIN atau AUDITOR: rantai audit bersifat
+     * global (lintas tenant), sehingga hasil verifikasi memuat id entri
+     * lintas-tenant. Peran OPS hanya dipegang akun operasional yang dibuat
+     * manual per deployment, bukan akun admin tenant mana pun.
      */
     @Operation(summary = "Periksa keutuhan rantai jejak audit",
             description = "Menghitung ulang hash setiap entri dan memeriksa keterkaitannya. "
-                    + "Hanya untuk peran ADMIN.")
+                    + "Hanya untuk peran OPS.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Pemeriksaan selesai, hasil ada pada body"),
             @ApiResponse(responseCode = "401", description = "Belum terautentikasi"),
             @ApiResponse(responseCode = "403", description = "Peran tidak cukup")
     })
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('OPS')")
     @GetMapping("/verify")
     public AuditChainVerificationResponse verifyChain() {
         return AuditChainVerificationResponse.from(auditService.verifyChain());

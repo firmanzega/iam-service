@@ -1,12 +1,16 @@
 package id.osprey.iamservice.adapter.rest;
 
 import id.osprey.iamservice.application.tenant.TenantResolver;
+import id.osprey.iamservice.config.SecurityErrorWriter;
+import id.osprey.iamservice.config.SecurityEventRecorder;
 import id.osprey.iamservice.domain.tenant.TenantContext;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
@@ -29,10 +33,18 @@ import java.io.IOException;
  * dipartisi per tenant (V9), dan tanpa header kueri dibatasi tenant null —
  * pemanggil menerima 200 dengan halaman kosong, bukan 401. Peran (role)
  * dikecualikan dengan sengaja karena role master bersifat global (V9).
+ *
+ * Penolakan di jalur ini tercatat pada metrik dan agregat penolakan
+ * (SecurityEventRecorder), sama seperti 401 dari entry point lain; tanpa
+ * pencatatan itu lonjakan penolakan lewat jalur header menjadi tidak
+ * terlihat di dashboard maupun di tabel agregat.
  */
 public class TenantHeaderFilter extends OncePerRequestFilter {
 
     private static final String HEADER_ORGANIZATION_ID = "X-Organization-ID";
+
+    private static final String MISSING_REASON = "missing_organization";
+    private static final String UNKNOWN_REASON = "unknown_organization";
 
     private static final String[] TENANT_REQUIRED_PATHS = {
             "/v1/auth/login",
@@ -47,24 +59,21 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
     };
 
     private final TenantResolver tenantResolver;
+    private final SecurityEventRecorder securityEventRecorder;
+    private final SecurityErrorWriter errorWriter;
 
-    public TenantHeaderFilter(TenantResolver tenantResolver) {
+    public TenantHeaderFilter(TenantResolver tenantResolver,
+                              SecurityEventRecorder securityEventRecorder,
+                              ObjectMapper objectMapper) {
         this.tenantResolver = tenantResolver;
+        this.securityEventRecorder = securityEventRecorder;
+        this.errorWriter = new SecurityErrorWriter(objectMapper);
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String path = request.getRequestURI();
-        if (path == null || path.isBlank()) {
-            // Under MockMvc the servlet path is empty and the actual path lives in
-            // the path info, so fall back to it instead of matching nothing.
-            path = request.getPathInfo();
-        }
-        String contextPath = request.getContextPath();
-        if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) {
-            path = path.substring(contextPath.length());
-        }
+        String path = normalizePath(request);
         String organizationId = request.getHeader(HEADER_ORGANIZATION_ID);
 
         boolean tenantRequired = matchesAny(path, TENANT_REQUIRED_PATHS);
@@ -73,13 +82,11 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
 
         if (resolution == TenantResolver.Resolution.MISSING) {
             if (tenantRequired) {
-                reject(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        "Missing X-Organization-ID header");
+                reject(request, response, MISSING_REASON, "Missing X-Organization-ID header");
                 return;
             }
         } else if (resolution == TenantResolver.Resolution.UNKNOWN) {
-            reject(response, HttpServletResponse.SC_UNAUTHORIZED,
-                    "Unknown organization");
+            reject(request, response, UNKNOWN_REASON, "Unknown organization");
             return;
         }
 
@@ -88,6 +95,20 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
         } finally {
             TenantContext.clear();
         }
+    }
+
+    private String normalizePath(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        if (path == null || path.isBlank()) {
+            // Under MockMvc the servlet path is empty and the actual path lives in
+            // the path info, so fall back to it instead of matching nothing.
+            path = request.getPathInfo();
+        }
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && path != null && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+        return path;
     }
 
     private boolean matchesAny(String path, String[] prefixes) {
@@ -102,9 +123,11 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
         return false;
     }
 
-    private void reject(HttpServletResponse response, int status, String message) throws IOException {
-        response.setContentType("application/json");
-        response.setStatus(status);
-        response.getWriter().write("{\"error\":\"" + message + "\"}");
+    private void reject(HttpServletRequest request,
+                        HttpServletResponse response,
+                        String reason,
+                        String message) throws IOException {
+        securityEventRecorder.recordUnauthorized(request, reason);
+        errorWriter.write(request, response, HttpStatus.UNAUTHORIZED, message);
     }
 }

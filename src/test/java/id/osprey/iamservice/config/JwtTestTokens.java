@@ -56,6 +56,10 @@ final class JwtTestTokens {
                 .claim("username", "pengguna-uji")
                 .claim("roles", List.of("USER"))
                 .claim("token_type", "access")
+                // Penerbit iam-service selalu menulis tenant_id sejak V9
+                // (kolom NOT NULL); token uji tanpa klaim ini akan ditolak
+                // oleh TenantBindingFilter (ADR-0019).
+                .claim("tenant_id", "1")
                 .build();
 
         JWSHeader.Builder header = new JWSHeader.Builder(JWSAlgorithm.HS256);

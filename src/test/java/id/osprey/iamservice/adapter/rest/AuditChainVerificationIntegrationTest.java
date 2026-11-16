@@ -93,6 +93,7 @@ class AuditChainVerificationIntegrationTest {
     private Long adminId;
     private String adminToken;
     private String auditorToken;
+    private String opsToken;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -102,9 +103,11 @@ class AuditChainVerificationIntegrationTest {
 
         adminId = createUser("admin", "ADMIN");
         createUser("auditor", "AUDITOR");
+        createUser("ops", "OPS");
 
         adminToken = login(PREFIX + "admin");
         auditorToken = login(PREFIX + "auditor");
+        opsToken = login(PREFIX + "ops");
     }
 
     @AfterEach
@@ -128,7 +131,7 @@ class AuditChainVerificationIntegrationTest {
         long total = countAuditLogs();
 
         mockMvc.perform(get("/v1/audit-logs/verify")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + opsToken)
                         .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(true))
@@ -147,7 +150,7 @@ class AuditChainVerificationIntegrationTest {
                 "diubah setelah hash dihitung", changedId);
 
         mockMvc.perform(get("/v1/audit-logs/verify")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + opsToken)
                         .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
@@ -167,7 +170,7 @@ class AuditChainVerificationIntegrationTest {
         // dilaporkan lebih dulu karena id-nya lebih kecil daripada akibat
         // lanjutan berupa entri yang tidak bisa dicapai dari awal rantai.
         mockMvc.perform(get("/v1/audit-logs/verify")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + opsToken)
                         .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
@@ -181,6 +184,16 @@ class AuditChainVerificationIntegrationTest {
 
         mockMvc.perform(get("/v1/audit-logs/verify")
                         .header("Authorization", "Bearer " + auditorToken)
+                        .header("X-Organization-ID", "org-default"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void admin_isNotAllowedToVerifyChain() throws Exception {
+        insertLog("VERIFY_ADMIN_FORBIDDEN");
+
+        mockMvc.perform(get("/v1/audit-logs/verify")
+                        .header("Authorization", "Bearer " + adminToken)
                         .header("X-Organization-ID", "org-default"))
                 .andExpect(status().isForbidden());
     }

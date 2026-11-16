@@ -37,7 +37,6 @@ import java.util.UUID;
 public class JwtTokenService implements TokenIssuer {
 
     private static final String ROLE_CLAIM = "roles";
-    private static final String TOKEN_TYPE_CLAIM = "token_type";
 
     private final JwtEncoder jwtEncoder;
     private final JwtKeyRing keyRing;
@@ -69,7 +68,7 @@ public class JwtTokenService implements TokenIssuer {
                 .expiresAt(expiresAt)
                 .claim("username", user.getUsername())
                 .claim(ROLE_CLAIM, roleNames(user))
-                .claim(TOKEN_TYPE_CLAIM, "access")
+                .claim(TokenClaims.TOKEN_TYPE, "access")
                 .id(UUID.randomUUID().toString());
 
         // Token lama tanpa sesi tetap harus bisa terbit, misalnya saat
@@ -114,7 +113,7 @@ public class JwtTokenService implements TokenIssuer {
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .id(UUID.randomUUID().toString())
-                .claim(TOKEN_TYPE_CLAIM, "refresh");
+                .claim(TokenClaims.TOKEN_TYPE, "refresh");
 
         if (sessionId != null) {
             claims.claim(TokenClaims.SESSION_ID, sessionId.toString());

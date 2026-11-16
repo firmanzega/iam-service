@@ -302,12 +302,13 @@ terbit tetap berlaku sampai kedaluwarsa, paling lama 15 menit.
 | Method | Path | Akses | Keterangan |
 |---|---|---|---|
 | GET | `/v1/audit-logs` | ADMIN, AUDITOR | Riwayat perubahan penting |
-| GET | `/v1/audit-logs/verify` | ADMIN | Periksa keutuhan rantai hash jejak audit |
+| GET | `/v1/audit-logs/verify` | OPS | Periksa keutuhan rantai hash jejak audit |
 
 Setiap baris audit mengikat dirinya ke baris sebelumnya lewat hash. Endpoint
 `verify` menghitung ulang seluruh hash dan melaporkan entri rusak pertama
-beserta alasannya. Hasilnya hanya untuk ADMIN, karena id entri yang rusak adalah
-petunjuk langsung bagi siapa pun yang ingin menyembunyikan jejaknya.
+beserta alasannya. Hasilnya hanya untuk OPS (akun operasional per deployment,
+bukan akun admin tenant), karena id entri yang rusak
+adalah petunjuk langsung bagi siapa pun yang ingin menyembunyikan jejaknya.
 
 Penolakan 401 tidak masuk jejak audit, karena permintaan tanpa kredensial bisa
 dikirim siapa saja tanpa identitas. Yang tersedia untuk 401 adalah log WARN,
@@ -553,5 +554,6 @@ Ringkasnya:
 | [0011](docs/adr/0011-deteksi-pemakaian-ulang-token-refresh.md) | Deteksi pemakaian ulang token refresh |
 | [0012](docs/adr/0012-database-pengujian-terisolasi-dengan-testcontainers.md) | Database pengujian terisolasi dengan Testcontainers |
 | [0013](docs/adr/0013-observability-penolakan-dan-tracing.md) | Observability penolakan akses dan tracing |
+| [0019](docs/adr/0019-bind-jwt-tenant-claim-to-resolved-tenant.md) | Binding klaim tenant_id JWT ke tenant hasil resolusi header |
 
 Panduan deployment ada di [`docs/deployment.md`](docs/deployment.md).

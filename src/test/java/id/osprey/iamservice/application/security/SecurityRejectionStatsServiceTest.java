@@ -57,17 +57,17 @@ class SecurityRejectionStatsServiceTest {
     }
 
     @Test
-    void deleteOlderThan_subtractsRetention() {
+    void deleteOlderThan_usesGlobalCutoffAcrossTenants() {
         SecurityRejectionStatsService service = new SecurityRejectionStatsService(repository, tenantRepository);
         Instant now = Instant.parse("2026-01-31T10:00:00Z");
         Duration retention = Duration.ofDays(30);
 
-        when(repository.deleteOlderThan(1L, now.minus(retention))).thenReturn(5L);
+        when(repository.deleteOlderThan(now.minus(retention))).thenReturn(5L);
 
         long deleted = service.deleteOlderThan(now, retention);
 
         assertEquals(5L, deleted);
-        verify(repository).deleteOlderThan(1L, now.minus(retention));
+        verify(repository).deleteOlderThan(now.minus(retention));
     }
 
     @Test

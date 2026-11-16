@@ -12,18 +12,18 @@ import java.io.IOException;
  * Menulis penolakan keamanan memakai bentuk JSON yang sama dengan
  * GlobalExceptionHandler, supaya klien hanya perlu memahami satu format error.
  */
-final class SecurityErrorWriter {
+public final class SecurityErrorWriter {
 
     private final ObjectMapper objectMapper;
 
-    SecurityErrorWriter(ObjectMapper objectMapper) {
+    public SecurityErrorWriter(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
-    void write(HttpServletRequest request,
-               HttpServletResponse response,
-               HttpStatus status,
-               String message) throws IOException {
+    public void write(HttpServletRequest request,
+                      HttpServletResponse response,
+                      HttpStatus status,
+                      String message) throws IOException {
 
         ErrorResponse body = ErrorResponse.of(status, message, request.getRequestURI(), null);
 

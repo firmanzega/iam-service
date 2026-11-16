@@ -94,20 +94,29 @@ class UserConcurrencyTest {
         for (int i = 0; i < threads; i++) {
             String email = "new" + i + "_" + suffix + "@mail.com";
             futures.add(pool.submit(() -> {
-                ready.countDown();
-                start.await();                       // semua thread menunggu aba-aba
+                // Konteks tenant tidak lagi diwariskan ke child thread
+                // (InheritableThreadLocal -> ThreadLocal), jadi worker wajib
+                // menyetelnya sendiri seperti yang dilakukan filter di setiap
+                // request HTTP.
+                TenantContext.setTenantId(1L);
                 try {
-                    userService.patch(id, null, email, version, null);
-                    success.incrementAndGet();
-                    log.debug("{} -> SUKSES", Thread.currentThread().getName());
-                } catch (DomainException ex) {
-                    if (ex.getReason() != DomainException.Reason.CONCURRENT_MODIFICATION) {
-                        throw ex;
+                    ready.countDown();
+                    start.await();                       // semua thread menunggu aba-aba
+                    try {
+                        userService.patch(id, null, email, version, null);
+                        success.incrementAndGet();
+                        log.debug("{} -> SUKSES", Thread.currentThread().getName());
+                    } catch (DomainException ex) {
+                        if (ex.getReason() != DomainException.Reason.CONCURRENT_MODIFICATION) {
+                            throw ex;
+                        }
+                        conflict.incrementAndGet();
+                        log.debug("{} -> KONFLIK: {}", Thread.currentThread().getName(), ex.getReason());
                     }
-                    conflict.incrementAndGet();
-                    log.debug("{} -> KONFLIK: {}", Thread.currentThread().getName(), ex.getReason());
+                    return null;
+                } finally {
+                    TenantContext.clear();
                 }
-                return null;
             }));
         }
 

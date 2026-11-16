@@ -99,7 +99,7 @@ class TenantIsolationIntegrationTest {
         mockMvc.perform(get("/v1/auth/sessions")
                         .header("Authorization", "Bearer " + tokens.accessToken()))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error", org.hamcrest.Matchers.containsString("X-Organization-ID")));
+                .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("X-Organization-ID")));
     }
 
     @Test
@@ -185,7 +185,7 @@ class TenantIsolationIntegrationTest {
         mockMvc.perform(get("/v1/audit-logs")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error", org.hamcrest.Matchers.containsString("X-Organization-ID")));
+                .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("X-Organization-ID")));
     }
 
     @Test
@@ -195,7 +195,7 @@ class TenantIsolationIntegrationTest {
         mockMvc.perform(get("/v1/audit-logs/verify")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error", org.hamcrest.Matchers.containsString("X-Organization-ID")));
+                .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("X-Organization-ID")));
     }
 
     @Test

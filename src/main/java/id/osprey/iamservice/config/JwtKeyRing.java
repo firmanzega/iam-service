@@ -12,6 +12,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -174,9 +176,12 @@ public final class JwtKeyRing {
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
 
-        // Validasi penerbit mencegah token yang diterbitkan sistem lain
-        // diterima di sini, meskipun tanda tangannya sah.
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(issuer));
+        // Selain penerbit dan masa berlaku, decoder menolak token selain
+        // access token. Refresh token yang berlaku 7 hari tidak boleh lolos
+        // sebagai Bearer credential ke endpoint terautentikasi.
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                JwtValidators.createDefaultWithIssuer(issuer),
+                new JwtClaimValidator<String>(TokenClaims.TOKEN_TYPE, "access"::equals)));
         return decoder;
     }
 

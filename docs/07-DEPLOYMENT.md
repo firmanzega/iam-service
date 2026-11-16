@@ -158,6 +158,8 @@ Full audit across the repository (OWASP Top 10, IDOR, secret leakage, dependenci
 
 | Risk | Acceptance reason |
 |--------|-----------------|
+| SEC-01: database port `5433` published on all host interfaces (`0.0.0.0:5433->5432`), reachable from the LAN; host firewall has no deny rule (Docker Desktop Backend rule allows Any/Any on Public profile). Postgres `pg_hba` offers password-only auth to the world on that port | Accepted 2026-11-16 by Boss: deployment is internal-only, not public; app and DB share the host. Closure plan when going public/cloud: unify app+db on one Docker network and stop publishing 5433 (see WORKLOG SEC-01). Minimum interim control: strong, unique `POSTGRES_PASSWORD` |
+| SEC-02: `/actuator/prometheus` exposed without token (`permitAll`) on `192.168.18.250:9090`, reachable on the LAN | Accepted 2026-11-16 by Boss (Option 1 of v1.1.0 scope): LAN-internal, must not be routed to public networks; OIDC/basic-auth options rejected as overkill for a single host. Closure plan: restrict scraper source IP via Windows Firewall rule or reverse proxy with auth |
 | Access token cannot be revoked instantly | Maximum 15-minute window; direct access token revocation requires a central revocation list that does not exist yet |
 | Rate limiter per instance | Gateway mitigation; per-account account lock still works |
 | 401 does not trace the actor | Requests without credentials can be sent by anyone; flood to audit_logs is riskier |
@@ -280,3 +282,25 @@ All A criteria, plus explicit closure of the Section 9 accepted residuals:
 Current grade: **B+**. Re-audit 2026-11-14 (verified): `mvn clean verify` BUILD SUCCESS 303/303; cspell repo-wide 0 issues (225 files); Git tag `v1.0.0` = `577187f` unchanged; Dockerfile, CI workflows, migrations, prod/dev config, and `scripts/` unchanged since the tag; secret scan clean; API-SPEC covers all 16 paths / 20 operations (matches controllers); dead code `WebMapper.tenantId` removed (`d28f832`); BUG-TENANT-005 fixed (`c18f14a`). zero-open and merged after green CI (2026-11-14, `2e599f3`); Boss enabled Dependency graph (Option A); dependency-review green on all four PRs.
 
 A- is NOT claimable yet. Remaining: (1) go-live executed per Section 6, (2) deploy AND rollback exercised, (3) Section 6 fully checked + this file re-audited post-deploy; (4) verify on the deployed SHA. A and A+ each require explicit Boss decisions (infrastructure spend, privacy trade-offs, re-opening accepted residual risks). Any higher grade claim without this file's criteria met with evidence is invalid. Note: A- is unreachable WITHOUT going live first (Section 12.4 item 5+), so deferring go-live "until A-" is circular.
+
+---
+
+## 13. OPS Role Operations (v1.1.0)
+
+`GET /v1/audit-logs/verify` is restricted to the global `OPS` role (seeded by migration V12, deliberately assigned to no user). Tenant ADMIN/AUDITOR tokens receive 403.
+
+**Create (or rotate) an OPS user.** Run inside the database container or via a PostgreSQL client on the host. Prefer a dedicated OPS account owned by the operator, not a reuse of any tenant admin account:
+
+```sql
+-- assign the OPS role to an existing user
+INSERT INTO user_roles (user_id, role_id)
+SELECT id, (SELECT id FROM roles WHERE name = 'OPS')
+FROM users WHERE username = '<ops-username>'
+ON CONFLICT DO NOTHING;
+```
+
+The dedicated account is the intended shape: OPS can read the cross-tenant audit chain, so it must not belong to any organization. Log every OPS grant/revoke in the change log (`CHANGELOG.md` or a deployment ticket).
+
+**Break-glass note:** if nobody holds OPS, audit verification from outside the database is impossible — verify offline with direct SQL plus the verifier logic, and record it. Do not widen the endpoint back to ADMIN to make verification convenient.
+
+**Metrics for alerting (v1.1.0):** `iam.security.rejected{reason=unauthorized,method}` (401) with per-minute aggregate rows in `security_rejection_stats.reason`: `missing_credentials`, `invalid_token`, `tenant_mismatch`, `missing_organization`, `unknown_organization`; plus `access_denied` for 403 (audited as `ACCESS_DENIED`).

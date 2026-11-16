@@ -7,6 +7,30 @@ dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
 
 ---
 
+## [1.1.0] - 2026-11-16
+
+Rilis hardening keamanan hasil analisis arsitektur pasca-go-live. Memuat **perubahan otorisasi** (verify pindah dari ADMIN ke OPS) dan kontrak penolakan baru; tidak ada perubahan kolom, hanya seed role (V12).
+
+**Perhatian — perubahan perilaku:** klien yang memakai `GET /v1/audit-logs/verify` dengan token ADMIN akan menerima 403. Verifikasi rantai audit kini hanya untuk akun operasional dengan peran OPS.
+
+### Keamanan
+- **Token↔tenant binding (ADR-0019):** pada semua endpoint terautentikasi kecuali `/v1/auth/login` dan `/v1/auth/refresh`, klaim `tenant_id` access token harus sama dengan tenant hasil resolusi header `X-Organization-ID`; selain itu **401 Unauthorized** dengan alasan `tenant_mismatch` (tercatat di log WARN, metrik, dan agregat per-menit). Token diterbitkan sejak v1.0.x selalu membawa klaim, jadi tidak perlu re-issue token.
+- **Penegakan `token_type` di decoder:** refresh token (TTL 7 hari) tidak lagi bisa dipakai sebagai Bearer credential ke endpoint terautentikasi.
+- **`GET /v1/audit-logs/verify` kini terbatas peran OPS** (V12 seed role `OPS`, tidak diberikan ke user mana pun otomatis). Rantai audit bersifat global; hasil verifikasi memuat metadata lintas-tenant, sehingga akun operasional per-deployment memegangnya — ADMIN/AUDITOR tenant tidak.
+- **`TenantHeaderFilter` mencatat penolakan** (missing/unknown organisasi) ke log WARN, metrik `iam.security.rejected`, dan agregat per-menit; body error memakai `ErrorResponse` (sebelumnya bentuk `{"error": "..."}` yang menyimpang).
+- **Konteks tenant tidak lagi diwariskan ke child thread** (`InheritableThreadLocal` → `ThreadLocal`) agar konteks tidak bocor lewat thread pool.
+
+### Diperbaiki
+- Pembersihan agregat penolakan 401 hanya menyentuh baris `org-default` (fallback konteks penjadwal); kini retensi menyeluruh untuk seluruh tenant lewat `deleteOlderThan(cutoff)` global.
+
+### Migrasi
+- V12 seed role `OPS`. Tidak ada perubahan kolom atau constraint. Untuk mengaktifkan verify: buat akun operasional dan beri peran OPS lewat SQL (lihat `docs/07-DEPLOYMENT.md`).
+
+### Dokumentasi
+- ADR-0019 (binding token↔tenant); API-SPEC 1.1.0 (verify = OPS; aturan 401 tenant_mismatch); `docs/03-ARCHITECTURE.md` sinkron
+
+---
+
 ## [1.0.1] - 2026-11-14
 
 Rilis pemeliharaan: **tidak ada perubahan kontrak** (non-breaking). Memuat perbaikan keamanan BUG-TENANT-005 dan pembaruan dependensi CI.

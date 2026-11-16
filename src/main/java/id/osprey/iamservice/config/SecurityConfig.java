@@ -1,5 +1,6 @@
 package id.osprey.iamservice.config;
 
+import id.osprey.iamservice.adapter.rest.TenantBindingFilter;
 import id.osprey.iamservice.adapter.rest.TenantHeaderFilter;
 import id.osprey.iamservice.application.tenant.TenantResolver;
 import org.springframework.context.annotation.Bean;
@@ -11,13 +12,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -51,14 +53,23 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                              JwtAuthenticationConverter jwtAuthenticationConverter,
                                              RestAuthenticationEntryPoint authenticationEntryPoint,
-                                             RestAccessDeniedHandler accessDeniedHandler) throws Exception {
+                                             RestAccessDeniedHandler accessDeniedHandler,
+                                             SecurityEventRecorder securityEventRecorder,
+                                             ObjectMapper objectMapper) throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(new TenantHeaderFilter(tenantResolver),
-                        UsernamePasswordAuthenticationFilter.class)
+                // Tenant diselesaikan sebelum token divalidasi supaya
+                // TenantBindingFilter bisa membandingkan klaim tenant_id
+                // dengan tenant hasil resolve header. Urutan ini dikunci
+                // terhadap BearerTokenAuthenticationFilter, bukan terhadap
+                // filter yang kebetulan urutannya stabil (lihat ADR-0019).
+                .addFilterBefore(new TenantHeaderFilter(tenantResolver, securityEventRecorder, objectMapper),
+                        BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new TenantBindingFilter(securityEventRecorder, objectMapper),
+                        BearerTokenAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // Seluruh kontrak publik berada di bawah /v1. Awalan versi
                         // ini bagian dari kontrak, bukan hiasan: perubahan yang
@@ -109,7 +120,9 @@ public class SecurityConfig {
                         // Data pengguna tidak untuk semua pemanggil.
                         .requestMatchers(HttpMethod.GET, "/v1/users").hasAnyRole("ADMIN", "AUDITOR")
                         .requestMatchers(HttpMethod.GET, "/v1/users/**", "/v1/roles/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/v1/audit-logs/verify").hasRole("ADMIN")
+                        // Verifikasi rantai audit memuat metadata lintas-tenant;
+                        // hanya untuk peran OPS yang dipegang akun operasional.
+                        .requestMatchers(HttpMethod.GET, "/v1/audit-logs/verify").hasRole("OPS")
                         .requestMatchers(HttpMethod.GET, "/v1/audit-logs/**").hasAnyRole("ADMIN", "AUDITOR")
                         .requestMatchers(HttpMethod.POST, "/v1/roles", "/v1/roles/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/v1/roles/**").hasRole("ADMIN")
