@@ -33,5 +33,6 @@
 
 ## 4. Decision & Switch Log
 - [2026-11-16 | v1.1.0 + TLS] Boss "lanjut: tutup kotak HTTPS"; decisions: internal CA + hostname `iam.osprey.service` + TLS in-app; HTTP-only considered impossible later; HTTPS implemented env-var-driven (no rebuild); setup verified live (health UP over HTTPS, sessions/verify 200; plain HTTP → 400).
+- [2026-11-16 15:10] PRD synced to v1.1.0 (sa→ba): added §3.10 security hardening, v1.1.0 ACs, honest §6/§7; check-id & check-bahasa PASS; Boss directive: every future switch to senior-business-analyst requires explicit Boss confirmation first.
 - [2026-11-16 12:00] Boss finished pending: DNS override live (Resolve-DnsName OK -> 192.168.18.250), CA imported to Windows Machine Root store (Chrome/Edge/.NET-on-Windows covered); Firefox & Java need their own stores (B2/B-Firefox). Verified: HTTPS health UP without --resolve; CORS preflight+simple: same-origin = no ACAO (by design, Origin==Host), cross-origin allowed -> ACAO present, disallowed -> 403. Container recreated with new CORS_ALLOWED_ORIGINS (https origin). Docs uncommitted.
 - [2026-11-16 11:40] Spring env-var canonical mapping trap fixed (`KEY_STORE` → `KEYSTORE` after UnrecoverableKeyException); CSRF/cert chain verified; schannel revocation caveat recorded; grade B+ → **A-** with full §12.4 evidence.
