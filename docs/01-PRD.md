@@ -27,6 +27,11 @@ pembatasan `GET /v1/audit-logs/verify` ke peran `OPS` (V12), serta HTTPS in-app 
 Paket A **tidak termasuk** rate limit terdistribusi, pencabutan access token, WORM eksternal,
 SAML/OIDC, atau pendaftaran mandiri.
 
+Catatan 2026-11-16 — arah cloud (shared multi-tenant SaaS) sedang dieksplorasi, **belum ada
+tenant konkret dan belum ada perubahan scope yang diimplementasikan**. Keputusan hasil diskusi
+dicatat di §4 dan §7, serta di `docs/adr/0020` (provisioning Fase 1) dan `docs/adr/0021`
+(peran kustom per tenant — tidak diadopsi).
+
 ---
 
 ## 2. Masalah yang Dipecahkan
@@ -167,6 +172,16 @@ SAML/OIDC, atau pendaftaran mandiri.
 - Integrasi SAML atau OIDC
 - Pendaftaran mandiri (self-registration)
 
+Keputusan dan batasan hasil diskusi cloud 2026-11-16 (belum ada tenant konkret; masih eksplorasi):
+
+- **Peran tetap global** (`ADMIN`, `AUDITOR`, `USER`, `MANAGER`, `OPS`); **tidak ada peran kustom per tenant**. Izin/peran yang khusus untuk aplikasi tenant dikelola oleh aplikasi tenant masing-masing, bukan oleh IAM ini (ADR-0021)
+- **Multi-organisasi dalam satu akun** belum ada; satu akun terikat satu tenant (ADR-0018)
+- **Email belum aktif**: tidak ada lupa password mandiri maupun verifikasi email; reset password hanya oleh admin (kategori `emails` di §3.8 masih belum aktif)
+- **Eksposur cloud publik wajib berada di balik WAF/API gateway**; rencana Cloudflare, vendor final diputuskan saat deployment cloud pertama yang nyata; rate limit per instance di §4 tidak cukup untuk internet publik
+- **Tooling provisioning tenant belum dibangun**; onboarding cloud Fase 1 bersifat admin-provisioned — tenant dibuat dan ADMIN pertama di-bootstrap oleh tim OPS (ADR-0020, dibangun saat tenant pertama konkret)
+- **Self-registration** ditunda ke Fase 2 bersyarat (lihat §7)
+- **Operator OPS adalah tim**, bukan orang tunggal: beberapa akun OPS per deployment, dengan grant/revoke dan serah-terima terdokumentasi (`docs/07-DEPLOYMENT.md` §13); cloud via tim OPS default-org, on-premise via DBA (SQL langsung)
+
 Multi-tenancy dan structured logging **sudah masuk ruang lingkup** pada 2026-11-14 (diimplementasikan lewat ADR-0016 dan ADR-0017). Paket hardening keamanan (§3.10) masuk ruang lingkup pada 2026-11-16 (ADR-0019, migrasi V12, TLS).
 
 ---
@@ -213,7 +228,18 @@ atau ADR baru — bukan dilaksanakan diam-diam di bawah label "perbaikan".
 
 ## 7. Pertanyaan Terbuka
 
-- [PERLU KONFIRMASI] Peran OPS & akun operasional: apakah deployment lain juga butuh akun `OPS` sendiri, dan siapa yang berhak men-generate akun tersebut (prosedur sudah di `docs/07-DEPLOYMENT.md` §13)?
-- [PERLU KONFIRMASI] Self-registration tetap di luar scope atau masuk roadmap (butuh keputusan tertulis)?
-- [TERBUKA] Multi-organisasi dalam satu akun (mis. 1 user = 2 org) — belum ada; saat ini model "1 akun = 1 tenant" (ADR-0018). Bila dibutuhkan, perlu ADR baru (opsi membership `tenant_users`, ADR-0019 Alternative B).
-- [PERLU KONFIRMASI] Browser CORS untuk klien frontend publik: origin mana yang akan dipakai di produksi dan apakah akan dilayani dari domain `iam.osprey.service` yang sama? (`CORS_ALLOWED_ORIGINS` di-host di `secrets\.env`, bukan di repo.)
+Terjawab pada diskusi cloud 2026-11-16:
+
+- [TERJAWAB 2026-11-16] Peran OPS & akun operasional: akun OPS dibuat per deployment (bukan per tenant); operator adalah **tim** dengan beberapa akun dan serah-terima terdokumentasi. Cloud: tim OPS default-org mem-provisioning tenant baru beserta ADMIN pertamanya; on-premise: DBA via SQL langsung. OPS tetap global lintas tenant dan tidak menempel ke organisasi mana pun (`docs/07-DEPLOYMENT.md` §13, ADR-0020).
+- [TERJAWAB 2026-11-16] Self-registration: tetap di luar scope. Hanya masuk Fase 2 bila ada demand nyata — pemicu: ≥1 tenant/paying customer meminta onboarding mandiri, atau beberapa prospek meminta hal yang sama. Masuk lewat revisi PRD + ADR baru + threat model + infra email; bukan lewat label "perbaikan".
+- [TERJAWAB 2026-11-16] CORS produksi: **same-origin** — frontend dan API dilayani dari domain yang sama (`iam.osprey.service`); tidak ada ACAO lintas origin untuk klien browser publik.
+- [TERJAWAB 2026-11-16] Multi-organisasi dalam satu akun: tetap ditunda; lihat daftar terbuka di bawah.
+
+Masih terbuka:
+
+- [TERBUKA] Multi-organisasi dalam satu akun (mis. 1 user = 2 org) — belum ada; model "1 akun = 1 tenant" (ADR-0018). Bila ada requirement nyata, perlu ADR baru (opsi membership `tenant_users`, ADR-0019 Alternative B).
+- [TERBUKA] Pemicu kuantitatif Fase 2 self-registration — angka threshold belum ditetapkan; usulan awal: ≥1 tenant nyata meminta onboarding mandiri.
+- [TERBUKA] Vendor WAF final (rencana: Cloudflare) — diputuskan saat deployment cloud pertama yang nyata, bersama cloud provider dan anggaran.
+- [TERBUKA] Infra email (provider, lupa password mandiri, verifikasi email) — diputuskan bila cloud publik punya demand nyata; hari ini dicatat sebagai batasan (§4).
+- [TERBUKA] Pembangunan tooling provisioning Fase 1 (ADR-0020) — dibangun saat tenant pertama konkret atau keputusan eksplisit "go" cloud; mencakup endpoint OPS-only + audit + idempotensi.
+- [TERBUKA] Prosedur tertulis grant/revoke dan serah-terima akun OPS (siapa approve, kapan review) — apakah perlu ditambahkan ke `docs/07-DEPLOYMENT.md` §13?
