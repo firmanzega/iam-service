@@ -311,6 +311,9 @@ production:
 | `GET /v1/roles` as ops (roles `[OPS]`) | **200** |
 | `GET /v1/roles` as throwaway no-role user | **403** |
 
-The throwaway account (id 4) was deactivated; hard-cleanup SQL was handed to the owner.
-This is production evidence for QA-014..017 in addition to the CI results in §11.3.
+The throwaway account (id 4) was hard-deleted in a single transaction (1 refresh token,
+1 session, 1 user); 5 audit log rows referencing it were deliberately kept so the hash
+chain stays intact — `audit_logs` has no FK to `users`, so the actor id remains a
+historical reference. Verified: `remaining user4=0`. This is production evidence for
+QA-014..017 in addition to the CI results in §11.3.
 
