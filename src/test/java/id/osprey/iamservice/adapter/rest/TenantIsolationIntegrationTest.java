@@ -200,12 +200,14 @@ class TenantIsolationIntegrationTest {
 
     @Test
     void roles_withoutOrganizationHeader_remainReadable_globalReferenceData() throws Exception {
-        // Role master sengaja global (V9): endpoint ini tidak tenant-aware,
-        // pemanggil terautentikasi tetap boleh membacanya tanpa header.
-        Tokens tokens = login(PREFIX + "a", "laptop", DEFAULT_ORG_ID);
+        // Role master sengaja global (V9): endpoint ini tidak tenant-aware.
+        // Sejak 1.1.3 baca katalog hanya untuk ADMIN/AUDITOR/OPS, jadi pakai
+        // ADMIN agar yang diuji tetap hanya soal tidak diperlukannya header
+        // X-Organization-ID, bukan soal peran.
+        String adminToken = loginAdmin(DEFAULT_ORG_ID, PREFIX + "admin");
 
         mockMvc.perform(get("/v1/roles")
-                        .header("Authorization", "Bearer " + tokens.accessToken()))
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk());
     }
 

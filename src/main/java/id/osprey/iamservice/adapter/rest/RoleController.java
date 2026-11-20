@@ -33,10 +33,14 @@ public class RoleController {
         this.roleService = roleService;
     }
 
-    @Operation(summary = "Daftar semua role")
+    // Katalog peran berlaku untuk seluruh deployment, jadi membacanya hanya
+    // untuk peran yang mengelola identitas atau mengaudit. ADMIN tenant tetap
+    // boleh membaca karena butuh nama peran yang valid saat menugaskan.
+    @Operation(summary = "Daftar semua role", description = "Hanya untuk peran ADMIN, AUDITOR, atau OPS")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Berhasil"),
-            @ApiResponse(responseCode = "401", description = "Belum terautentikasi")
+            @ApiResponse(responseCode = "401", description = "Belum terautentikasi"),
+            @ApiResponse(responseCode = "403", description = "Peran tidak cukup")
     })
     @GetMapping
     public List<RoleResponse> list() {

@@ -255,3 +255,47 @@ BUG-TENANT-002/003 and both multi-tenancy defects are fixed and verified. The re
 known risk is process-level: the multi-tenancy increment (`63814ac`) was merged without a
 green `mvn clean verify`; gates should run on the full matrix before merge in Stage 7.
 
+---
+
+## 11. Role Catalog Read Restriction — Retest (2026-11-20)
+
+Oracle: `04-API-SPEC.yaml` `GET /roles` (ADMIN/AUDITOR/OPS only) and the `SecurityConfig`
+matcher. The `memberToken` fixture in `AuthSecurityIntegrationTest` is an account with
+**no roles**. Decision: opsi B from the SA analysis — OPS-only would have broken tenant
+ADMIN's role-assignment flow.
+
+### 11.1 Test cases
+
+| ID | Title | Type | Reference | Expected | Status |
+|----|-------|------|-----------|----------|--------|
+| QA-014 | Account with no roles reads the global role catalog — `listRoles_asMember_isForbidden` | Negative / access control | 04-API-SPEC GET /roles | 403 | Passed |
+| QA-015 | Tenant ADMIN keeps read access needed for role assignment — `listRoles_asAdmin_isAllowed` | Positive | 04-API-SPEC GET /roles | 200 + array | Passed |
+| QA-016 | AUDITOR keeps read access — `listRoles_asAuditor_isAllowed` | Positive | 04-API-SPEC GET /roles | 200 + array | Passed |
+| QA-017 | OPS keeps read access — `listRoles_asOps_isAllowed` | Positive | 04-API-SPEC GET /roles | 200 + array | Passed |
+| QA-018 | Role master stays readable without `X-Organization-ID` — `roles_withoutOrganizationHeader_remainReadable_globalReferenceData` | Positive / tenancy | V9 global role table | 200 with ADMIN token | Passed (fixture corrected) |
+
+### 11.2 Stale test found and corrected
+
+`TenantIsolationIntegrationTest.roles_withoutOrganizationHeader_remainReadable_globalReferenceData`
+used `PREFIX + "a"`, an account with **no roles**, to prove the endpoint does not require
+`X-Organization-ID`. That fixture encoded the superseded contract (any authenticated user).
+The assertion was **not** weakened: the fixture now uses `loginAdmin(...)` with an ADMIN
+role, so the test still verifies exactly its original intent (no tenant header needed),
+while role authorization is asserted separately in QA-014..017.
+
+### 11.3 Execution evidence
+
+| Command | Result |
+|---------|--------|
+| `mvnw -B -Dtest=AuthSecurityIntegrationTest test` | EXIT=0, 38/38 passed |
+| `mvnw -B clean verify` (first run) | EXIT=1, 318 tests / 1 failure — QA-018 stale fixture (`Status expected:<200> but was:<403>`) |
+| Mutation check: matcher temporarily reverted to `authenticated()`, `AuthSecurityIntegrationTest#listRoles_asMember_isForbidden` | EXIT=1, `Status expected:<403> but was:<200>`; `SecurityConfig` restored in `finally`, diff reverified |
+| `mvnw -B clean verify` (after fixture correction) | EXIT=0, 318/318 passed, 0 Checkstyle violations, SpotBugs passed |
+
+### 11.4 Scope boundary and residual risk
+
+Not covered: browser/client consumers of `GET /v1/roles` (no frontend in this repo). Any
+client relying on USER/MANAGER reading the catalog now gets 403 — a contract change
+announced in `CHANGELOG.md` 1.1.3. No load test was run. No production verification until
+the owner deploys 1.1.3.
+

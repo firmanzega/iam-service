@@ -670,10 +670,13 @@ paths:
       summary: List all roles
       operationId: listRoles
       description: |
-        Any authenticated user. Roles are GLOBAL reference data, deliberately
-        NOT tenant-scoped (see V9 comments and ADR-0016/0018): the role master
-        table carries no tenant_id. X-Organization-ID is therefore not
-        required on this path.
+        ADMIN, AUDITOR, or OPS only. Roles are GLOBAL reference data,
+        deliberately NOT tenant-scoped (see V9 comments and ADR-0016/0018):
+        the role master table carries no tenant_id. X-Organization-ID is
+        therefore not required on this path. Tenant ADMINs keep read access
+        because they need the valid role names to assign via
+        `PUT /v1/users/{id}/roles`; ordinary users (no management or audit
+        duty) get 403.
       security:
         - bearerAuth: []
       responses:
@@ -687,6 +690,12 @@ paths:
                   $ref: '#/components/schemas/RoleResponse'
         '401':
           description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller holds none of ADMIN, AUDITOR, OPS
           content:
             application/json:
               schema:

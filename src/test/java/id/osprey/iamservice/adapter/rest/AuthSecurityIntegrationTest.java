@@ -382,8 +382,28 @@ class AuthSecurityIntegrationTest {
     }
 
     @Test
-    void listRoles_asMember_isAllowed() throws Exception {
+    void listRoles_asMember_isForbidden() throws Exception {
         mockMvc.perform(get("/v1/roles").header("Authorization", "Bearer " + memberToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listRoles_asAdmin_isAllowed() throws Exception {
+        mockMvc.perform(get("/v1/roles").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void listRoles_asAuditor_isAllowed() throws Exception {
+        mockMvc.perform(get("/v1/roles").header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    void listRoles_asOps_isAllowed() throws Exception {
+        mockMvc.perform(get("/v1/roles").header("Authorization", "Bearer " + opsToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
     }

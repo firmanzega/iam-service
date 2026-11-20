@@ -123,7 +123,13 @@ public class SecurityConfig {
                         // Daftar pengguna hanya untuk ADMIN dan AUDITOR.
                         // Data pengguna tidak untuk semua pemanggil.
                         .requestMatchers(HttpMethod.GET, "/v1/users").hasAnyRole("ADMIN", "AUDITOR")
-                        .requestMatchers(HttpMethod.GET, "/v1/users/**", "/v1/roles/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/v1/users/**").authenticated()
+                        // Katalog peran bersifat global (tanpa tenant_id), jadi
+                        // membacanya dibatasi pada peran yang mengelola identitas
+                        // atau mengauditnya. ADMIN tenant tetap perlu daftar ini
+                        // untuk menugaskan peran via PUT /v1/users/{id}/roles.
+                        .requestMatchers(HttpMethod.GET, "/v1/roles", "/v1/roles/**")
+                        .hasAnyRole("ADMIN", "AUDITOR", "OPS")
                         // Verifikasi rantai audit memuat metadata lintas-tenant;
                         // hanya untuk peran OPS yang dipegang akun operasional.
                         .requestMatchers(HttpMethod.GET, "/v1/audit-logs/verify").hasRole("OPS")

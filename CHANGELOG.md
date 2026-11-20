@@ -7,6 +7,31 @@ dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
 
 ---
 
+## [1.1.3] - 2026-11-20
+
+Perubahan perilaku: `GET /v1/roles` tidak lagi terbuka untuk semua pengguna terautentikasi. Tidak ada migrasi database.
+
+**Perhatian - perubahan perilaku:** pengguna tanpa peran `ADMIN`, `AUDITOR`, atau `OPS` (mis. `USER`, `MANAGER`, atau akun tanpa peran) menerima **403** saat membaca katalog peran.
+
+### Keamanan
+- **`GET /v1/roles` kini memerlukan `hasAnyRole("ADMIN", "AUDITOR", "OPS")`** di `SecurityConfig`. Katalog peran bersifat global (tanpa `tenant_id`), sehingga paparannya dibatasi pada peran yang mengelola identitas atau mengauditnya. ADMIN tenant tetap boleh membaca karena memerlukan nama peran yang valid saat menugaskan lewat `PUT /v1/users/{id}/roles`.
+
+### Tidak berubah
+- `GET /v1/roles` tetap tidak memerlukan header `X-Organization-ID`, karena katalog peran tidak ter-scope tenant.
+
+---
+
+## [1.1.2] - 2026-11-20
+
+Breaking change: otorisasi pembuatan dan penghapusan role dipindah dari ADMIN ke OPS. Tidak ada migrasi database.
+
+**Perhatian - perubahan perilaku:** tenant ADMIN yang sebelumnya membuat atau menghapus role melalui `POST /v1/roles` dan `DELETE /v1/roles/{id}` akan menerima **403**. Hanya akun operasional dengan peran OPS (dibuat via SQL, lihat `docs/07-DEPLOYMENT.md` §13) yang boleh mengubah katalog peran deployment-wide. `GET /v1/roles` tetap dapat diakses semua pengguna terautentikasi (dibatasi sejak 1.1.3).
+
+### Keamanan
+- **`POST /v1/roles` dan `DELETE /v1/roles/** kini memerlukan `hasRole("OPS")`** di `SecurityConfig`, bukan `hasRole("ADMIN")`. Mencegah tenant ADMIN membuat nama role yang tabrakan dengan tenant lain, atau menghapus role bawaan yang sedang dipakai tenant lain.
+
+---
+
 ## [1.1.1] - 2026-11-20
 
 Hotfix keamanan: menutup eskalasi hak akses lewat `PUT /v1/users/{id}/roles`. Tidak ada migrasi database.
@@ -23,18 +48,7 @@ Hotfix keamanan: menutup eskalasi hak akses lewat `PUT /v1/users/{id}/roles`. Ti
 - Pemberian peran bawaan (`ADMIN`, `USER`, `AUDITOR`, `MANAGER`) ke user lain tetap seperti sebelumnya.
 
 ### Catatan operasional
-- `POST /v1/roles` dan `DELETE /v1/roles/**` kini memerlukan peran **OPS** (1.1.2), bukan ADMIN. Katalog peran deployment-wide dikelola jalur operator saja (lihat `docs/07-DEPLOYMENT.md` §13).
-
----
-
-## [1.1.2] - 2026-11-20
-
-Breaking change: otorisasi pembuatan dan penghapusan role dipindah dari ADMIN ke OPS. Tidak ada migrasi database.
-
-**Perhatian - perubahan perilaku:** tenant ADMIN yang sebelumnya membuat atau menghapus role melalui `POST /v1/roles` dan `DELETE /v1/roles/{id}` akan menerima **403**. Hanya akun operasional dengan peran OPS (dibuat via SQL, lihat `docs/07-DEPLOYMENT.md` §13) yang boleh mengubah katalog peran deployment-wide. `GET /v1/roles` tetap dapat diakses semua pengguna terautentikasi.
-
-### Keamanan
-- **`POST /v1/roles` dan `DELETE /v1/roles/** kini memerlukan `hasRole("OPS")`** di `SecurityConfig`, bukan `hasRole("ADMIN")`. Mencegah tenant ADMIN membuat nama role yang tabrakan dengan tenant lain, atau menghapus role bawaan yang sedang dipakai tenant lain.
+- `POST /v1/roles` dan `DELETE /v1/roles/**` memerlukan peran **OPS** sejak 1.1.2, bukan ADMIN. Katalog peran deployment-wide dikelola jalur operator saja (lihat `docs/07-DEPLOYMENT.md` §13).
 
 ---
 
