@@ -441,6 +441,51 @@ class AuthSecurityIntegrationTest {
     }
 
     @Test
+    void replaceRoles_withOps_isForbidden() throws Exception {
+        long version = fetchUserVersion(memberId);
+
+        mockMvc.perform(put("/v1/users/{id}/roles", memberId).header("X-Organization-ID", "org-default")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roleNames\":[\"OPS\"],\"version\":" + version + "}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Roles cannot be assigned via the API: OPS"));
+    }
+
+    @Test
+    void replaceRoles_onSelf_isForbidden() throws Exception {
+        long version = fetchUserVersion(adminId);
+
+        mockMvc.perform(put("/v1/users/{id}/roles", adminId).header("X-Organization-ID", "org-default")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roleNames\":[\"AUDITOR\"],\"version\":" + version + "}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Users cannot change their own roles via the API"));
+    }
+
+    @Test
+    void replaceRoles_withAssignableRole_isOk() throws Exception {
+        long version = fetchUserVersion(memberId);
+
+        mockMvc.perform(put("/v1/users/{id}/roles", memberId).header("X-Organization-ID", "org-default")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"roleNames\":[\"AUDITOR\"],\"version\":" + version + "}"))
+                .andExpect(status().isOk());
+    }
+
+    private long fetchUserVersion(long userId) throws Exception {
+        MvcResult user = mockMvc.perform(get("/v1/users/{id}", userId).header("X-Organization-ID", "org-default")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return ((Number) com.jayway.jsonpath.JsonPath
+                .read(user.getResponse().getContentAsString(), "$.version")).longValue();
+    }
+
+    @Test
     void deactivateUser_thenLogin_isForbidden() throws Exception {
         mockMvc.perform(post("/v1/users/{id}/deactivate", memberId).header("X-Organization-ID", "org-default")
                         .header("Authorization", "Bearer " + adminToken))

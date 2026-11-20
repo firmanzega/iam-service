@@ -116,6 +116,10 @@ public class SecurityConfig {
                         // Aturan siapa yang boleh melakukan apa diperiksa lebih
                         // lanjut di level method memakai @PreAuthorize.
                         .requestMatchers(HttpMethod.PUT, "/v1/users/*/password").authenticated()
+                        // Penggantian role pengguna hanya untuk ADMIN tenant pemanggil.
+                        // Dieksplisitkan di sini supaya tidak bergantung pada fallback anyRequest().
+                        // Pembatasan nama role (mis. OPS tidak assignable) ditegakkan di use case.
+                        .requestMatchers(HttpMethod.PUT, "/v1/users/*/roles").hasRole("ADMIN")
                         // Daftar pengguna hanya untuk ADMIN dan AUDITOR.
                         // Data pengguna tidak untuk semua pemanggil.
                         .requestMatchers(HttpMethod.GET, "/v1/users").hasAnyRole("ADMIN", "AUDITOR")

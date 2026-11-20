@@ -50,6 +50,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `application/security/PasswordPolicy.java` | Password strength rules |
 | `application/security/SecurityRejectionStatsService.java` | Records 401 rejection aggregate per minute in separate transaction, deletes aggregates past retention |
 | `application/tenant/TenantResolver.java` | Resolves `X-Organization-ID` to internal `tenant_id`, sets `TenantContext`; returns `RESOLVED`/`MISSING`/`UNKNOWN` so the filter can reject unknown organizations (BUG-TENANT-001) |
+| `application/user/UserService.java` | Use case: user management + role replacement. `replaceRoles` rejects API assignment of restricted roles (`OPS`, cross-tenant capability — operator path only, docs/07-DEPLOYMENT §13.1) and rejects self role changes (caller editing own roles) |
 
 ## 4. Infrastructure Layer
 
@@ -87,7 +88,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | File | Role |
 |------|------|
 | `config/IamProperties.java` | `SessionCleanup`, `SecurityRejectionStats`, and all `iam.*` properties |
-| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS |
+| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS; explicit `PUT /v1/users/*/roles → hasRole("ADMIN")` (no reliance on the `anyRequest()` fallback) |
 | `config/RestAuthenticationEntryPoint.java` | 401 response, reason classification, WARN log + metric |
 | `config/RestAccessDeniedHandler.java` | 403 response, audit `ACCESS_DENIED`, WARN log + metric |
 | `config/SecurityEventRecorder.java` | Security event recording rules: 403 to audit, 401 to log + metric + aggregate |
@@ -112,7 +113,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | File | Role |
 |------|------|
 | `adapter/rest/TenantIsolationIntegrationTest.java` | Cross-tenant isolation via HTTP: sessions per tenant, unknown-organization 401 (BUG-TENANT-001), required `X-Organization-ID` on login/refresh (ADR-0018), tenant-scoped identity uniqueness (V10) |
-| `adapter/rest/AuthSecurityIntegrationTest.java` | Authorization matrix via HTTP, password change, account lock, logout, 401 aggregate |
+| `adapter/rest/AuthSecurityIntegrationTest.java` | Authorization matrix via HTTP, password change, account lock, logout, 401 aggregate; includes OPS-not-assignable-via-API and self role-change rejection (role-assignment hardening) |
 | `adapter/rest/SessionManagementIntegrationTest.java` | Per-device sessions via HTTP: two logins, `current` flag, single-device logout, other-user 404 |
 | `adapter/rest/PrometheusEndpointIntegrationTest.java` | Prometheus scrape without token, metric names match alert rules |
 | `adapter/rest/WebMapperTest.java` | Session claim parsing, missing/blank/malformed values return null |

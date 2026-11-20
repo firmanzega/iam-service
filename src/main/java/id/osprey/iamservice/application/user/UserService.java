@@ -38,6 +38,16 @@ public class UserService {
     private static final String AUDIT_PASSWORD_RESET = "PASSWORD_RESET";
     private static final String AUDIT_TOKENS_REVOKED = "TOKENS_REVOKED";
 
+    /**
+     * Roles that must never be assigned through the public API. OPS is a
+     * cross-tenant capability (audit-chain verification) that must only be
+     * granted via the operator path described in docs/07-DEPLOYMENT.md
+     * section 13.1, never via self-service by a tenant ADMIN. Custom roles
+     * created through POST /v1/roles remain assignable — only OPS is barred
+     * here. Keep in sync with docs/04-API-SPEC.yaml.
+     */
+    private static final Set<String> RESTRICTED_ROLES = Set.of("OPS");
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordPolicy passwordPolicy;
@@ -237,9 +247,28 @@ public class UserService {
      * Mengganti seluruh role pengguna.
      *
      * Role yang tidak dikirim akan dilepas. Role yang tidak dikenal ditolak.
+     * Role yang dikenal tetapi tidak boleh di-assign lewat jalur API ditolak.
+     * Pengguna (termasuk ADMIN) tidak boleh mengubah role miliknya sendiri.
      */
     @Transactional
     public User replaceRoles(Long id, Set<String> roleNames, Long version, Long actorUserId) {
+        if (id.equals(actorUserId)) {
+            // Self-assignment even of an assignable role defeats the audit
+            // boundary: a compromised ADMIN session could silently lock out or
+            // elevate itself. Another ADMIN (or the operator path) must act.
+            throw new DomainException(DomainException.Reason.SELF_ROLE_CHANGE_NOT_ALLOWED,
+                    "Users cannot change their own roles via the API");
+        }
+
+        Set<String> requested = new TreeSet<>(roleNames);
+        Set<String> restricted = new TreeSet<>(requested);
+        restricted.retainAll(RESTRICTED_ROLES);
+
+        if (!restricted.isEmpty()) {
+            throw new DomainException(DomainException.Reason.ROLE_NOT_ASSIGNABLE,
+                    "Roles cannot be assigned via the API: " + String.join(", ", restricted));
+        }
+
         User user = findOrThrow(id);
         checkVersion(user, version);
 

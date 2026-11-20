@@ -104,7 +104,13 @@ public class DomainException extends RuntimeException {
         ROLE_IN_USE(Category.CONFLICT),
 
         /** Aksi tidak diizinkan pada sumber daya yang sedang dikunci. */
-        FORBIDDEN_ACTION(Category.FORBIDDEN);
+        FORBIDDEN_ACTION(Category.FORBIDDEN),
+
+        /** Role yang diminta dikenal oleh sistem, tetapi tidak boleh di-assign lewat jalur API. */
+        ROLE_NOT_ASSIGNABLE(Category.FORBIDDEN),
+
+        /** Pengguna tidak boleh mengubah role miliknya sendiri lewat jalur API (termasuk ADMIN). */
+        SELF_ROLE_CHANGE_NOT_ALLOWED(Category.FORBIDDEN);
 
         private final Category category;
 

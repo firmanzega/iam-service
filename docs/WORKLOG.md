@@ -31,6 +31,7 @@
 4. Cloud stays documentation-only until a concrete tenant appears.
 
 ## 4. Decision & Switch Log
+- [2026-11-16 role-hardening] be+sec finding: any tenant ADMIN could self/confederate-grant OPS via `PUT /v1/users/{id}/roles` (SecurityConfig fallback only). Fix (BE, Boss approved "point b -> B1 denylist"): `replaceRoles` rejects `OPS` (403 `ROLE_NOT_ASSIGNABLE`) and self role changes (403); explicit `PUT /v1/users/*/roles hasRole("ADMIN")` matcher; custom roles via API stay assignable; API-SPEC + codebase-map updated; `mvn verify` exit 0, 313/313 green. Not yet committed/deployed.
 - [2026-11-16 OPS procedure] sec switch; `07-DEPLOYMENT.md` §13.1 added: personal accounts, four-eyes grant, immediate revoke triggers, quarterly review (default), logging rules; org-specific names deliberately left as Boss open items. PRD §7 "OPS handover → §13?" answered YES.
 - [2026-11-16 cloud] ba↔sa switches for dual analysis; Boss approved execution of "pencatatan (1–4)". Decisions (b) custom roles: understood B1 permission-catalog design, then ruled EXISTING model kept (tenant apps self-manage). Trigger-based build, not now.
 - [2026-11-16 12:00] DNS override live; CA imported Windows Machine Root; CORS verified (same-origin no ACAO by design; cross-origin allowlist OK; disallowed 403).

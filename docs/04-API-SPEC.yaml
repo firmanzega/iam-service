@@ -509,7 +509,11 @@ paths:
       operationId: replaceUserRoles
       description: |
         ADMIN only. Role names omitted from the body are removed; unknown
-        role names are rejected with 400. After a role change, all of the
+        role names are rejected with 400. Role names that are known but not
+        assignable through the API (e.g. OPS) are rejected with 403. Users
+        (including the caller) cannot change their own roles through this
+        endpoint; another ADMIN (or the operator path for OPS) must act.
+        After a role change, all of the
         user's refresh tokens are revoked so the next token carries the
         latest roles. Optimistic lock via `version`; mismatch is rejected
         with 409.
@@ -543,7 +547,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Role not sufficient (requires ADMIN)
+          description: Role not sufficient (requires ADMIN); or the requested role is not assignable through the API (e.g. OPS); or the target user is the caller (self change is forbidden)
           content:
             application/json:
               schema:

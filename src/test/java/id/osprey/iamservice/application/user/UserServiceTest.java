@@ -38,6 +38,8 @@ import static org.mockito.Mockito.when;
 class UserServiceTest {
 
     private static final Long ACTOR_ID = 1L;
+    // Actor distinct from the target user: replaceRoles forbids self role changes.
+    private static final Long OTHER_ADMIN_ID = 99L;
     private static final Long USER_ID = 1L;
     private static final Long TENANT_ID = 1L;
 
@@ -300,7 +302,7 @@ class UserServiceTest {
         when(roleRepository.findByNameIn(Set.of("USER", "NGAWUR"))).thenReturn(Set.of());
 
         DomainException ex = assertThrows(DomainException.class,
-                () -> userService.replaceRoles(1L, Set.of("USER", "NGAWUR"), 0L, ACTOR_ID));
+                () -> userService.replaceRoles(1L, Set.of("USER", "NGAWUR"), 0L, OTHER_ADMIN_ID));
 
         assertEquals(DomainException.Reason.UNKNOWN_ROLE, ex.getReason());
         verify(userRepository, never()).save(any());
@@ -315,12 +317,12 @@ class UserServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(tokenRevocationService.revokeAllTokens(1L)).thenReturn(1L);
 
-        userService.replaceRoles(1L, Set.of("USER"), 0L, ACTOR_ID);
+        userService.replaceRoles(1L, Set.of("USER"), 0L, OTHER_ADMIN_ID);
 
         assertEquals(1, user.getRoles().size());
         verify(tokenRevocationService).revokeAllTokens(1L);
-        verify(auditService).record(eq(ACTOR_ID), eq("TOKENS_REVOKED"), eq(1L),
+        verify(auditService).record(eq(OTHER_ADMIN_ID), eq("TOKENS_REVOKED"), eq(1L),
                 eq("token refresh dicabut: 1"));
-        verify(auditService).record(eq(ACTOR_ID), eq("ROLES_REPLACED"), eq(1L), eq("USER"));
+        verify(auditService).record(eq(OTHER_ADMIN_ID), eq("ROLES_REPLACED"), eq(1L), eq("USER"));
     }
 }
