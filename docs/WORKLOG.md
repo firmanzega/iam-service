@@ -19,7 +19,7 @@
 | Item | Owner | Note |
 |------|-------|------|
 | Push docs: `01-PRD`, `adr/0020`, `adr/0021`, `WORKLOG` | Boss | DONE — `593f066`, `69bb77e`, `2b03998` on `origin/main` |
-| Soak v1.1.0 days; no load test ever run | Boss | gates any A claim |
+| Soak v1.1.1-hotfix in prod; no load test ever run | Boss | gates any A claim |
 | A/A+ closure paths (SEC-01, SEC-02, CRL host, pen-test) | Boss | decisions, no date |
 | OPS handover procedure → `07-DEPLOYMENT.md` §13 (§13.1 added 2026-11-16, sec) | Boss | DONE; PRD §7 item answered — needs BA to close checkbox next BA session |
 | Cloud: build Phase 1 tooling (ADR-0020) only on concrete tenant/go | Boss | PRD §7 terbuka; WAF final at deployment |
@@ -32,9 +32,9 @@
 5. Cloud stays documentation-only until a concrete tenant appears.
 
 ## 4. Decision & Switch Log
+- [2026-11-20 deploy authority] **Boss directive: Codet must NOT execute production deploys.** No build, no compose tag change, no `compose up`/recreate, no rollback on `E:\prod` — Boss runs them. Codet may prepare exact commands, do read-only diagnostics (logs, `docker ps`, DB reads), verify image contents, and run post-deploy smoke checks. Rationale: a hotfix image was built but never deployed because the compose tag was not changed, and Codet-side execution obscured who owned the final step.
 - [2026-11-16 role-hardening] be+sec finding: any tenant ADMIN could self/confederate-grant OPS via `PUT /v1/users/{id}/roles` (SecurityConfig fallback only). Fix (BE, Boss approved "point b -> B1 denylist"): `replaceRoles` rejects `OPS` (403 `ROLE_NOT_ASSIGNABLE`) and self role changes (403); explicit `PUT /v1/users/*/roles hasRole("ADMIN")` matcher; custom roles via API stay assignable; API-SPEC + codebase-map updated; `mvn verify` exit 0, 313/313 green. Committed `2b03998`, pushed to origin/main. **Deployed 2026-11-20 as `iam-service:1.1.1-hotfix` (bytecode-verified) and smoke-tested live: OPS -> 403 `Roles cannot be assigned via the API: OPS`, self change -> 403, AUDITOR on throwaway user -> 200 (then removed).** Also restored `ADMIN` on prod user 1 (it had been left with zero roles after an earlier `PUT` replaced all roles with `OPS`, then `OPS` was deleted).
 - [2026-11-16 OPS procedure] sec switch; `07-DEPLOYMENT.md` §13.1 added: personal accounts, four-eyes grant, immediate revoke triggers, quarterly review (default), logging rules; org-specific names deliberately left as Boss open items. PRD §7 "OPS handover → §13?" answered YES.
 - [2026-11-16 cloud] ba↔sa switches for dual analysis; Boss approved execution of "pencatatan (1–4)". Decisions (b) custom roles: understood B1 permission-catalog design, then ruled EXISTING model kept (tenant apps self-manage). Trigger-based build, not now.
 - [2026-11-16 12:00] DNS override live; CA imported Windows Machine Root; CORS verified (same-origin no ACAO by design; cross-origin allowlist OK; disallowed 403).
-- [2026-11-16 11:40] Spring env-var canonical mapping fix; grade B+ → A- with §12.4 evidence.
-- [2026-11-16 15:10 (prev)] PRD synced to v1.1.0 (sa→ba); Boss directive: BA switch needs explicit Boss confirmation.
+- [2026-11-16 prev] Spring env-var canonical mapping fix (grade B+ → A-); PRD synced to v1.1.0 (sa→ba); Boss directive: BA switch needs explicit Boss confirmation.

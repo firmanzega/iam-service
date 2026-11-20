@@ -84,6 +84,8 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 
 ## 6. Checklist Before Going Public
 
+**Execution authority (2026-11-20):** production deploys are executed by the project owner (Boss). Building the image, changing the image tag in `docker-compose.prod.yml`, running `docker compose up`, and rolling back are **owner-only actions**. The agent may prepare the exact commands, run read-only diagnostics (`docker ps`, `docker logs`, DB reads), verify that an image actually contains the fix, and run post-deploy smoke checks — but must not modify anything under `E:\prod`. This rule exists because a hotfix image was once built but never deployed: the compose tag stayed on the old version, so the vulnerable build kept serving traffic.
+
 - [x] `SPRING_PROFILES_ACTIVE=prod` set (prod environment) — verified 2026-11-16: compose `docker-compose.prod.yml` runs `iam-service:1.1.0` (Dockerfile bakes `prod`); `/v3/api-docs` -> 404, port 9090, Flyway validate-on-migrate OK
 - [x] `JWT_SECRET` replaced with random value, minimum 32 bytes, not in any file on server (prod environment)
 - [x] `JWT_SECRET_PREVIOUS` empty, except during key rotation transition
