@@ -95,6 +95,7 @@ In production profile, springdoc/Swagger UI is completely disabled, no HTML page
 - [x] Clients updated to send `X-Organization-ID` on login/refresh and all tenant-aware endpoints (missing/unknown organization returns 401) (client migration task)
 - [x] Flyway migrations V9–V11 applied and validated — applied automatically at first boot (`validate-on-migrate: true`), verified on dev DB (schema now at v11) and on CI's Testcontainers. **v1.1.0 (2026-11-16): V12 `seed_ops_role` applied at first boot on prod DB (confirmed in `docker logs`: "Migrating schema public to version 12 - seed ops role ... now at version v12"); `iam-service` recreated and smoke-tested (health UP, login 200, `/v1/auth/sessions` 200, `/v1/audit-logs/verify` 200 with OPS account: `valid=true`, 8 entries).**
 - [x] `iam-service:1.1.0` deployed 2026-11-16 and **rollback exercised**: 1.1.0 deployed (smoke UP) → `1.0.1` redeployed (`health UP`, login 200) → `1.1.0` redeployed (health UP, verify 200). Evidence in WORKLOG (2026-11-16 entry) and backup `backup-v1.1.0-pre-deploy.dump` (SHA-256 `716ed58b70612eb173a60f1bd7640515c257cf0bb35be6e1307d49930636015d`)
+- [x] `iam-service:1.1.1-hotfix` deployed 2026-11-20 (security hotfix, commit `2b03998`): image rebuilt (bytecode verified to contain the OPS restriction), `docker-compose.prod.yml` image tag bumped, `app` service recreated (health UP, startup clean, no new migration). Smoke: `PUT /v1/users/2/roles` with `OPS` -> **403 `Roles cannot be assigned via the API: OPS`**; self role change -> **403**; assignable role (`AUDITOR`) on a throwaway user -> 200 then removed. Rollback: `docker-compose.prod.yml.bak-2026-11-20-pre-hotfix` + recreate `app`
 - [x] `/actuator/prometheus` only available on internal network, not via public gateway (prod environment)
 - [x] GitHub Actions green on tag `v1.0.1` HEAD `4ebec1e` (CI + restore drill SUCCESS on push events, verified 2026-11-14; also green on `ed35cb1`) and restore drill #13-#15 SUCCESS
 - [x] Container image successfully built and run as non-root (multi-stage Dockerfile, `USER 10001:10001`; CI builds the image)
@@ -122,6 +123,13 @@ Deploy order: **backup → apply migrations on one instance (or stop others) →
 **Rollback overall:** restore from backup (Flyway Community has no down migrations); or redeploy the previous image against a restored database. V11's rollback is only safe before cloud onboarding — see the warning in `V11__tenant_scoped_rejection_stats_unique.sql`.
 
 Access tokens issued before migration remain valid; `X-Organization-ID` is a new **required** header on login/refresh, so clients must be updated before or at deploy time (see §10).
+
+**Know which database is production.** The production database is `db_osprey_prod` (owner `iam_user_prod`) inside the `iam-service-db` container, reached from the app through `host.docker.internal:5433`. The same PostgreSQL instance also hosts `db_osprey`, which is a **stale leftover** (schema stops at V11, dev seed data, no `OPS` role). Running SQL against `db_osprey` by mistake silently "succeeds" while production is untouched. Always confirm the target first:
+
+```sql
+SELECT current_database(), (SELECT max(version::numeric) FROM flyway_schema_history) AS schema_version;
+-- expected for production: db_osprey_prod | 12
+```
 
 ---
 

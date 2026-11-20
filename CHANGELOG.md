@@ -7,6 +7,26 @@ dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
 
 ---
 
+## [1.1.1] - 2026-11-20
+
+Hotfix keamanan: menutup eskalasi hak akses lewat `PUT /v1/users/{id}/roles`. Tidak ada migrasi database.
+
+**Perhatian - perubahan perilaku:** ADMIN yang selama ini mengubah peran akunnya sendiri lewat API akan menerima **403**. Perubahan peran diri sendiri harus lewat ADMIN lain (atau jalur operator).
+
+### Keamanan
+- **Peran `OPS` tidak lagi bisa diberikan lewat API.** `PUT /v1/users/{id}/roles` menolak setiap permintaan yang memuat `OPS` dengan **403** dan pesan `Roles cannot be assigned via the API: OPS`. Sebelumnya tenant ADMIN mana pun bisa memberikan `OPS` (kapabilitas lintas-tenant untuk verifikasi rantai audit) ke diri sendiri atau user lain, karena endpoint menerima semua nama peran yang ada di tabel `roles`. Pemberian `OPS` kini hanya lewat jalur operator (`docs/07-DEPLOYMENT.md` §13.1).
+- **ADMIN tidak bisa mengubah peran miliknya sendiri lewat API** - **403** dengan pesan `Users cannot change their own roles via the API`. Mencegah self-escalation dan self-lockout.
+- **`PUT /v1/users/*/roles` dipetakan eksplisit** sebagai `hasRole("ADMIN")` di `SecurityConfig`, tidak lagi bergantung pada fallback `anyRequest()`.
+
+### Tidak berubah
+- Peran custom yang dibuat lewat `POST /v1/roles` tetap bisa diberikan lewat `PUT /v1/users/{id}/roles`.
+- Pemberian peran bawaan (`ADMIN`, `USER`, `AUDITOR`, `MANAGER`) ke user lain tetap seperti sebelumnya.
+
+### Catatan operasional
+- Ditemukan juga bahwa `POST /v1/roles` dan `DELETE /v1/roles/**` masih hanya dijaga `hasRole("ADMIN")`, sehingga tenant ADMIN masih dapat membuat atau menghapus peran **global**. Belum ditindak pada rilis ini.
+
+---
+
 ## [1.1.0] - 2026-11-16
 
 Rilis hardening keamanan hasil analisis arsitektur pasca-go-live. Memuat **perubahan otorisasi** (verify pindah dari ADMIN ke OPS) dan kontrak penolakan baru; tidak ada perubahan kolom, hanya seed role (V12).
