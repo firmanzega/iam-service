@@ -317,3 +317,33 @@ chain stays intact — `audit_logs` has no FK to `users`, so the actor id remain
 historical reference. Verified: `remaining user4=0`. This is production evidence for
 QA-014..017 in addition to the CI results in §11.3.
 
+---
+
+## 12. Stage 7 Close-Out — Release Readiness (2026-11-20)
+
+**Recommendation: GO with accepted residuals.** Boss attested Stage 7 closure on
+2026-11-20.
+
+Evidence base:
+
+| Area | Result |
+|------|--------|
+| Automated suite | `mvn clean verify` EXIT=0, 318/318 tests, 0 Checkstyle, SpotBugs passed |
+| Production | `iam-service:1.1.3` running, bytecode marker confirmed, health `UP` |
+| Authorization live | `GET /v1/roles`: anon 401, admin 200, ops 200, no-role 403 |
+| Earlier releases | 1.1.1-hotfix and 1.1.2 smoke-passed and recorded in `07-DEPLOYMENT.md` §6 |
+| Release artifacts | Rollback images retained; no DB migration in 1.1.3 |
+
+Accepted residuals (Boss decision, not defects found in this increment):
+
+| ID | Residual | Impact |
+|----|----------|--------|
+| SEC-01 | DB port 5433 published on all host interfaces, password auth | Internal-only deployment; closure plan documented |
+| SEC-02 | `/actuator/prometheus` anonymously reachable on internal network | Internal scraper only |
+| CRED-01 | DB password value appeared in the session transcript; rotation declined | Accepted by Boss; procedure documented in final handoff |
+| DOC-01 | 3 pre-existing cspell word flags in ADR-0020/0021 | Documentation-only, outside this increment |
+| PERF-01 | No load/soak test has been executed | Soak v1.1.3 continues under Boss observation |
+
+Not covered by this close-out: browser/client consumers of the `GET /v1/roles`
+contract change, and any performance claim. No claim of "no remaining bugs" is made.
+

@@ -395,3 +395,45 @@ HTTPS for the LAN deployment, terminated in the application itself (no reverse p
 - Cert expiry: server cert 2029-02-18, CA 2036. Calendar a renewal before expiry; renewal = issue CSR from existing key or new key, sign with CA, re-export PKCS12, update `SERVER_SSL_KEYSTOREPASSWORD`, recreate container (same procedure as 2026-11-16).
 - `/actuator/prometheus` is unchanged: served over HTTPS now, still `permitAll` (see §9 SEC-02).
 - `/v3/api-docs` remains 404 (Swagger disabled in prod).
+
+---
+
+## 15. Stage 7 Close-Out Attestation (2026-11-20)
+
+**Status: CLOSED.** Boss attested closure of Stage 7 (Security Audit, Hardening &
+Deployment Readiness) on 2026-11-20. This is a process gate, not a claim that no
+further defect can exist.
+
+### 15.1 What was covered
+
+| Area | Evidence |
+|------|----------|
+| Architecture & contract | `03-ARCHITECTURE.md`, `04-API-SPEC.yaml`, ADR-0014/0015/0020/0021 |
+| Authorization hardening | 1.1.1-hotfix (OPS not assignable, self-change blocked), 1.1.2 (role catalog writes OPS-only), 1.1.3 (role catalog reads ADMIN/AUDITOR/OPS) |
+| Verification | `mvn clean verify` EXIT=0, 318/318 tests, 0 Checkstyle, SpotBugs passed; §6 deploy checklist green for all four releases |
+| Production state | `iam-service:1.1.3` running with bytecode marker confirmed; health `UP`; live smoke 401/200/200/403 |
+| Pentest | Stage 7B on isolated throwaway env, 0 confirmed Medium+ findings (`docs/10-PENTEST.md`) |
+| Operational | rollback images retained, no new DB migration in 1.1.3, audit hash chain intact after smoke cleanup |
+
+### 15.2 Accepted residuals (owner: Boss)
+
+| ID | Residual | Disposition |
+|----|----------|-------------|
+| SEC-01 | DB port 5433 published on all host interfaces with password auth | Accepted; internal-only deployment; closure plan in §7/WORKLOG |
+| SEC-02 | `/actuator/prometheus` anonymously reachable on internal network | Accepted; internal scraper only |
+| CRED-01 | DB password value appeared in the session transcript | Rotation declined by Boss; procedure documented in handoff |
+| DOC-01 | 3 pre-existing cspell word flags in ADR-0020/0021 | Accepted; documentation-only |
+| PERF-01 | No load test executed | Soak v1.1.3 under Boss observation |
+
+### 15.3 Not covered
+
+- Browser/client consumers of the `GET /v1/roles` contract change (no frontend in this repo).
+- Any performance or scalability claim.
+- Re-audit after the 1.1.3 change was not requested; the change is a single authorization
+  matcher with regression tests and a live smoke check.
+
+### 15.4 Ongoing obligations
+
+Soak v1.1.3 and watch logs/metrics. A/A+ grading is not claimed. Reopen Stage 7 if a
+public exposure path is added, if the role catalog design changes, or if Boss requests
+a fresh audit.
