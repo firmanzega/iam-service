@@ -51,6 +51,14 @@ public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, L
                                                   @Param("tenantId") Long tenantId);
 
     /**
+     * ADMIN pertama dalam satu tenant, untuk idempotensi bootstrap.
+     * findFirst membatasi hasil sehingga join many-to-many tidak menghasilkan
+     * baris ganda untuk pengguna yang memiliki lebih dari satu role.
+     */
+    @EntityGraph(attributePaths = "roles")
+    Optional<UserJpaEntity> findFirstByTenantIdAndRolesName(Long tenantId, String roleName);
+
+    /**
      * Pencarian pada username dan email dalam satu tenant.
      *
      * Pola LIKE yang diawali wildcard tidak bisa dilayani indeks btree biasa.

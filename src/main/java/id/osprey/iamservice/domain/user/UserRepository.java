@@ -31,6 +31,17 @@ public interface UserRepository {
      */
     Optional<User> findByUsernameOrEmail(String username, String email, Long tenantId);
 
+    /**
+     * Mencari ADMIN pertama milik satu tenant.
+     *
+     * Dipakai provisioning untuk menjamin idempotensi: tenant yang sudah
+     * memiliki ADMIN tidak boleh diberi ADMIN kedua lewat endpoint bootstrap.
+     *
+     * @param tenantId tenant internal pemilik pengguna
+     * @return ADMIN pertama, atau kosong bila belum ada
+     */
+    Optional<User> findFirstAdminByTenant(Long tenantId);
+
     User save(User user);
 
     PageResult<User> findAll(PaginationRequest request);

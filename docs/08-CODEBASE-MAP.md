@@ -50,7 +50,10 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `application/security/PasswordPolicy.java` | Password strength rules |
 | `application/security/SecurityRejectionStatsService.java` | Records 401 rejection aggregate per minute in separate transaction, deletes aggregates past retention |
 | `application/tenant/TenantResolver.java` | Resolves `X-Organization-ID` to internal `tenant_id`, sets `TenantContext`; returns `RESOLVED`/`MISSING`/`UNKNOWN` so the filter can reject unknown organizations (BUG-TENANT-001) |
-| `application/user/UserService.java` | Use case: user management + role replacement. `replaceRoles` rejects API assignment of restricted roles (`OPS`, cross-tenant capability — operator path only, docs/07-DEPLOYMENT §13.1) and rejects self role changes (caller editing own roles) |
+| `application/user/UserService.java` | Use case: user management + role replacement. `replaceRoles` rejects API assignment of restricted roles (`OPS`, cross-tenant capability — operator path only, docs/07-DEPLOYMENT §13.1) and rejects self role changes (caller editing own roles). `createInTenant` is the explicit-tenant variant used by provisioning |
+| `application/tenant/TenantProvisioningService.java` | Phase 1 provisioning (ADR-0020/0023): idempotent tenant create, first ADMIN bootstrap, `TENANT_PROVISIONED` audit via `recordIndependently` |
+| `application/tenant/ProvisionedTenant.java` | Result record: tenant + whether this call created it |
+| `application/tenant/ProvisionedAdmin.java` | Result record: admin + whether this call created the account |
 
 ## 4. Infrastructure Layer
 
@@ -59,7 +62,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `infrastructure/persistence/SessionJpaEntity.java` | JPA entity for `sessions` table |
 | `infrastructure/persistence/RefreshTokenJpaEntity.java` | JPA entity for `refresh_tokens` table, including `session_id` column |
 | `infrastructure/persistence/AuditLogJpaEntity.java` | JPA entity for `audit_logs` table, including hash column written by database trigger |
-| `infrastructure/persistence/SpringDataUserRepository.java` | Spring Data repository for users; `findByUsernameOrEmail` is an explicit `@Query` with a mandatory `tenantId` predicate (derived query silently ignored the tenant parameter) |
+| `infrastructure/persistence/SpringDataUserRepository.java` | Spring Data repository for users; `findByUsernameOrEmail` is an explicit `@Query` with a mandatory `tenantId` predicate (derived query silently ignored the tenant parameter); `findFirstByTenantIdAndRolesName` supports idempotent ADMIN bootstrap |
 | `infrastructure/persistence/SpringDataRoleRepository.java` | Spring Data repository for roles |
 | `infrastructure/persistence/SpringDataRefreshTokenRepository.java` | Spring Data repository for refresh tokens, including bulk delete expired and bulk revoke via single `UPDATE` |
 | `infrastructure/persistence/SpringDataSessionRepository.java` | Spring Data repository for sessions, including active session lookup, bulk revocation, delete inactive sessions |
@@ -77,9 +80,13 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 |------|------|
 | `adapter/rest/AuthController.java` | Endpoints: login, refresh, logout, list sessions, revoke one session |
 | `adapter/rest/RoleController.java` | Endpoints: roles; read requires ADMIN/AUDITOR/OPS, create/delete require OPS (role catalog is global) |
+| `adapter/rest/TenantController.java` | Endpoints: `POST /v1/tenants`, `POST /v1/tenants/{organizationId}/bootstrap-admin` (OPS-only), `GET /v1/tenants/current` (authenticated) |
 | `adapter/rest/AuditController.java` | Endpoints: audit logs, hash chain integrity check |
 | `adapter/rest/WebMapper.java` | Shared web-to-domain translator: actor ID, session ID, pagination request |
 | `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: missing or unknown organization → 401 on every tenant-aware path (ADR-0018, BUG-TENANT-001; unified 2026-11-14) |
+| `adapter/rest/dto/CreateTenantRequest.java` | `organizationId` + `name` for tenant provisioning |
+| `adapter/rest/dto/BootstrapAdminRequest.java` | First ADMIN credentials for a new tenant |
+| `adapter/rest/dto/TenantResponse.java` | Public tenant shape; internal `tenant_id` omitted |
 | `adapter/rest/dto/SessionResponse.java` | Shape of one device session returned |
 | `adapter/rest/dto/TokenResponse.java` | Shape of token pair returned |
 
@@ -88,7 +95,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | File | Role |
 |------|------|
 | `config/IamProperties.java` | `SessionCleanup`, `SecurityRejectionStats`, and all `iam.*` properties |
-| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS; `GET /v1/roles/**` → `hasAnyRole("ADMIN","AUDITOR","OPS")`; `POST/DELETE /v1/roles/**` → `hasRole("OPS")` (global role catalog is operator-only); explicit `PUT /v1/users/*/roles → hasRole("ADMIN")` (no reliance on the `anyRequest()` fallback) |
+| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS; `GET /v1/roles/**` → `hasAnyRole("ADMIN","AUDITOR","OPS")`; `POST/DELETE /v1/roles/**` → `hasRole("OPS")`; `POST /v1/tenants/**` → `hasRole("OPS")`, `GET /v1/tenants/current` → `authenticated()`; explicit `PUT /v1/users/*/roles → hasRole("ADMIN")` |
 | `config/RestAuthenticationEntryPoint.java` | 401 response, reason classification, WARN log + metric |
 | `config/RestAccessDeniedHandler.java` | 403 response, audit `ACCESS_DENIED`, WARN log + metric |
 | `config/SecurityEventRecorder.java` | Security event recording rules: 403 to audit, 401 to log + metric + aggregate |

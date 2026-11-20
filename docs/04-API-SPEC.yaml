@@ -17,6 +17,8 @@ tags:
     description: Role management (ADMIN)
   - name: audit
     description: Audit logs (ADMIN, AUDITOR) and hash chain verification (OPS only)
+  - name: tenants
+    description: Tenant provisioning (OPS only) and current-tenant lookup
   - name: operational
     description: Actuator health and metrics
 paths:
@@ -874,6 +876,162 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /tenants:
+    post:
+      tags: [tenants]
+      summary: Provision a tenant
+      operationId: createTenant
+      description: |
+        OPS only. Idempotent by organizationId: replaying with the same
+        organizationId and name returns 200 with the existing row and writes
+        nothing. A different name for the same organizationId is rejected
+        with 409. The caller's X-Organization-ID identifies the operator's
+        own tenant; the tenant being created is supplied in the body. The
+        internal tenant_id is never returned (ADR-0023).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '200':
+          description: Tenant already exists with the same parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires OPS)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: organizationId already exists with a different name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenants/{organizationId}/bootstrap-admin:
+    parameters:
+      - in: path
+        name: organizationId
+        required: true
+        schema:
+          type: string
+          maxLength: 100
+    post:
+      tags: [tenants]
+      summary: Bootstrap the first ADMIN of a tenant
+      operationId: bootstrapTenantAdmin
+      description: |
+        OPS only. Creates the first ADMIN in an existing tenant using an
+        explicit tenant id; TenantContext is never replaced. Idempotent:
+        when the tenant already has an ADMIN, the existing admin is returned
+        with 200 and no second user is created. Credentials must be handed
+        to the new ADMIN out of band; they are never logged (ADR-0023).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BootstrapAdminRequest'
+      responses:
+        '201':
+          description: First ADMIN created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '200':
+          description: Tenant already has an ADMIN; existing admin returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Invalid request body or password policy violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Role not sufficient (requires OPS)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username or email already used in the target tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /tenants/current:
+    get:
+      tags: [tenants]
+      summary: Read the caller's current tenant
+      operationId: getCurrentTenant
+      description: |
+        Any authenticated caller may read the tenant resolved from its
+        X-Organization-ID header. The internal tenant_id is not returned;
+        clients keep using X-Organization-ID (ADR-0023).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/XOrganizationId'
+      responses:
+        '200':
+          description: Current tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '401':
+          description: Not authenticated, or missing/unknown X-Organization-ID header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   parameters:
     XOrganizationId:
@@ -959,6 +1117,45 @@ components:
         current:
           type: boolean
         revoked:
+          type: boolean
+    CreateTenantRequest:
+      type: object
+      required: [organizationId, name]
+      properties:
+        organizationId:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: External organization identifier used as X-Organization-ID
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    BootstrapAdminRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 100
+        password:
+          type: string
+          format: password
+          maxLength: 72
+    TenantResponse:
+      type: object
+      required: [organizationId, name, active]
+      properties:
+        organizationId:
+          type: string
+        name:
+          type: string
+        active:
           type: boolean
     ErrorResponse:
       type: object

@@ -347,3 +347,61 @@ Accepted residuals (Boss decision, not defects found in this increment):
 Not covered by this close-out: browser/client consumers of the `GET /v1/roles`
 contract change, and any performance claim. No claim of "no remaining bugs" is made.
 
+---
+
+## 13. Phase 1 Tenant Provisioning (CR-2026-11-20)
+
+### 13.1 Oracle & risk
+
+Oracle: `docs/01-PRD.md` §5 acceptance criteria, `docs/04-API-SPEC.yaml`
+`/tenants` paths, ADR-0020 and ADR-0023. The highest risk is not a missing
+tenant row but a **privilege or idempotency defect**: a tenant ADMIN
+provisioning a tenant, a replay creating a duplicate, or the first ADMIN
+landing in the operator's tenant instead of the new one. A second risk is the
+audit hash-chain lock: an independent audit transaction written while the
+outer transaction already holds an audit-row lock can hang until lock timeout.
+
+### 13.2 Automated cases
+
+| ID | Case | Expected | Type | Result |
+|----|------|----------|------|--------|
+| TC-TEN-01 | `POST /v1/tenants` as member (`USER` only) | `403`; no tenant row created | Negative / access control | Passed |
+| TC-TEN-02 | `POST /v1/tenants` as OPS, replay same payload | `201` then `200`; response has `organizationId`, `name`, `active=true` | Positive + idempotency | Passed |
+| TC-TEN-03 | Replay with same `organizationId`, different `name` | `409` | Boundary / conflict | Passed |
+| TC-TEN-04 | Bootstrap before tenant exists | `404` | Negative | Passed |
+| TC-TEN-05 | Bootstrap as OPS, then replay | `201` then `200`; role contains `ADMIN`; one admin only | Positive + idempotency | Passed |
+| TC-TEN-06 | New ADMIN logs in with the new `X-Organization-ID`; `GET /v1/tenants/current` | `200` with the new `organizationId` | Cross-tenant correctness | Passed |
+| TC-TEN-07 | `TENANT_PROVISIONED` rows carry actor and `organization_id` in `details` | At least one row; `actor_user_id` not null | Audit side effect | Passed |
+
+Implementation: `src/test/java/id/osprey/iamservice/adapter/rest/TenantProvisioningIntegrationTest.java`
+(MockMvc + Testcontainers PostgreSQL 16). Data is isolated by a random
+`provtest-` prefix and removed in `@AfterEach`.
+
+### 13.3 Execution evidence
+
+Command: `./mvnw -Dtest=TenantProvisioningIntegrationTest test`
+Result: `Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`, `BUILD SUCCESS`.
+The four test methods cover the seven cases above (idempotency and conflict
+are asserted inside one method each).
+
+Full SIT gate: `./mvnw clean verify` -> `Tests run: 322, Failures: 0,
+Errors: 0, Skipped: 0`, 0 Checkstyle violations, SpotBugs 0 bugs, JaCoCo
+coverage checks met, CycloneDX 1.6 SBOM produced, `BUILD SUCCESS`.
+
+### 13.4 Mutation / failure proof
+
+Before the fix, the full class **did not finish within 600 seconds**: the
+bootstrap test hung after `userService.createInTenant` wrote `USER_CREATED` and
+`ROLES_REPLACED`, then `recordIndependently` opened a `REQUIRES_NEW` transaction
+that waited for the audit-row lock held by its own suspended parent
+transaction. After changing bootstrap audit to `record()` (same transaction),
+the same class finished in about 24 seconds with 4/4 passing. This is evidence
+that the suite detects the defect, not a permanently green test.
+
+### 13.5 Scope & residual risk
+
+Not covered: concurrent double-submit of provisioning (a database unique
+constraint still prevents duplicates, but the loser receives `409` rather than
+`200`), performance under load, and the HRIS consumer (excluded by Boss).
+No claim is made beyond the cases above.
+

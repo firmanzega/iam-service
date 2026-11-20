@@ -21,4 +21,12 @@ public interface TenantRepository {
     Optional<Tenant> findByOrganizationId(String organizationId);
 
     Tenant save(Tenant tenant);
+
+    /**
+     * Mencari tenant berdasarkan id internal.
+     *
+     * @param id tenant_id internal
+     * @return tenant yang cocok, atau kosong bila tidak ada
+     */
+    Optional<Tenant> findById(Long id);
 }

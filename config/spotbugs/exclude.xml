@@ -65,6 +65,10 @@
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
     <Match>
+        <Class name="id.osprey.iamservice.application.tenant.TenantProvisioningService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
         <Class name="id.osprey.iamservice.config.DevAdminBootstrap"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>

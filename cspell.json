@@ -41,7 +41,9 @@
     "tenantId",
     "X-Organization-ID",
     "WORKLOG",
-    "Pageable"
+    "Pageable",
+    "provtest",
+    "HRIS"
   ],
   "ignorePaths": [
     "node_modules/**",

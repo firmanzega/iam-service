@@ -47,6 +47,12 @@ public class UserPersistenceAdapter implements UserRepository {
     }
 
     @Override
+    public Optional<User> findFirstAdminByTenant(Long tenantId) {
+        return repository.findFirstByTenantIdAndRolesName(tenantId, "ADMIN")
+                .map(UserJpaEntity::toDomain);
+    }
+
+    @Override
     public User save(User user) {
         UserJpaEntity entity = user.getId() == null
                 ? new UserJpaEntity(user.getUsername(), user.getEmail(), user.getPasswordHash())

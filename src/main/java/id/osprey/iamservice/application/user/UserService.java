@@ -131,6 +131,47 @@ public class UserService {
         return user;
     }
 
+    /**
+     * Creates a user in an explicitly supplied tenant.
+     *
+     * Provisioning bootstraps an ADMIN in a tenant that is not the caller's
+     * tenant, so it cannot reuse create(): that method reads TenantContext and
+     * replacing the context for a request would leak across concurrent calls.
+     * Role assignment is bundled here so the new account is usable in one
+     * transaction. Restricted roles stay forbidden, as in replaceRoles().
+     */
+    @Transactional
+    public User createInTenant(Long tenantId, String username, String email, String rawPassword,
+                               Set<String> roleNames, Long actorUserId) {
+        passwordPolicy.validate(rawPassword);
+
+        if (userRepository.findByUsernameOrEmail(username, email, tenantId).isPresent()) {
+            throw new DomainException(DomainException.Reason.DUPLICATE_RESOURCE,
+                    "Username or email already used in this tenant");
+        }
+
+        Set<String> restricted = new TreeSet<>(roleNames);
+        restricted.retainAll(RESTRICTED_ROLES);
+        if (!restricted.isEmpty()) {
+            throw new DomainException(DomainException.Reason.ROLE_NOT_ASSIGNABLE,
+                    "Roles cannot be assigned via the API: " + String.join(", ", restricted));
+        }
+
+        Set<Role> roles = roleRepository.findByNameIn(roleNames);
+        if (roles.size() != roleNames.size()) {
+            throw new DomainException(DomainException.Reason.UNKNOWN_ROLE, "Unknown roles: " + roleNames);
+        }
+
+        User user = new User(tenantId, username, email, passwordEncoder.encode(rawPassword));
+        user.replaceRoles(roles);
+        User saved = userRepository.save(user);
+
+        auditService.record(actorUserId, AUDIT_USER_CREATED, saved.getId(), saved.getUsername());
+        auditService.record(actorUserId, AUDIT_ROLES_REPLACED, saved.getId(),
+                String.join(",", roles.stream().map(Role::getName).sorted().toList()));
+        return saved;
+    }
+
     @Transactional
     public User update(Long id, String username, String email, Long version, Long actorUserId) {
         User user = findOrThrow(id);

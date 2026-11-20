@@ -7,6 +7,27 @@ dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
 
 ---
 
+## [1.2.0] - 2026-11-20 (belum dirilis)
+
+Menambahkan provisioning tenant Phase 1 sesuai ADR-0020 dan ADR-0023, atas perintah eksplisit Boss. Tidak ada migrasi database dan tidak mengubah kontrak yang sudah ada.
+
+**Catatan:** perubahan ini belum di-deploy ke produksi. Deploy tetap tugas Owner sesuai `docs/07-DEPLOYMENT.md` §6.
+
+### Fitur
+- **`POST /v1/tenants`** (khusus `OPS`) membuat tenant. Idempoten berdasarkan `organization_id`: **201** untuk tenant baru, **200** untuk pengulangan dengan nama sama, **409** bila nama berbeda.
+- **`POST /v1/tenants/{organizationId}/bootstrap-admin`** (khusus `OPS`) membuat ADMIN pertama di tenant yang sudah ada. Idempoten per tenant: **201** sekali, **200** untuk pengulangan, **404** untuk organisasi tidak dikenal.
+- **`GET /v1/tenants/current`** mengembalikan tenant milik pemanggil tanpa mengekspos `tenant_id` internal.
+
+### Keamanan
+- Kedua endpoint provisioning dibatasi `hasRole("OPS")`; `ADMIN`, `AUDITOR`, dan `USER` menerima **403**. Header `X-Organization-ID` tetap wajib dan mengikat token (ADR-0019).
+- Aksi **`TENANT_PROVISIONED`** tercatat di `audit_logs` beserta actor dan `organization_id`. Audit bootstrap sengaja bergabung dalam transaksi yang sama untuk mencegah deadlock lock baris audit.
+- Peran `MANAGER` tetap ada sebagai label kompatibilitas, tanpa pengecekan `hasRole("MANAGER")` di kode, dan tidak dipakai untuk otorisasi.
+
+### Verifikasi
+- `mvn clean verify`: **322 test hijau**, 0 pelanggaran Checkstyle, 0 temuan SpotBugs, cakupan JaCoCo lolos, SBOM CycloneDX 1.6 dihasilkan.
+
+---
+
 ## [1.1.3] - 2026-11-20
 
 Perubahan perilaku: `GET /v1/roles` tidak lagi terbuka untuk semua pengguna terautentikasi. Tidak ada migrasi database.

@@ -24,6 +24,11 @@ public class TenantPersistenceAdapter implements TenantRepository {
     }
 
     @Override
+    public Optional<Tenant> findById(Long id) {
+        return repository.findById(id).map(TenantJpaEntity::toDomain);
+    }
+
+    @Override
     public Tenant save(Tenant tenant) {
         TenantJpaEntity entity = tenant.getId() == null
                 ? new TenantJpaEntity(tenant.getName(), tenant.getOrganizationId())

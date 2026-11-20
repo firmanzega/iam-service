@@ -55,7 +55,9 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
             "/v1/users",
             "/v1/users/",
             "/v1/audit-logs",
-            "/v1/audit-logs/"
+            "/v1/audit-logs/",
+            "/v1/tenants",
+            "/v1/tenants/"
     };
 
     private final TenantResolver tenantResolver;

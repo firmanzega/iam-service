@@ -65,6 +65,9 @@ public class DomainException extends RuntimeException {
         /** Pengguna yang dimaksud tidak ada. */
         USER_NOT_FOUND(Category.NOT_FOUND),
 
+        /** Tenant yang dimaksud tidak ada. */
+        TENANT_NOT_FOUND(Category.NOT_FOUND),
+
         /** Role yang dimaksud tidak ada. */
         ROLE_NOT_FOUND(Category.NOT_FOUND),
 

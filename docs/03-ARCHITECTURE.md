@@ -225,3 +225,71 @@ C4Container
 - Multi-tenancy is logical isolation (`tenant_id` column), not physical; a repository filter bug can leak data across tenants (mitigated by tests)
 - Logging is local per instance; no central aggregator yet
 - Email logging category is scaffold only; SMTP implementation deferred
+- `MANAGER` is a seeded global role with no `hasRole("MANAGER")` check in code. It is retained for backward compatibility and must not be used for authorization (ADR-0023).
+
+## 10. Tenant Provisioning (Phase 1)
+
+> Contract in ADR-0023. Phase 2 self-service is explicitly out of scope.
+
+### 10.1 Components
+
+| Component | Layer | Responsibility |
+|-----------|-------|----------------|
+| `TenantController` | REST adapter | `POST /v1/tenants`, `POST /v1/tenants/{organizationId}/bootstrap-admin`, `GET /v1/tenants/current` |
+| `TenantProvisioningService` | Application | Idempotent tenant creation, first ADMIN bootstrap, audit emission |
+| `TenantRepository.findById` | Domain port | Resolve the caller's tenant for `GET /v1/tenants/current` |
+| `UserRepository.findFirstAdminByTenant` | Domain port | Idempotency check for bootstrap |
+| `UserService.createInTenant` | Application | Create a user with an explicit tenant id, bypassing `TenantContext` replacement |
+| `SpringDataTenantRepository` | Infrastructure | Spring Data access to `tenants` |
+| `SpringDataUserRepository.findFirstByTenantIdAndRolesName` | Infrastructure | Locate the existing ADMIN of a tenant |
+
+No Flyway migration is added: `tenants`, `users`, `user_roles`, and `audit_logs`
+already exist (ADR-0001).
+
+### 10.2 Authorization and tenant binding
+
+- Provisioning paths are `hasRole("OPS")`. `ADMIN`, `AUDITOR`, and `USER`
+  receive `403`.
+- `/v1/tenants` is added to `TenantHeaderFilter` required paths: OPS sends its
+  own organization header, and ADR-0019 binding still applies. The target
+  organization is a body/path value, never a header override.
+- The internal `tenant_id` is never returned; clients use `X-Organization-ID`.
+
+### 10.3 Data flow
+
+```mermaid
+sequenceDiagram
+  participant O as OPS operator
+  participant C as TenantController
+  participant P as TenantProvisioningService
+  participant R as TenantRepository
+  participant U as UserRepository
+  participant A as AuditService
+  O->>C: POST /v1/tenants (own X-Organization-ID)
+  C->>P: organizationId, name, actor
+  P->>R: findByOrganizationId
+  alt not found
+    P->>R: save(Tenant)
+  end
+  P->>A: recordIndependently(TENANT_PROVISIONED, actor, organizationId)
+  O->>C: POST /v1/tenants/{organizationId}/bootstrap-admin
+  C->>P: username, email, password, actor
+  P->>R: findByOrganizationId -> tenantId
+  P->>U: findFirstAdminByTenant(tenantId)
+  alt no ADMIN yet
+    P->>U: save(User with ADMIN role, explicit tenantId)
+  end
+  P->>A: record(TENANT_PROVISIONED, actor, adminId) - joins bootstrap transaction
+```
+
+### 10.4 Failure modes
+
+| Failure | Behavior |
+|---------|----------|
+| Duplicate `organizationId` with same name | `200` with existing row, no write |
+| Duplicate `organizationId` with different name | `409` |
+| Unknown `organizationId` on bootstrap | `404` |
+| Weak bootstrap password | `400` from `PasswordPolicy` |
+| Audit write fails on tenant create | `REQUIRES_NEW` keeps the record independent of the create transaction |
+| Audit write fails on bootstrap | `record()` joins the transaction; an independent write would deadlock against the parent's own audit-row lock |
+

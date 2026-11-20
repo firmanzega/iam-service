@@ -148,6 +148,7 @@ dicatat di §4 dan §7, serta di `docs/adr/0020` (provisioning Fase 1) dan `docs
 | Uji restore CI | `.github/workflows/restore-drill.yml` cadangkan → hapus → pulihkan → verifikasi |
 | CODEOWNERS | Pemilik untuk seluruh repo dan path sensitif |
 | cspell | Konfigurasi ejaan untuk dokumentasi Bahasa Inggris |
+| Provisioning tenant (Fase 1) | Endpoint OPS-only untuk membuat tenant dan bootstrap ADMIN pertama; idempoten, tervalidasi, dan tercatat di audit (ADR-0020, ADR-0023) |
 
 ---
 
@@ -178,7 +179,7 @@ Keputusan dan batasan hasil diskusi cloud 2026-11-16 (belum ada tenant konkret; 
 - **Multi-organisasi dalam satu akun** belum ada; satu akun terikat satu tenant (ADR-0018)
 - **Email belum aktif**: tidak ada lupa password mandiri maupun verifikasi email; reset password hanya oleh admin (kategori `emails` di §3.8 masih belum aktif)
 - **Eksposur cloud publik wajib berada di balik WAF/API gateway**; rencana Cloudflare, vendor final diputuskan saat deployment cloud pertama yang nyata; rate limit per instance di §4 tidak cukup untuk internet publik
-- **Tooling provisioning tenant belum dibangun**; onboarding cloud Fase 1 bersifat admin-provisioned — tenant dibuat dan ADMIN pertama di-bootstrap oleh tim OPS (ADR-0020, dibangun saat tenant pertama konkret)
+- **Tooling provisioning tenant Fase 1 dibangun di revisi ini**; onboarding cloud tetap admin-provisioned — tenant dibuat dan ADMIN pertama di-bootstrap oleh tim OPS lewat endpoint OPS-only (ADR-0020, ADR-0023). Self-registration tetap ditunda ke Fase 2.
 - **Self-registration** ditunda ke Fase 2 bersyarat (lihat §7)
 - **Operator OPS adalah tim**, bukan orang tunggal: beberapa akun OPS per deployment, dengan grant/revoke dan serah-terima terdokumentasi (`docs/07-DEPLOYMENT.md` §13); cloud via tim OPS default-org, on-premise via DBA (SQL langsung)
 
@@ -206,10 +207,15 @@ Multi-tenancy dan structured logging **sudah masuk ruang lingkup** pada 2026-11-
 - [ ] Migrasi **V12** (seed role `OPS`) tercatat sukses di `flyway_schema_history`
 - [ ] HTTPS aktif di production; request HTTP plain ditolak (400)
 - [ ] Isolasi tenant pada verify: hanya akun `OPS` yang dapat membaca verifikasi rantai lintas tenant
+- [ ] `POST /v1/tenants` → **201** untuk tenant baru, **200** untuk `organization_id` yang sama (idempoten), **403** untuk peran selain `OPS`
+- [ ] `POST /v1/tenants/{organizationId}/bootstrap-admin` → **201** untuk ADMIN pertama, **200** untuk pengulangan, **404** untuk organisasi tidak dikenal, **403** untuk non-OPS
+- [ ] Aksi `TENANT_PROVISIONED` tercatat di `audit_logs` beserta actor dan `organization_id`
 
 ## 6. Rilis
 
-Versi saat ini: **`1.1.0`** (2026-11-16) — Package A + **Paket Hardening Keamanan** (§3.10):
+Versi saat ini: **`1.2.0`** (2026-11-20, belum dirilis) — Phase 1 provisioning tenant (ADR-0020, ADR-0023): endpoint OPS-only `POST /v1/tenants` dan `POST /v1/tenants/{organizationId}/bootstrap-admin`, serta `GET /v1/tenants/current`. Versi produksi aktif tetap `1.1.3`.
+
+Versi sebelumnya: **`1.1.0`** (2026-11-16) — Package A + **Paket Hardening Keamanan** (§3.10):
 binding klaim `tenant_id` ↔ tenant hasil resolusi header (ADR-0019), penegakan `token_type=access`,
 pembatasan `GET /v1/audit-logs/verify` ke peran `OPS` (V12), dan HTTPS in-app (CA internal,
 `iam.osprey.service`). Deployed ke host LAN 2026-11-16 dengan rollback exercise terbukti
@@ -219,6 +225,7 @@ Riwayat rilis:
 - `1.0.0` (2026-11-14) — Paket A (Fase 1–6) + multi-tenancy ADR-0016/0018 + structured logging ADR-0017
 - `1.0.1` (2026-11-14/15) — perbaikan BUG-TENANT-005 + dependensi CI
 - `1.1.0` (2026-11-16) — Paket Hardening Keamanan (ADR-0019, V12, TLS)
+- `1.2.0` (2026-11-20, belum dirilis) — Phase 1 provisioning tenant; tanpa migrasi database dan tanpa perubahan kontrak lama
 
 PRD ini sebelumnya tertinggal (masih menyebut `0.1.0` dan `[Belum Dirilis]`) — diperbarui pada 2026-11-14,
 dan diperbarui lagi pada **2026-11-16** agar sinkron dengan v1.1.0 (`CHANGELOG.md`, `ADR-0019`, `10-PENTEST.md`).
@@ -241,5 +248,115 @@ Masih terbuka:
 - [TERBUKA] Pemicu kuantitatif Fase 2 self-registration — angka threshold belum ditetapkan; usulan awal: ≥1 tenant nyata meminta onboarding mandiri.
 - [TERBUKA] Vendor WAF final (rencana: Cloudflare) — diputuskan saat deployment cloud pertama yang nyata, bersama cloud provider dan anggaran.
 - [TERBUKA] Infra email (provider, lupa password mandiri, verifikasi email) — diputuskan bila cloud publik punya demand nyata; hari ini dicatat sebagai batasan (§4).
-- [TERBUKA] Pembangunan tooling provisioning Fase 1 (ADR-0020) — dibangun saat tenant pertama konkret atau keputusan eksplisit "go" cloud; mencakup endpoint OPS-only + audit + idempotensi.
+- [TERJAWAB 2026-11-20] Pembangunan tooling provisioning Fase 1 (ADR-0020) — Boss memerintahkan eksekusi penuh Phase 1 tanpa Phase 2 self-service. Cakupan: endpoint OPS-only, validasi, idempotensi, audit `TENANT_PROVISIONED`, bootstrap ADMIN pertama via endpoint, runbook, dan pengujian (ADR-0023).
 - [TERBUKA] Prosedur tertulis grant/revoke dan serah-terima akun OPS (siapa approve, kapan review) — apakah perlu ditambahkan ke `docs/07-DEPLOYMENT.md` §13?
+
+---
+
+## 8. Change Request CR-2026-11-20 — User Info (DRAF, detail menyusul)
+
+> Status: **DITUTUP 2026-11-20**. Pembahasan User Info/HRIS dipindahkan ke project terpisah sesuai keputusan Boss. Bagian ini dipertahankan hanya sebagai catatan riwayat Change Request dan tidak menjadi dasar implementasi di iam-service.
+
+### 8.1 Kondisi Saat Ini — Fakta dari Kode
+
+| Hal | Kondisi saat ini | Sumber |
+|-----|------------------|--------|
+| Field identitas pengguna | `id`, `tenant_id`, `username`, `email`, `password_hash`, `active`, `failed_login_attempts`, `locked_until`, `created_at`, `updated_at`, `version`, `roles` | `src/main/java/id/osprey/iamservice/domain/user/User.java`, `infrastructure/persistence/UserJpaEntity.java` |
+| Tabel penyimpanan | `users` berisi `id`, `username`, `email`, `password_hash`, `active`, `created_at`, `updated_at`; kolom lain ditambahkan migrasi berikutnya | `src/main/resources/db/migration/V1__create_schema.sql`, `V3__add_version_to_users.sql`, `V4__add_auth_and_audit.sql`, `V9__add_tenant_id.sql` |
+| Kontrak baca | `GET /v1/users` (ADMIN/AUDITOR) dan `GET /v1/users/{id}` (ADMIN/AUDITOR atau pemilik akun) mengembalikan `UserResponse` berisi `id`, `username`, `email`, `active`, `version`, `roles` | `docs/04-API-SPEC.yaml` |
+| Tata kelola perubahan | Penambahan scope hanya boleh lewat revisi PRD atau ADR baru | Bagian 6 dokumen ini |
+
+Belum ada tabel, entity, atau endpoint bernama User Info di repositori saat ini.
+
+### 8.2 Problem Statement
+
+**[PERLU KONFIRMASI]** Boss belum menyampaikan masalah bisnis yang mendorong permintaan ini, pemilik kebutuhan, dan dampak terukur yang diharapkan. Tanpa itu, draf ini tidak boleh dianggap sebagai persetujuan scope. Kalimat berikut adalah templat, bukan fakta:
+
+> **[PERLU KONFIRMASI]** [Peran] mengalami [hambatan] saat [situasi], sehingga [dampak terukur]. Bukti: [sumber data].
+
+### 8.3 Asumsi & Pertanyaan Terbuka
+
+| ID | Pertanyaan | Status | Pemilik |
+|----|------------|--------|---------|
+| Q-INFO-01 | Field apa saja yang termasuk informasi lengkap User? Tipe data, panjang maksimum, wajib atau opsional, serta formatnya? | **[PERLU KONFIRMASI]** | Boss |
+| Q-INFO-02 | Apakah data disimpan di tabel terpisah berelasi 1:1 ke `users`, atau sebagai kolom tambahan pada `users`? | **[PERLU KONFIRMASI]** — Boss memilih menunggu detail | Boss + Tahap 3 |
+| Q-INFO-03 | Siapa yang boleh membaca dan mengubah data ini: pemilik akun saja, ADMIN/AUDITOR, atau kombinasi keduanya? | **[PERLU KONFIRMASI]** | Boss |
+| Q-INFO-04 | Apakah field ini sensitif sehingga perlu aturan enkripsi, retensi, atau pengecualian dari `GET /v1/users`? | **[PERLU KONFIRMASI]** | Boss + Tahap 3 |
+| Q-INFO-05 | Apakah pencarian `q` dan pengurutan pada `GET /v1/users` perlu mencakup field baru? | **[PERLU KONFIRMASI]** | Boss |
+| Q-INFO-06 | Apakah perubahan data ini harus tercatat di `audit_logs` dengan aksi baru? | **[PERLU KONFIRMASI]** | Boss |
+
+### 8.4 Kamus Istilah (Glossary)
+
+| Istilah | Padanan teknis | Catatan |
+|---------|----------------|---------|
+| User Info | `user profile` / `user info` | Nama final menunggu keputusan Tahap 3 |
+| Informasi lengkap User | `profile fields` | Daftar field belum ditetapkan |
+| Data pribadi | `personal data` | Status sensitivitas menunggu konfirmasi Q-INFO-04 |
+
+### 8.5 Ruang Lingkup MVP (MoSCoW) — DRAF
+
+| Prioritas | Kebutuhan | Alasan | Status |
+|-----------|-----------|--------|--------|
+| Must | Boss menetapkan daftar field, tipe, batas panjang, dan aturan akses sebelum Tahap 3 dimulai | Tanpa itu kontrak API dan migrasi tidak bisa dikunci | **[PERLU KONFIRMASI]** |
+| Should | Data User Info dapat dibaca lewat endpoint yang sudah ada atau endpoint baru menurut kontrak Tahap 3 | Mengikuti pola `UserResponse` yang berlaku | Draf |
+| Could | Pencarian dan pengurutan menggunakan field baru | Bergantung pada jawaban Q-INFO-05 | Draf |
+| Won't | Perubahan pada `roles`, kata sandi, status `active`, dan mekanisme autentikasi | Fitur ini hanya menambah informasi profil | Draf |
+
+Prioritas di atas belum disetujui dan tidak boleh dipakai sebagai dasar estimasi.
+
+### 8.6 User Stories & Acceptance Criteria (DRAF)
+
+**US-INFO-01** — Sebagai ADMIN atau AUDITOR, saya ingin membaca informasi lengkap User, agar saya dapat memverifikasi identitas pengguna dalam tenant saya.
+
+- Given tenant dan akun dengan peran ADMIN atau AUDITOR sudah terautentikasi serta memiliki `X-Organization-ID` yang cocok,
+  When saya meminta User Info untuk satu `id` pengguna,
+  Then sistem mengembalikan field yang disetujui di Q-INFO-01 **[PERLU KONFIRMASI]** dan tidak mengembalikan `password_hash`.
+- Given pemanggil bukan ADMIN/AUDITOR dan bukan pemilik akun,
+  When saya meminta User Info pengguna lain,
+  Then sistem menolak dengan 403 menurut aturan akses yang ditetapkan di Q-INFO-03 **[PERLU KONFIRMASI]**.
+- Given `id` tidak ditemukan di tenant pemanggil,
+  When saya meminta User Info,
+  Then sistem mengembalikan 404.
+
+**US-INFO-02** — Sebagai pemilik akun, saya ingin mengubah data profil saya, agar data kontak saya tetap mutakhir.
+
+- Given aturan akses di Q-INFO-03 sudah disetujui **[PERLU KONFIRMASI]**,
+  When pemilik akun mengirim perubahan field profil yang valid,
+  Then sistem menyimpan perubahan dan mengembalikan data terbaru.
+- Given salah satu field melebihi batas panjang atau format yang ditetapkan di Q-INFO-01 **[PERLU KONFIRMASI]**,
+  When perubahan dikirim,
+  Then sistem menolak dengan 400 dan mencantumkan field yang tidak valid.
+
+Acceptance criteria di atas sengaja belum menyebut nama field, tipe, atau endpoint. Menuliskannya sekarang berarti mengarang kontrak.
+
+### 8.7 Alur Routing Perubahan (Mermaid)
+
+```mermaid
+flowchart LR
+    A[Boss kirim detail field] --> B[Tahap 1 BA: kunci PRD bagian 8]
+    B --> C{Detail lengkap?}
+    C -- Tidak --> A
+    C -- Ya --> D[Tahap 3 SA: ADR, ERD, API spec]
+    D --> E[Tahap 4 BE: migrasi, domain, DTO, endpoint]
+    E --> F[Tahap 6 QA: test plan dan otomatisasi]
+    F --> G[Tahap 7 SEC: audit keamanan]
+```
+
+Tahap 2 dan Tahap 5 tidak berlaku karena layanan ini hanya menyediakan REST API.
+
+### 8.8 Dokumen Terdampak (belum diubah)
+
+| Dokumen | Pemilik tahap | Yang akan berubah setelah detail disetujui | Status |
+|---------|---------------|--------------------------------------------|--------|
+| `docs/01-PRD.md` bagian 8 | Tahap 1 (BA) | Draf ini menjadi kebutuhan final | Ditulis sekarang |
+| `docs/03-ARCHITECTURE.md` | Tahap 3 (SA) | Model domain, skema tabel, NFR privasi | Menunggu |
+| `docs/04-API-SPEC.yaml` | Tahap 3/4 (SA/BE) | `UserResponse`, request body, endpoint baca dan ubah | Menunggu |
+| `docs/08-CODEBASE-MAP.md` | Tahap 4 (BE) | Entity, port, adapter, DTO, controller | Menunggu |
+| `docs/06-TEST-PLAN.md` | Tahap 6 (QA) | Skenario positif, negatif, batas, hak akses | Menunggu |
+| `docs/07-DEPLOYMENT.md` | Tahap 7 (SEC) | Migrasi produksi dan pemeriksaan keamanan | Menunggu |
+
+Menurut Role Lock, BA dilarang mengubah dokumen Tahap 3 sampai Tahap 7. Daftar di atas hanya catatan dampak, bukan izin edit.
+
+### 8.9 Gate Eksekusi
+
+Tidak ada migrasi, entity, DTO, endpoint, atau test yang ditulis sebelum Q-INFO-01 sampai Q-INFO-06 dijawab dan draf ini disetujui. Persetujuan draf tidak otomatis membuka izin Tahap 3; Boss perlu memberi perintah lanjutan setelah detail diterima.

@@ -437,3 +437,91 @@ further defect can exist.
 Soak v1.1.3 and watch logs/metrics. A/A+ grading is not claimed. Reopen Stage 7 if a
 public exposure path is added, if the role catalog design changes, or if Boss requests
 a fresh audit.
+
+---
+
+## 16. Phase 1 Tenant Provisioning Runbook (v1.2.0, not yet deployed)
+
+### 16.1 Scope and threat model
+
+Scope: the two provisioning endpoints and `GET /v1/tenants/current` introduced by
+ADR-0023. No new dependency, no new environment variable, no new table, and no
+change to the released token contract.
+
+| Boundary | Threat (STRIDE) | Control in place | Residual |
+|----------|-----------------|------------------|----------|
+| OPS operator -> `POST /v1/tenants` | Spoofing | JWT `hasRole("OPS")` plus ADR-0019 header-to-token tenant binding | OPS account compromise still grants provisioning; handled by §13 account controls |
+| OPS operator -> provisioning body | Tampering | `@Valid` DTO limits (1-100 chars) and DB unique constraints | None identified in this scope |
+| Provisioning act | Repudiation | `TENANT_PROVISIONED` with actor id and `organization_id` in `details` | Audit retention follows existing policy |
+| `GET /v1/tenants/current` | Information disclosure | Only caller's resolved tenant; internal `tenant_id` omitted | Tenant name is visible to its own authenticated users by design |
+| Provisioning paths | Elevation of privilege | OPS-only matcher; `ADMIN` cannot assign `OPS` (ADR-0021/0022 hardening) | None identified in this scope |
+| Provisioning paths | Denial of service | OPS-only surface; existing auth rate limit remains | Provisioning itself has no separate rate limit (operator-only, low volume) |
+
+No High or Critical finding was confirmed in this scope. Not covered: the HRIS
+consumer (separate project), public exposure, and load testing.
+
+### 16.2 Prerequisites
+
+- A deployment running the v1.2.0 artifact (commit to be recorded at handoff).
+- An OPS account created per §13.1; the operator sends its **own**
+  `X-Organization-ID` (for example `org-default`).
+- A current database backup per §8 before onboarding the first real tenant.
+- Bootstrap credentials obtained from the secret store. They must never be
+  placed in shell history, logs, chat, or `.env`.
+
+### 16.3 Onboarding steps
+
+Replace the values below with operator-supplied values from the secret store.
+
+```bash
+# 1. Create the tenant (idempotent by organizationId)
+curl -X POST "$IAM_BASE_URL/v1/tenants" \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "X-Organization-ID: org-default" \
+  -H 'Content-Type: application/json' \
+  -d '{"organizationId":"<NEW_ORG_ID>","name":"<ORG_NAME>"}'
+
+# 2. Bootstrap the first ADMIN (idempotent per tenant)
+curl -X POST "$IAM_BASE_URL/v1/tenants/<NEW_ORG_ID>/bootstrap-admin" \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "X-Organization-ID: org-default" \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"<ADMIN_USER>","email":"<ADMIN_EMAIL>","password":"<FROM_SECRET_STORE>"}'
+
+# 3. Confirm the audit trail with the OPS token
+curl "$IAM_BASE_URL/v1/audit-logs?q=TENANT_PROVISIONED" \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "X-Organization-ID: org-default"
+
+# 4. Confirm the new ADMIN can authenticate in its own tenant
+curl -X POST "$IAM_BASE_URL/v1/auth/login" \
+  -H "X-Organization-ID: <NEW_ORG_ID>" \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"<ADMIN_USER>","password":"<FROM_SECRET_STORE>"}'
+```
+
+Successful creation returns `201`; a safe replay returns `200`. A `409` on step 1
+means the `organizationId` already exists with a different name. A `404` on
+step 2 means the tenant was not created yet.
+
+### 16.4 Failure handling and rollback
+
+- Tenant created but bootstrap failed: retry step 2. It is idempotent and will
+  not create a second ADMIN.
+- Concurrent double-submit: the unique constraint prevents duplicates; the
+  losing request receives `409` rather than `200`. This is accepted residual
+  behavior.
+- There is **no delete-tenant API**. Rollback of a mistaken tenant row is a
+  restore from the backup taken in §16.2, executed by the Owner. Do not
+  hand-delete rows in the production database without that backup.
+- Watch `TENANT_PROVISIONED` and `ACCESS_DENIED` counts after onboarding; a
+  spike in `ACCESS_DENIED` from a new tenant usually means a missing or wrong
+  `X-Organization-ID`.
+
+### 16.5 Verification evidence
+
+Phase 6 recorded `mvn clean verify`: 322 tests green, 0 Checkstyle violations,
+0 SpotBugs findings, JaCoCo checks met, CycloneDX 1.6 SBOM produced. A QA
+mutation run confirmed the suite detects a provisioning audit deadlock that was
+present before the fix. These are build-time results, not a production smoke
+test; the live smoke check remains an Owner task after deployment.

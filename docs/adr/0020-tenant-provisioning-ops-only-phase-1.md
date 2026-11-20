@@ -29,7 +29,7 @@ Boss locked the onboarding model for the first phase:
 Boss's explicit ruling on the bootstrap step: the first tenant ADMIN should be
 created **via an endpoint after the tenant exists**, not via manual SQL —
 quoting the reasoning that endpoint-based creation is the better practice
-because it avoids mistyped manual SQL and is validatable and auditable.
+because it avoids mistyped manual SQL and can be validated and audited.
 
 ## Decision criteria
 
@@ -73,7 +73,7 @@ because it avoids mistyped manual SQL and is validatable and auditable.
      released user-management surface.
 3. The concrete shape (paths, DTOs, error contract) is intentionally **not**
    decided here. It will be specified in a follow-up revision of this ADR or a
-   successor (ADR-0022) and in `docs/04-API-SPEC.yaml` **at the time the build
+   successor ADR (number to be assigned when the build is triggered) and in `docs/04-API-SPEC.yaml` **at the time the build
    is triggered**, together with tests and a QA gate.
 4. No self-registration, no email flows, no signup UI shall be built as part
    of this decision.
@@ -92,7 +92,7 @@ because it avoids mistyped manual SQL and is validatable and auditable.
   exists yet.
 - The OPS team (not a lone operator) must have a documented grant/revoke and
   handover procedure (`docs/07-DEPLOYMENT.md` §13); this ADR does not replace it.
-- Provisioning will create the most privileged artefacts in the system
+- Provisioning will create the most privileged artifacts in the system
   (tenant + first ADMIN); the build phase must include a security review.
 
 **Rejected alternatives** — see table above.

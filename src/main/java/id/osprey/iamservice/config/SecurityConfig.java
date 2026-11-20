@@ -141,6 +141,10 @@ public class SecurityConfig {
                         // boleh memutuskan katalog peran deployment-wide.
                         .requestMatchers(HttpMethod.POST, "/v1/roles", "/v1/roles/**").hasRole("OPS")
                         .requestMatchers(HttpMethod.DELETE, "/v1/roles/**").hasRole("OPS")
+                        // Tenant provisioning is a deployment-operator capability (ADR-0020/0023).
+                        // The caller's own organization header is still required and bound to the token.
+                        .requestMatchers(HttpMethod.POST, "/v1/tenants", "/v1/tenants/**").hasRole("OPS")
+                        .requestMatchers(HttpMethod.GET, "/v1/tenants/current").authenticated()
                         .anyRequest().hasRole("ADMIN"))
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
