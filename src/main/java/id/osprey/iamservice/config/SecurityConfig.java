@@ -128,8 +128,13 @@ public class SecurityConfig {
                         // hanya untuk peran OPS yang dipegang akun operasional.
                         .requestMatchers(HttpMethod.GET, "/v1/audit-logs/verify").hasRole("OPS")
                         .requestMatchers(HttpMethod.GET, "/v1/audit-logs/**").hasAnyRole("ADMIN", "AUDITOR")
-                        .requestMatchers(HttpMethod.POST, "/v1/roles", "/v1/roles/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/v1/roles/**").hasRole("ADMIN")
+                        // Pembuatan dan penghapusan role adalah operasi katalog
+                        // global (khusus semua tenant), bukan urusan tenant ADMIN
+                        // tunggal. Hanya peran OPS (dibawa akun operasional yang
+                        // dibuat via SQL, lihat docs/07-DEPLOYMENT.md §13) yang
+                        // boleh memutuskan katalog peran deployment-wide.
+                        .requestMatchers(HttpMethod.POST, "/v1/roles", "/v1/roles/**").hasRole("OPS")
+                        .requestMatchers(HttpMethod.DELETE, "/v1/roles/**").hasRole("OPS")
                         .anyRequest().hasRole("ADMIN"))
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))

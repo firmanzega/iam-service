@@ -43,7 +43,11 @@ public class RoleController {
         return roleService.findAll().stream().map(RoleResponse::from).toList();
     }
 
-    @Operation(summary = "Buat role baru", description = "Hanya untuk peran ADMIN")
+    // Pembuatan role adalah operasi katalog global (khusus semua tenant),
+    // bukan urusan tenant ADMIN tunggal. Hanya peran OPS (akun operasional
+    // via SQL, lihat docs/07-DEPLOYMENT.md §13) yang boleh memutuskan
+    // katalog peran deployment-wide.
+    @Operation(summary = "Buat role baru", description = "Hanya untuk peran OPS")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Role dibuat"),
             @ApiResponse(responseCode = "400", description = "Nama role tidak valid"),

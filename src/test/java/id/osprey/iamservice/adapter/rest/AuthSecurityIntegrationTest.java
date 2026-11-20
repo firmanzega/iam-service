@@ -75,9 +75,11 @@ class AuthSecurityIntegrationTest {
     private Long adminId;
     private Long memberId;
     private Long auditorId;
+    private Long opsId;
     private String adminToken;
     private String memberToken;
     private String auditorToken;
+    private String opsToken;
 
     @BeforeEach
     void setTenantContext() {
@@ -103,9 +105,16 @@ class AuthSecurityIntegrationTest {
         auditor.replaceRoles(Set.of(auditorRole));
         auditorId = userRepository.save(auditor).getId();
 
+        Role opsRole = roleRepository.findByName("OPS").orElseThrow();
+        User ops = new User(TENANT_ID, USERNAME_PREFIX + "ops", USERNAME_PREFIX + "ops@mail.com",
+                passwordEncoder.encode(PASSWORD));
+        ops.replaceRoles(Set.of(opsRole));
+        opsId = userRepository.save(ops).getId();
+
         adminToken = login(USERNAME_PREFIX + "admin");
         memberToken = login(USERNAME_PREFIX + "member");
         auditorToken = login(USERNAME_PREFIX + "auditor");
+        opsToken = login(USERNAME_PREFIX + "ops");
     }
 
     @AfterEach
@@ -380,13 +389,22 @@ class AuthSecurityIntegrationTest {
     }
 
     @Test
-    void createRole_asAdmin_isCreated() throws Exception {
+    void createRole_asOps_isCreated() throws Exception {
         mockMvc.perform(post("/v1/roles")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + opsToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + TEST_ROLE_PREFIX + "SATU\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value(TEST_ROLE_PREFIX + "SATU"));
+    }
+
+    @Test
+    void createRole_asAdmin_isForbidden() throws Exception {
+        mockMvc.perform(post("/v1/roles")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + TEST_ROLE_PREFIX + "ENAM\"}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -399,10 +417,18 @@ class AuthSecurityIntegrationTest {
     }
 
     @Test
-    void deleteRole_unknownRole_isNotFound() throws Exception {
+    void deleteRole_unknownRole_asAdmin_isForbidden() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .delete("/v1/roles/{id}", 999999L)
                         .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteRole_unknownRole_asOps_isNotFound() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/v1/roles/{id}", 999999L)
+                        .header("Authorization", "Bearer " + opsToken))
                 .andExpect(status().isNotFound());
     }
 
@@ -411,7 +437,7 @@ class AuthSecurityIntegrationTest {
         String roleName = TEST_ROLE_PREFIX + "TIGA";
 
         MvcResult created = mockMvc.perform(post("/v1/roles")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + opsToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + roleName + "\"}"))
                 .andExpect(status().isCreated())
@@ -436,7 +462,7 @@ class AuthSecurityIntegrationTest {
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .delete("/v1/roles/{id}", roleId)
-                        .header("Authorization", "Bearer " + adminToken))
+                        .header("Authorization", "Bearer " + opsToken))
                 .andExpect(status().isConflict());
     }
 

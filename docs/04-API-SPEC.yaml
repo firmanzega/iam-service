@@ -696,8 +696,10 @@ paths:
       summary: Create a role
       operationId: createRole
       description: |
-        ADMIN only. Role names must match `^[A-Z][A-Z0-9_]*$` (uppercase,
-        max 50 chars). Roles are global, not tenant-scoped.
+        OPS only. Role names must match `^[A-Z][A-Z0-9_]*$` (uppercase,
+        max 50 chars). Roles are global, not tenant-scoped. Tenant ADMINs
+        cannot create global roles; the role catalog is deployment-wide and
+        managed exclusively by the operator path (see docs/07-DEPLOYMENT.md §13).
       security:
         - bearerAuth: []
       requestBody:
@@ -726,7 +728,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Role not sufficient (requires ADMIN)
+          description: Role not sufficient (requires OPS)
           content:
             application/json:
               schema:
@@ -750,7 +752,7 @@ paths:
       summary: Delete a role
       operationId: deleteRole
       description: |
-        ADMIN only. A role still assigned to at least one user is rejected
+        OPS only. A role still assigned to at least one user is rejected
         with 409; remove the role from its users first.
       security:
         - bearerAuth: []
@@ -764,7 +766,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Role not sufficient (requires ADMIN)
+          description: Role not sufficient (requires OPS)
           content:
             application/json:
               schema:
