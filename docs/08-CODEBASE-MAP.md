@@ -76,7 +76,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | File | Role |
 |------|------|
 | `adapter/rest/AuthController.java` | Endpoints: login, refresh, logout, list sessions, revoke one session |
-| `adapter/rest/RoleController.java` | Endpoints: roles |
+| `adapter/rest/RoleController.java` | Endpoints: roles; create/delete require OPS (role catalog is global) |
 | `adapter/rest/AuditController.java` | Endpoints: audit logs, hash chain integrity check |
 | `adapter/rest/WebMapper.java` | Shared web-to-domain translator: actor ID, session ID, pagination request |
 | `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: missing or unknown organization → 401 on every tenant-aware path (ADR-0018, BUG-TENANT-001; unified 2026-11-14) |
@@ -88,7 +88,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | File | Role |
 |------|------|
 | `config/IamProperties.java` | `SessionCleanup`, `SecurityRejectionStats`, and all `iam.*` properties |
-| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS; explicit `PUT /v1/users/*/roles → hasRole("ADMIN")` (no reliance on the `anyRequest()` fallback) |
+| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS; `POST/DELETE /v1/roles/**` → `hasRole("OPS")` (global role catalog is operator-only); explicit `PUT /v1/users/*/roles → hasRole("ADMIN")` (no reliance on the `anyRequest()` fallback) |
 | `config/RestAuthenticationEntryPoint.java` | 401 response, reason classification, WARN log + metric |
 | `config/RestAccessDeniedHandler.java` | 403 response, audit `ACCESS_DENIED`, WARN log + metric |
 | `config/SecurityEventRecorder.java` | Security event recording rules: 403 to audit, 401 to log + metric + aggregate |
@@ -113,7 +113,7 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | File | Role |
 |------|------|
 | `adapter/rest/TenantIsolationIntegrationTest.java` | Cross-tenant isolation via HTTP: sessions per tenant, unknown-organization 401 (BUG-TENANT-001), required `X-Organization-ID` on login/refresh (ADR-0018), tenant-scoped identity uniqueness (V10) |
-| `adapter/rest/AuthSecurityIntegrationTest.java` | Authorization matrix via HTTP, password change, account lock, logout, 401 aggregate; includes OPS-not-assignable-via-API and self role-change rejection (role-assignment hardening) |
+| `adapter/rest/AuthSecurityIntegrationTest.java` | Authorization matrix via HTTP, password change, account lock, logout, 401 aggregate; includes OPS-not-assignable-via-API, self role-change rejection, and role-catalog OPS-only (POST/DELETE /v1/roles) |
 | `adapter/rest/SessionManagementIntegrationTest.java` | Per-device sessions via HTTP: two logins, `current` flag, single-device logout, other-user 404 |
 | `adapter/rest/PrometheusEndpointIntegrationTest.java` | Prometheus scrape without token, metric names match alert rules |
 | `adapter/rest/WebMapperTest.java` | Session claim parsing, missing/blank/malformed values return null |
