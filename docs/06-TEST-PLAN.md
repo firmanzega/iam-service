@@ -296,6 +296,21 @@ while role authorization is asserted separately in QA-014..017.
 
 Not covered: browser/client consumers of `GET /v1/roles` (no frontend in this repo). Any
 client relying on USER/MANAGER reading the catalog now gets 403 — a contract change
-announced in `CHANGELOG.md` 1.1.3. No load test was run. No production verification until
-the owner deploys 1.1.3.
+announced in `CHANGELOG.md` 1.1.3. No load test was run.
+
+### 11.5 Production smoke (owner-executed, 2026-11-20)
+
+After `iam-service:1.1.3` was deployed by the owner, `smoke-1.1.3.ps1` was run against
+production:
+
+| Check | Status |
+|-------|--------|
+| `/actuator/health` | `{"groups":["liveness","readiness"],"status":"UP"}` |
+| `GET /v1/roles` without token | **401** |
+| `GET /v1/roles` as admin (roles `[ADMIN]`) | **200** |
+| `GET /v1/roles` as ops (roles `[OPS]`) | **200** |
+| `GET /v1/roles` as throwaway no-role user | **403** |
+
+The throwaway account (id 4) was deactivated; hard-cleanup SQL was handed to the owner.
+This is production evidence for QA-014..017 in addition to the CI results in §11.3.
 
