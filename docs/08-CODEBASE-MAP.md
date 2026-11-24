@@ -83,7 +83,8 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `adapter/rest/TenantController.java` | Endpoints: `POST /v1/tenants`, `POST /v1/tenants/{organizationId}/bootstrap-admin` (OPS-only), `GET /v1/tenants/current` (authenticated) |
 | `adapter/rest/AuditController.java` | Endpoints: audit logs, hash chain integrity check |
 | `adapter/rest/WebMapper.java` | Shared web-to-domain translator: actor ID, session ID, pagination request |
-| `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: missing or unknown organization → 401 on every tenant-aware path (ADR-0018, BUG-TENANT-001; unified 2026-11-14) |
+| `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: missing or unknown organization → 401 on every tenant-aware path (ADR-0018, BUG-TENANT-001; unified 2026-11-14). Also seeds MDC `requestId` and `tenantId`, cleared in `finally` (ADR-0024) |
+| `infrastructure/logging/LoggingAdapter.java` | Writes `LogEntry` through SLF4J; injects MDC `tenantId`, `traceId`, and `logCategory` (ADR-0024) |
 | `adapter/rest/dto/CreateTenantRequest.java` | `organizationId` + `name` for tenant provisioning |
 | `adapter/rest/dto/BootstrapAdminRequest.java` | First ADMIN credentials for a new tenant |
 | `adapter/rest/dto/TenantResponse.java` | Public tenant shape; internal `tenant_id` omitted |

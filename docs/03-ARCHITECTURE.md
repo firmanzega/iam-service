@@ -176,9 +176,14 @@ domain port defines five categories:
 | `timers` | Background job execution: started, success, failed, timeout | Implemented |
 | `emails` | SMTP send status: success, failure, trouble | Scaffold only (deferred) |
 
-Every log record includes `tenantId` (from `TenantContext` via MDC) and `traceId`
-(from OpenTelemetry when sampling enabled). Output is structured JSON or `key=value`
-to stdout/file. Log rotation and retention are operator-managed.
+As of ADR-0024, console output is **ECS JSON** configured by
+`logging.structured.format.console: ecs`. Spring Boot 4.1.2 metadata was verified
+locally; no new dependency is required. Every request carries `requestId` (UUID)
+and tenant-aware paths carry the internal `tenant_id` as `tenantId` in MDC; entries
+written through `LoggingService` also carry `logCategory` and, when tracing is
+enabled, `traceId`/`spanId`. All MDC keys are cleared in `finally` blocks.
+Tracing sampling remains `0.0` and the OTLP collector is out of scope for this CR.
+Log retention is operator-managed outside the application.
 
 ### 7.2 Diagram (C4 Level 2 — Container)
 

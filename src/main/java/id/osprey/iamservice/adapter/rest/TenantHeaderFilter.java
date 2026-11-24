@@ -8,11 +8,13 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * Filter HTTP yang mengekstrak header X-Organization-ID dan menyetel
@@ -42,6 +44,8 @@ import java.io.IOException;
 public class TenantHeaderFilter extends OncePerRequestFilter {
 
     private static final String HEADER_ORGANIZATION_ID = "X-Organization-ID";
+    private static final String MDC_REQUEST_ID = "requestId";
+    private static final String MDC_TENANT_ID = "tenantId";
 
     private static final String MISSING_REASON = "missing_organization";
     private static final String UNKNOWN_REASON = "unknown_organization";
@@ -75,26 +79,36 @@ public class TenantHeaderFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String path = normalizePath(request);
-        String organizationId = request.getHeader(HEADER_ORGANIZATION_ID);
-
-        boolean tenantRequired = matchesAny(path, TENANT_REQUIRED_PATHS);
-
-        TenantResolver.Resolution resolution = tenantResolver.resolve(organizationId);
-
-        if (resolution == TenantResolver.Resolution.MISSING) {
-            if (tenantRequired) {
-                reject(request, response, MISSING_REASON, "Missing X-Organization-ID header");
-                return;
-            }
-        } else if (resolution == TenantResolver.Resolution.UNKNOWN) {
-            reject(request, response, UNKNOWN_REASON, "Unknown organization");
-            return;
-        }
+        // A request id is created before any rejection so that even a 401 caused by
+        // a missing header can be correlated in structured logs. It is deliberately
+        // not named "traceId" to avoid colliding with OpenTelemetry MDC keys.
+        MDC.put(MDC_REQUEST_ID, UUID.randomUUID().toString());
 
         try {
+            String path = normalizePath(request);
+            String organizationId = request.getHeader(HEADER_ORGANIZATION_ID);
+
+            boolean tenantRequired = matchesAny(path, TENANT_REQUIRED_PATHS);
+
+            TenantResolver.Resolution resolution = tenantResolver.resolve(organizationId);
+            if (resolution == TenantResolver.Resolution.RESOLVED) {
+                MDC.put(MDC_TENANT_ID, String.valueOf(TenantContext.getTenantId()));
+            }
+
+            if (resolution == TenantResolver.Resolution.MISSING) {
+                if (tenantRequired) {
+                    reject(request, response, MISSING_REASON, "Missing X-Organization-ID header");
+                    return;
+                }
+            } else if (resolution == TenantResolver.Resolution.UNKNOWN) {
+                reject(request, response, UNKNOWN_REASON, "Unknown organization");
+                return;
+            }
+
             filterChain.doFilter(request, response);
         } finally {
+            MDC.remove(MDC_REQUEST_ID);
+            MDC.remove(MDC_TENANT_ID);
             TenantContext.clear();
         }
     }

@@ -6,11 +6,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Adaptor SLF4J/Logback untuk penulisan log terstruktur. Menginject tenantId
- * dan traceId ke MDC sehingga pola log output mencakup keduanya.
+ * SLF4J/Logback adapter for structured log entries. It injects tenantId,
+ * traceId, and logCategory into MDC for the duration of one write, then
+ * restores the previous values so thread-local state does not leak.
  *
- * Output format dikonfigurasikan melalui logback-spring.xml (JSON atau
- * key=value), bukan di kode ini.
+ * The console format is configured by logging.structured.format.console
+ * (ECS JSON), not by this class.
  */
 @Component
 public final class LoggingAdapter {
@@ -19,16 +20,18 @@ public final class LoggingAdapter {
 
     private static final String MDC_TENANT_ID = "tenantId";
     private static final String MDC_TRACE_ID = "traceId";
+    private static final String MDC_LOG_CATEGORY = "logCategory";
 
     /**
-     * Menulis entri log ke SLF4J. tenantId dan traceId dimasukkan ke MDC
-     * untuk waktu pulang pergi pemanggilan ini, lalu dihapus agar tidak
-     * bocor ke pemanggilan lain yang share thread yang sama.
+     * Writes one log entry through SLF4J.
+     *
+     * @param entry log entry carrying category, message, tenant id, and optional trace id
      */
     public void write(LogEntry entry) {
         String previousTenantId = putMdc(MDC_TENANT_ID,
                 entry.getTenantId() != null ? entry.getTenantId().toString() : null);
         String previousTraceId = putMdc(MDC_TRACE_ID, entry.getTraceId());
+        String previousCategory = putMdc(MDC_LOG_CATEGORY, entry.getCategory().name());
 
         try {
             switch (entry.getCategory()) {
@@ -39,6 +42,7 @@ public final class LoggingAdapter {
                 case EMAILS -> log.info(entry.getMessage());
             }
         } finally {
+            removeMdc(MDC_LOG_CATEGORY, previousCategory);
             removeMdc(MDC_TENANT_ID, previousTenantId);
             removeMdc(MDC_TRACE_ID, previousTraceId);
         }

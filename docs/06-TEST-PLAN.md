@@ -405,3 +405,59 @@ constraint still prevents duplicates, but the loser receives `409` rather than
 `200`), performance under load, and the HRIS consumer (excluded by Boss).
 No claim is made beyond the cases above.
 
+---
+
+## 14. Structured Logging & Request Correlation (CR-STRUCTLOG-001)
+
+### 14.1 Oracle & risk
+
+Oracle: ADR-0024, `03-ARCHITECTURE.md` §7, and the acceptance criteria composed
+in chat for CR-STRUCTLOG-001. The highest risk is **MDC leakage**: a request id
+or tenant id left in a thread-local map could be attached to an unrelated later
+request on the same Tomcat thread. The second risk is a rejection path skipping
+cleanup because it returns before the normal chain.
+
+### 14.2 Automated cases
+
+| ID | Case | Expected | Type | Result |
+|----|------|----------|------|--------|
+| SL-01 | `LoggingAdapter.write(ERRORS, ...)` | Level `ERROR`; MDC contains `tenantId`, `traceId`, and `logCategory=ERRORS` | Positive | Passed |
+| SL-02 | Four non-error categories | All logged at `INFO` | Regression | Passed |
+| SL-03 | Entry without `tenantId` after a prior MDC value | Event has no `tenantId`; previous value restored | Negative / isolation | Passed |
+| SL-04 | Previous `tenantId`/`traceId` after write | Both restored | State | Passed |
+| SL-05 | No previous MDC values after write | All three keys null | State | Passed |
+| SL-06 | Entry without `traceId` after a prior value | Event has no `traceId`; previous restored | Negative / isolation | Passed |
+| SL-07 | Previous `logCategory` after write | Restored | State | Passed |
+| SL-08 | Resolved tenant request through `TenantHeaderFilter` | `requestId` and `tenantId="11"` present inside the chain; both null after | Positive / MDC cleanup | Passed |
+| SL-09 | Missing header on `/v1/users` | Chain skipped; `recordUnauthorized(..., "missing_organization")` called; `requestId` still cleared | Negative / rejection path | Passed |
+
+Implementation: `LoggingAdapterTest` (7 tests) and new
+`TenantHeaderFilterMdcTest` (2 tests).
+
+### 14.3 Execution evidence
+
+`./mvnw clean verify` -> `Tests run: 325, Failures: 0, Errors: 0,
+Skipped: 0`; 0 Checkstyle violations; SpotBugs 0 bugs; JaCoCo checks met;
+CycloneDX 1.6 SBOM produced; `BUILD SUCCESS`.
+
+### 14.4 Mutation / failure proof
+
+Removing `MDC.remove(MDC_REQUEST_ID)` from `TenantHeaderFilter`'s `finally`
+block made both `TenantHeaderFilterMdcTest` cases fail with:
+
+```text
+requestId must not leak after the request ==> expected: <null> but was: <uuid>
+requestId must be cleared on the rejection path ==> expected: <null> but was: <uuid>
+```
+
+The line was restored and the targeted suite was green again. This proves the
+new tests detect the leak rather than being permanently green.
+
+### 14.5 Scope & residual risk
+
+Not covered: runtime stdout inspection in a deployed container (to be done by
+the Owner after deploy), log aggregator ingestion (Loki is out of scope), and
+tracing spans (sampling remains `0.0`). `traceId`/`spanId` are expected to be
+empty in the current configuration; `requestId` is the available correlation
+value.
+

@@ -43,7 +43,9 @@
     "WORKLOG",
     "Pageable",
     "provtest",
-    "HRIS"
+    "HRIS",
+    "STRUCTLOG",
+    "gelf"
   ],
   "ignorePaths": [
     "node_modules/**",

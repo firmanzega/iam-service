@@ -7,11 +7,11 @@ server:
   forward-headers-strategy: native
 
 logging:
-  pattern:
-    # traceId dan spanId kosong saat sampling dimatikan, sehingga bentuk log
-    # biasa tidak berubah. Saat tracing dinyalakan, kedua nilai itu yang
-    # menghubungkan satu baris log dengan rentangannya di collector.
-    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+  structured:
+    # ECS JSON is verified to be available in Spring Boot 4.1.2. MDC keys
+    # (requestId, tenantId, logCategory, traceId) are emitted automatically.
+    format:
+      console: ecs
 
 spring:
   application:

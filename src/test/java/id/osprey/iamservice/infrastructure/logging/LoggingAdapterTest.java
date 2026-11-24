@@ -46,6 +46,7 @@ class LoggingAdapterTest {
     void clearMdcAndDetach() {
         MDC.remove("tenantId");
         MDC.remove("traceId");
+        MDC.remove("logCategory");
         adapterLogger.detachAppender(appender);
     }
 
@@ -59,6 +60,7 @@ class LoggingAdapterTest {
         assertEquals("gagal", event.getFormattedMessage());
         assertEquals("7", event.getMDCPropertyMap().get("tenantId"));
         assertEquals("trace-1", event.getMDCPropertyMap().get("traceId"));
+        assertEquals("ERRORS", event.getMDCPropertyMap().get("logCategory"));
     }
 
     @Test
@@ -103,6 +105,16 @@ class LoggingAdapterTest {
 
         assertNull(MDC.get("tenantId"));
         assertNull(MDC.get("traceId"));
+        assertNull(MDC.get("logCategory"));
+    }
+
+    @Test
+    void write_restoresPreviousLogCategoryAfterwards() {
+        MDC.put("logCategory", "TIMERS");
+
+        adapter.write(entry(LogCategory.GENERALS, "sementara", null, null));
+
+        assertEquals("TIMERS", MDC.get("logCategory"));
     }
 
     @Test

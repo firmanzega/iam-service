@@ -23,8 +23,15 @@ Menambahkan provisioning tenant Phase 1 sesuai ADR-0020 dan ADR-0023, atas perin
 - Aksi **`TENANT_PROVISIONED`** tercatat di `audit_logs` beserta actor dan `organization_id`. Audit bootstrap sengaja bergabung dalam transaksi yang sama untuk mencegah deadlock lock baris audit.
 - Peran `MANAGER` tetap ada sebagai label kompatibilitas, tanpa pengecekan `hasRole("MANAGER")` di kode, dan tidak dipakai untuk otorisasi.
 
+### Structured logging (CR-STRUCTLOG-001 / ADR-0024)
+- **Console IAM kini ECS JSON** melalui `logging.structured.format.console: ecs` (terverifikasi tersedia di Spring Boot 4.1.2).
+- **`requestId` (UUID)** dihasilkan di `TenantHeaderFilter` untuk setiap request, termasuk jalur 401.
+- **`tenantId`** dimasukkan ke MDC untuk request yang berhasil me-resolve organisasi.
+- **`logCategory`** dimasukkan ke MDC oleh `LoggingAdapter` untuk entri yang ditulis lewat `LoggingService`.
+- Ketiga kunci MDC dibersihkan di `finally`; test mutasi membuktikan kebocoran terdeteksi. Tidak ada password, token, atau email yang ditulis ke MDC/log.
+
 ### Verifikasi
-- `mvn clean verify`: **322 test hijau**, 0 pelanggaran Checkstyle, 0 temuan SpotBugs, cakupan JaCoCo lolos, SBOM CycloneDX 1.6 dihasilkan.
+- `mvn clean verify`: **325 test hijau**, 0 pelanggaran Checkstyle, 0 temuan SpotBugs, cakupan JaCoCo lolos, SBOM CycloneDX 1.6 dihasilkan.
 
 ---
 
