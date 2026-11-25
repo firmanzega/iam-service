@@ -84,6 +84,18 @@ class SecurityEventRecorderTest {
     }
 
     @Test
+    void accessDeniedOnMaintenanceToggleIsSuppressedAndCounted() {
+        authenticateAs("42");
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/internal/maintenance");
+
+        recorder.recordAccessDenied(request, "akses ditolak");
+
+        verify(auditService, never()).recordIndependently(any(), any(), any(), any());
+        var denied = meterRegistry.find("iam.maintenance.denied").counter();
+        assertEquals(1, denied == null ? 0 : denied.count());
+    }
+
+    @Test
     void auditFailureDoesNotBreakTheRejectionResponse() {
         authenticateAs("7");
         doThrow(new IllegalStateException("database sedang sibuk"))

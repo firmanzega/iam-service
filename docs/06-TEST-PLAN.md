@@ -461,3 +461,63 @@ tracing spans (sampling remains `0.0`). `traceId`/`spanId` are expected to be
 empty in the current configuration; `requestId` is the available correlation
 value.
 
+---
+
+## 15. Audit Write-Freeze Maintenance Mode (CR-MAINT-001)
+
+### 15.1 Oracle & risk
+
+Oracle: ADR-0025 and the 18 acceptance cases composed for CR-MAINT-001. The
+highest risk is an audit row slipping through during the freeze: both a normal
+write and an `ACCESS_DENIED` write would invalidate a future sequential hash
+backfill. The second risk is an allowlist that forgets future API versions.
+
+### 15.2 Automated cases
+
+| ID | Case | Expected | Type | Result |
+|----|------|----------|------|--------|
+| MF-01 | Freeze OFF -> endpoint normal | Chain invoked, no 503 | Regression | Passed |
+| MF-02 | Freeze ON + GET /v1/users | 503 + Retry-After | Negative | Passed |
+| MF-03 | Freeze ON + POST /v1/auth/login | 503 | Negative | Passed (same default-deny rule) |
+| MF-04 | Freeze ON + request without token | 503, not 401 | Negative | Passed (filter before auth) |
+| MF-05 | Freeze ON + GET /v1/audit-logs/verify OPS | 503 | Negative | Passed (same default-deny rule) |
+| MF-06 | Freeze ON + GET /v2/future | 503 | Future-version | Passed |
+| MF-07 | Freeze ON + GET /actuator/health | Chain invoked, 200 | Allowlist | Passed |
+| MF-08 | Freeze ON + /actuator/prometheus | 503 | Negative | Passed (default deny) |
+| MF-09 | Toggle GET as non-OPS | 403 enforced by matcher; no audit write | Access control | Passed (recorder exemption test) |
+| MF-10 | Disable as OPS | 200, freeze off, counter increment | Positive | Passed |
+| MF-11 | Freeze ON -> no audit row | `AuditService` throws & repository never saves | Core invariant | Passed |
+| MF-12 | 503 carries Retry-After | Header `120` | Contract | Passed |
+| MF-13 | 503 uses ErrorResponse | Body contains message | Contract | Passed |
+| MF-14 | Guard increments metric | `iam.audit.suppressed` = 1 | Observability | Passed |
+| MF-15 | Enable/disable logs & metrics | actor/reason in log; `iam.maintenance.toggled` | Observability | Passed |
+| MF-16 | 403 on toggle suppressed | No audit save; `iam.maintenance.denied` = 1 | Core invariant | Passed |
+| MF-17 | 401 never writes audit | `recordUnauthorized` only counts metric + aggregate | Regression | Passed |
+| MF-18 | Full build | `mvn clean verify` green | Gate | Passed |
+
+Implementation: `MaintenanceStateTest`, `AuditWriteFreezeFilterTest`,
+`AuditServiceFreezeTest`, `MaintenanceControllerTest`, plus one new case in
+`SecurityEventRecorderTest`.
+
+### 15.3 Execution evidence
+
+`./mvnw clean verify` -> `Tests run: 343, Failures: 0, Errors: 0,
+Skipped: 0`; 0 Checkstyle violations; SpotBugs 0 bugs after three narrow
+`EI_EXPOSE_REP2` exclusions for injected singletons; JaCoCo checks met;
+CycloneDX 1.6 SBOM produced; `BUILD SUCCESS`.
+
+### 15.4 Mutation / failure proof
+
+Removing `/actuator/health` from `AuditWriteFreezeFilter.isExempt()` made
+`healthEndpointRemainsAvailableDuringFreeze` fail with
+`expected: <true> but was: <false>`. The line was restored and the targeted
+suite passed again. This proves the allowlist is tested, not assumed.
+
+### 15.5 Scope & residual risk
+
+Not covered: an end-to-end MockMvc/OPS-token integration test (verified via
+unit tests + existing security matcher conventions), runtime freeze on a
+deployed container, and Prometheus scraping under freeze. During a freeze,
+mutating endpoints are unavailable and security events on the internal toggle
+path are intentionally not stored in `audit_logs`; both are accepted by ADR-0025.
+

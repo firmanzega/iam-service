@@ -46,7 +46,10 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `application/auth/LoginAttemptService.java` | Records login failures in separate transaction |
 | `application/auth/TokenPair.java` | Login result: access + refresh token pair |
 | `application/role/RoleService.java` | Use case: list, create, delete roles |
-| `application/audit/AuditService.java` | Audit logging. `record` joins transaction, `recordIndependently` uses separate transaction, `findAll` reads paginated audit log |
+| `application/audit/AuditService.java` | Audit logging. `record` joins transaction, `recordIndependently` uses separate transaction, `findAll` reads paginated audit log. Both writes fail fast during maintenance freeze (ADR-0025) |
+| `application/audit/AuditSuppressedException.java` | Internal exception for an audit write attempted during freeze; swallowed by `SecurityEventRecorder` |
+| `application/maintenance/MaintenanceState.java` | Single runtime source of truth for audit freeze, initialized from `iam.maintenance.audit-freeze` |
+| `application/maintenance/MaintenanceStatus.java` | Immutable status snapshot for the internal toggle |
 | `application/security/PasswordPolicy.java` | Password strength rules |
 | `application/security/SecurityRejectionStatsService.java` | Records 401 rejection aggregate per minute in separate transaction, deletes aggregates past retention |
 | `application/tenant/TenantResolver.java` | Resolves `X-Organization-ID` to internal `tenant_id`, sets `TenantContext`; returns `RESOLVED`/`MISSING`/`UNKNOWN` so the filter can reject unknown organizations (BUG-TENANT-001) |
@@ -84,6 +87,9 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | `adapter/rest/AuditController.java` | Endpoints: audit logs, hash chain integrity check |
 | `adapter/rest/WebMapper.java` | Shared web-to-domain translator: actor ID, session ID, pagination request |
 | `adapter/rest/TenantHeaderFilter.java` | Enforces `X-Organization-ID` before the chain: missing or unknown organization → 401 on every tenant-aware path (ADR-0018, BUG-TENANT-001; unified 2026-11-14). Also seeds MDC `requestId` and `tenantId`, cleared in `finally` (ADR-0024) |
+| `adapter/rest/AuditWriteFreezeFilter.java` | Default-deny 503 for all requests while freeze is active; exempts only `/actuator/health` and `/internal/maintenance/**` (ADR-0025) |
+| `adapter/rest/MaintenanceController.java` | OPS-only internal toggle `GET/POST /internal/maintenance`; logs & metrics, never writes `audit_logs` |
+| `adapter/rest/dto/MaintenanceRequest.java` | Reason payload for the internal toggle |
 | `infrastructure/logging/LoggingAdapter.java` | Writes `LogEntry` through SLF4J; injects MDC `tenantId`, `traceId`, and `logCategory` (ADR-0024) |
 | `adapter/rest/dto/CreateTenantRequest.java` | `organizationId` + `name` for tenant provisioning |
 | `adapter/rest/dto/BootstrapAdminRequest.java` | First ADMIN credentials for a new tenant |
@@ -96,10 +102,10 @@ Dependency direction: `adapter` → `application` → `domain`. Reverse dependen
 | File | Role |
 |------|------|
 | `config/IamProperties.java` | `SessionCleanup`, `SecurityRejectionStats`, and all `iam.*` properties |
-| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS; `GET /v1/roles/**` → `hasAnyRole("ADMIN","AUDITOR","OPS")`; `POST/DELETE /v1/roles/**` → `hasRole("OPS")`; `POST /v1/tenants/**` → `hasRole("OPS")`, `GET /v1/tenants/current` → `authenticated()`; explicit `PUT /v1/users/*/roles → hasRole("ADMIN")` |
+| `config/SecurityConfig.java` | Security filter chain, `/actuator/prometheus` permit, CORS; `GET /v1/roles/**` → `hasAnyRole("ADMIN","AUDITOR","OPS")`; `POST/DELETE /v1/roles/**` → `hasRole("OPS")`; `POST /v1/tenants/**` → `hasRole("OPS")`, `GET /v1/tenants/current` → `authenticated()`; `/internal/maintenance/**` → `hasRole("OPS")`; `AuditWriteFreezeFilter` placed after `TenantHeaderFilter` |
 | `config/RestAuthenticationEntryPoint.java` | 401 response, reason classification, WARN log + metric |
 | `config/RestAccessDeniedHandler.java` | 403 response, audit `ACCESS_DENIED`, WARN log + metric |
-| `config/SecurityEventRecorder.java` | Security event recording rules: 403 to audit, 401 to log + metric + aggregate |
+| `config/SecurityEventRecorder.java` | Security event recording rules: 403 to audit, 401 to log + metric + aggregate. `ACCESS_DENIED` on `/internal/maintenance/**` is suppressed and counted as `iam.maintenance.denied` (ADR-0025) |
 | `config/JwtKeyRing.java` | JWT key ring with `kid`, current + previous key |
 | `config/TokenClaims.java` | Shared token claim names, e.g. `session_id` |
 | `config/SessionCleanupJob.java` | Scheduled cleanup of revoked/inactive sessions |

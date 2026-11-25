@@ -87,6 +87,9 @@ management:
       endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
 
 iam:
+  # Audit write-freeze is opt-in; normal startup keeps the previous behavior.
+  maintenance:
+    audit-freeze: ${IAM_MAINTENANCE_AUDIT_FREEZE:false}
   jwt:
     # Kunci penanda tangan token. Wajib diganti di produksi.
     # Panjang minimal 32 byte.

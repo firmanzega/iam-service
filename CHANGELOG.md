@@ -7,11 +7,25 @@ dan proyek ini memakai [semantik versi](https://semver.org/lang/bahasa/).
 
 ---
 
-## [1.2.0] - 2026-11-20 (belum dirilis)
+## [1.2.0] - 2026-11-25 (belum dirilis)
 
-Menambahkan provisioning tenant Phase 1 sesuai ADR-0020 dan ADR-0023, atas perintah eksplisit Boss. Tidak ada migrasi database dan tidak mengubah kontrak yang sudah ada.
+Menambahkan mode maintenance audit write-freeze sesuai ADR-0025 / CR-MAINT-001, di atas provisioning tenant (ADR-0023) dan structured logging (ADR-0024) yang sudah masuk versi ini. Tidak ada migrasi database, dependency baru, atau perubahan kontrak API publik.
 
-**Catatan:** perubahan ini belum di-deploy ke produksi. Deploy tetap tugas Owner sesuai `docs/07-DEPLOYMENT.md` §6.
+### Fitur
+- **Flag `IAM_MAINTENANCE_AUDIT_FREEZE`** (default `false`) dan toggle runtime OPS-only di `/internal/maintenance/**`.
+- Saat freeze aktif, **semua request ditolak 503** dengan `Retry-After: 120`, kecuali `/actuator/health` dan toggle maintenance.
+- Aturan default-deny membuat `/v2/**` dan endpoint masa depan otomatis ikut beku tanpa ubahan filter.
+
+### Keamanan
+- Tiga lapis pencegahan: filter 503, guard `AuditService`, dan suppression `ACCESS_DENIED` pada jalur toggle.
+- Toggle dicatat di log aplikasi dan metrik (`iam.maintenance.toggled`, `iam.maintenance.denied`, `iam.audit.suppressed`), bukan di `audit_logs`.
+
+### Verifikasi
+- `mvn clean verify`: **343 test hijau**, 0 Checkstyle, 0 SpotBugs, JaCoCo lolos, SBOM CycloneDX 1.6.
+
+### Provisioning tenant Phase 1 (ADR-0020 / ADR-0023)
+
+Bagian ini bersama structured logging dan write-freeze masih belum di-deploy ke produksi. Deploy tetap tugas Owner sesuai `docs/07-DEPLOYMENT.md`.
 
 ### Fitur
 - **`POST /v1/tenants`** (khusus `OPS`) membuat tenant. Idempoten berdasarkan `organization_id`: **201** untuk tenant baru, **200** untuk pengulangan dengan nama sama, **409** bila nama berbeda.
@@ -29,9 +43,6 @@ Menambahkan provisioning tenant Phase 1 sesuai ADR-0020 dan ADR-0023, atas perin
 - **`tenantId`** dimasukkan ke MDC untuk request yang berhasil me-resolve organisasi.
 - **`logCategory`** dimasukkan ke MDC oleh `LoggingAdapter` untuk entri yang ditulis lewat `LoggingService`.
 - Ketiga kunci MDC dibersihkan di `finally`; test mutasi membuktikan kebocoran terdeteksi. Tidak ada password, token, atau email yang ditulis ke MDC/log.
-
-### Verifikasi
-- `mvn clean verify`: **325 test hijau**, 0 pelanggaran Checkstyle, 0 temuan SpotBugs, cakupan JaCoCo lolos, SBOM CycloneDX 1.6 dihasilkan.
 
 ---
 

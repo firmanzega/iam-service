@@ -45,7 +45,10 @@
     "provtest",
     "HRIS",
     "STRUCTLOG",
-    "gelf"
+    "gelf",
+    "MAINT",
+    "togglable",
+    "healthcheck"
   ],
   "ignorePaths": [
     "node_modules/**",

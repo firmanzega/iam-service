@@ -185,6 +185,26 @@ enabled, `traceId`/`spanId`. All MDC keys are cleared in `finally` blocks.
 Tracing sampling remains `0.0` and the OTLP collector is out of scope for this CR.
 Log retention is operator-managed outside the application.
 
+### 7.3 Audit Write-Freeze (ADR-0025)
+
+A runtime `MaintenanceState` (initialized from `iam.maintenance.audit-freeze`,
+default `false`) can be toggled by OPS via `/internal/maintenance/**`. While
+frozen, **every request is denied with 503** except the explicit allowlist:
+`GET /actuator/health` and `/internal/maintenance/**` (the toggle itself).
+The rule is default-deny, so `/v2/**` and future endpoints are covered without
+code changes.
+
+Three layers prevent any new `audit_logs` row during the freeze:
+1. `AuditWriteFreezeFilter` rejects before security/controller execution.
+2. `AuditService` throws `AuditSuppressedException` in both `record()` and
+   `recordIndependently()`.
+3. `SecurityEventRecorder` skips `ACCESS_DENIED` persistence for the internal
+   toggle path, recording `iam.maintenance.denied` instead.
+
+Toggle actions are written to application logs and metrics, never to
+`audit_logs`. The internal endpoint is documented in `07-DEPLOYMENT.md`, not in
+`04-API-SPEC.yaml`.
+
 ### 7.2 Diagram (C4 Level 2 — Container)
 
 ```mermaid

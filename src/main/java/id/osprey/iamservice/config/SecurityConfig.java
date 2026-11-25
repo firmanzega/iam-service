@@ -1,7 +1,9 @@
 package id.osprey.iamservice.config;
 
+import id.osprey.iamservice.adapter.rest.AuditWriteFreezeFilter;
 import id.osprey.iamservice.adapter.rest.TenantBindingFilter;
 import id.osprey.iamservice.adapter.rest.TenantHeaderFilter;
+import id.osprey.iamservice.application.maintenance.MaintenanceState;
 import id.osprey.iamservice.application.tenant.TenantResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -55,7 +57,8 @@ public class SecurityConfig {
                                              RestAuthenticationEntryPoint authenticationEntryPoint,
                                              RestAccessDeniedHandler accessDeniedHandler,
                                              SecurityEventRecorder securityEventRecorder,
-                                             ObjectMapper objectMapper) throws Exception {
+                                             MaintenanceState maintenanceState,
+                                              ObjectMapper objectMapper) throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
@@ -68,6 +71,8 @@ public class SecurityConfig {
                 // filter yang kebetulan urutannya stabil (lihat ADR-0019).
                 .addFilterBefore(new TenantHeaderFilter(tenantResolver, securityEventRecorder, objectMapper),
                         BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new AuditWriteFreezeFilter(maintenanceState,
+                        new SecurityErrorWriter(objectMapper)), TenantHeaderFilter.class)
                 .addFilterAfter(new TenantBindingFilter(securityEventRecorder, objectMapper),
                         BearerTokenAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
@@ -145,6 +150,9 @@ public class SecurityConfig {
                         // The caller's own organization header is still required and bound to the token.
                         .requestMatchers(HttpMethod.POST, "/v1/tenants", "/v1/tenants/**").hasRole("OPS")
                         .requestMatchers(HttpMethod.GET, "/v1/tenants/current").authenticated()
+                        // Internal maintenance toggle is outside the public API contract
+                        // and must be callable only by OPS, even while frozen.
+                        .requestMatchers("/internal/maintenance/**").hasRole("OPS")
                         .anyRequest().hasRole("ADMIN"))
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))

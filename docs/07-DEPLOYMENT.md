@@ -572,3 +572,104 @@ The `logCategory` field appears on entries written through `LoggingService`.
 Revert `application.yaml`, `TenantHeaderFilter`, and `LoggingAdapter` to the
 previous commit, rebuild, and redeploy. There is no schema or data change, so
 the previous image remains compatible with the current database.
+
+---
+
+## 18. Audit Write-Freeze Runbook (CR-MAINT-001 / ADR-0025)
+
+### 18.1 Purpose
+
+Freeze all API traffic so no `audit_logs` row is written during a future
+sequential hash backfill. The flag is runtime-togglable by OPS and survives
+restart only from configuration (default `false`).
+
+### 18.2 Security review
+
+| Area | Finding |
+|------|---------|
+| Toggle authorization | `/internal/maintenance/**` requires global `OPS`; ordinary users and tenant ADMIN get 403 |
+| Toggle visibility | Endpoint is `@Hidden`, absent from `04-API-SPEC.yaml`, documented only here |
+| Secret exposure | Toggle writes only actor, reason, and timestamps; no token/password/email |
+| Audit suppression | Successful toggles, 403 on toggle, and suppressed audit writes are recorded in application logs and Prometheus metrics, never in `audit_logs` |
+| Fail-open on restart | State reinitializes from env default `false`; a forgotten freeze cannot survive a restart |
+| Healthcheck | `/actuator/health` stays 200 during freeze so the orchestrator does not restart the container |
+
+No High or Critical finding was identified in this scope. Not covered: runtime
+freeze on a deployed container and Prometheus scraping during freeze.
+
+### 18.3 Metrics & logs
+
+```text
+iam.audit.suppressed          audit write rejected by guard
+iam.maintenance.toggled       action=enable|disable
+iam.maintenance.denied        403 on /internal/maintenance/**
+```
+
+Each toggle emits `WARN` in ECS JSON with `actor`, `reason`, and `requestId`.
+
+### 18.4 Activation
+
+Option A — environment (takes effect at startup):
+
+```bash
+IAM_MAINTENANCE_AUDIT_FREEZE=true
+```
+
+Option B — runtime toggle with an OPS bearer token:
+
+```bash
+# inspect current flag
+curl -k "$IAM_BASE_URL/internal/maintenance" \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "X-Organization-ID: org-default"
+
+# enable
+curl -k -X POST "$IAM_BASE_URL/internal/maintenance/enable" \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "X-Organization-ID: org-default" \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"V13 hash backfill"}'
+
+# disable (must be done at the end of the window)
+curl -k -X POST "$IAM_BASE_URL/internal/maintenance/disable" \
+  -H "Authorization: Bearer $OPS_TOKEN" \
+  -H "X-Organization-ID: org-default"
+```
+
+### 18.5 Expected behavior while frozen
+
+```text
+/v1/**                  -> 503 + Retry-After: 120 + ErrorResponse
+/actuator/prometheus    -> 503
+/actuator/health        -> 200
+/internal/maintenance/**-> available to OPS only
+audit_logs              -> no new rows
+```
+
+### 18.6 Maintenance window sequence
+
+```text
+1. Backup DB (section 16.2 equivalent)
+2. Measure backfill duration on a staging copy
+3. Enable freeze (option A or B)
+4. Verify: /v1/users -> 503, /actuator/health -> 200, audit count unchanged
+5. Run the migration/backfill
+6. GET /v1/audit-logs/verify -> must be valid=true
+7. Disable freeze
+8. Smoke login; confirm audit_logs receives new rows again
+9. Record duration and result in WORKLOG
+```
+
+### 18.7 Failure handling
+
+| Condition | Action |
+|-----------|--------|
+| Backfill fails | Keep freeze on, restore DB backup, then disable freeze |
+| Toggle unreachable | Restart with `IAM_MAINTENANCE_AUDIT_FREEZE=false` |
+| Freeze forgotten | `GET /internal/maintenance` and `iam.maintenance.toggled` are the detection controls |
+| 503 flood from clients | Expected; communicate window in advance |
+
+### 18.8 Rollback
+
+No schema or API contract change. To revert code, redeploy the previous image;
+the current database remains compatible.

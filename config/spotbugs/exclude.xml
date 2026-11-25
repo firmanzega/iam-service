@@ -28,6 +28,19 @@
         <Class name="id.osprey.iamservice.application.logging.LoggingServiceImpl"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
+    <!-- Maintenance freeze components receive singleton collaborators injected by Spring. -->
+    <Match>
+        <Class name="id.osprey.iamservice.adapter.rest.AuditWriteFreezeFilter"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.adapter.rest.MaintenanceController"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="id.osprey.iamservice.application.audit.AuditService"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
     <Match>
         <Class name="id.osprey.iamservice.adapter.rest.RoleController"/>
         <Bug pattern="EI_EXPOSE_REP2"/>

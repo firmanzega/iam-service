@@ -1,6 +1,7 @@
 package id.osprey.iamservice.application.audit;
 
 import id.osprey.iamservice.domain.audit.AuditLog;
+import id.osprey.iamservice.application.maintenance.MaintenanceState;
 import id.osprey.iamservice.domain.audit.AuditChainVerification;
 import id.osprey.iamservice.domain.audit.AuditChainVerifier;
 import id.osprey.iamservice.domain.audit.AuditLogRepository;
@@ -12,6 +13,7 @@ import id.osprey.iamservice.domain.shared.DomainException;
 import id.osprey.iamservice.domain.shared.PageResult;
 import id.osprey.iamservice.domain.shared.PaginationRequest;
 import id.osprey.iamservice.domain.shared.SortSpec;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -41,11 +43,28 @@ public class AuditService {
 
     private final AuditLogRepository auditLogRepository;
     private final TenantRepository tenantRepository;
+    private final MaintenanceState maintenanceState;
+    private final MeterRegistry meterRegistry;
 
     public AuditService(AuditLogRepository auditLogRepository,
-                        TenantRepository tenantRepository) {
+                        TenantRepository tenantRepository,
+                        MaintenanceState maintenanceState,
+                        MeterRegistry meterRegistry) {
         this.auditLogRepository = auditLogRepository;
         this.tenantRepository = tenantRepository;
+        this.maintenanceState = maintenanceState;
+        this.meterRegistry = meterRegistry;
+    }
+
+    /**
+     * Fails fast during a maintenance freeze so no new row reaches the hash chain.
+     */
+    private void assertWritable(String action) {
+        if (maintenanceState.isAuditFreeze()) {
+            log.warn("Audit write suppressed during maintenance freeze: action={}", action);
+            meterRegistry.counter("iam.audit.suppressed").increment();
+            throw new AuditSuppressedException(action);
+        }
     }
 
     private Long currentTenantId() {
@@ -130,6 +149,7 @@ public class AuditService {
 
     @Transactional
     public void record(Long actorUserId, String action, Long targetUserId, String details) {
+        assertWritable(action);
         auditLogRepository.save(new AuditLog(actorUserId, currentTenantId(), action,
                 targetUserId, details));
     }
@@ -149,6 +169,7 @@ public class AuditService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordIndependently(Long actorUserId, String action, Long targetUserId, String details) {
+        assertWritable(action);
         auditLogRepository.save(new AuditLog(actorUserId, currentTenantId(), action,
                 targetUserId, details));
     }

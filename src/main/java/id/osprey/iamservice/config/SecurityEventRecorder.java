@@ -103,7 +103,19 @@ public class SecurityEventRecorder {
                 request.getMethod(), request.getRequestURI(), actorUserId, reason);
 
         count("access_denied", request.getMethod());
+
+        // The maintenance toggle must never create an audit row: during a freeze
+        // a single ACCESS_DENIED write could invalidate the hash backfill.
+        if (isMaintenanceToggle(request.getRequestURI())) {
+            meterRegistry.counter("iam.maintenance.denied").increment();
+            return;
+        }
+
         persistAccessDenied(actorUserId, request, reason);
+    }
+
+    private boolean isMaintenanceToggle(String uri) {
+        return uri.equals("/internal/maintenance") || uri.startsWith("/internal/maintenance/");
     }
 
     private void count(String reason, String method) {
